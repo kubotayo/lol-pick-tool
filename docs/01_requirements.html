@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>要件定義書 - LoL チャンピオンピックツール</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', 'Hiragino Sans', sans-serif; background: #f5f6fa; color: #2c3e50; font-size: 14px; }
+
+  .header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    color: white; padding: 32px 48px; border-bottom: 4px solid #c89b3c;
+  }
+  .header h1 { font-size: 26px; font-weight: 700; letter-spacing: 1px; }
+  .header .subtitle { color: #c89b3c; font-size: 13px; margin-top: 6px; letter-spacing: 2px; text-transform: uppercase; }
+  .meta-grid { display: flex; gap: 32px; margin-top: 20px; }
+  .meta-item { background: rgba(255,255,255,0.08); padding: 10px 18px; border-radius: 6px; border-left: 3px solid #c89b3c; }
+  .meta-item .label { font-size: 10px; color: #a0aec0; text-transform: uppercase; letter-spacing: 1px; }
+  .meta-item .value { font-size: 13px; color: white; margin-top: 2px; }
+
+  .container { max-width: 960px; margin: 0 auto; padding: 40px 24px; }
+
+  .toc {
+    background: white; border-radius: 10px; padding: 24px 28px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07); margin-bottom: 36px;
+    border-left: 4px solid #c89b3c;
+  }
+  .toc h2 { font-size: 14px; color: #c89b3c; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; }
+  .toc ol { padding-left: 20px; }
+  .toc li { margin: 6px 0; }
+  .toc a { color: #3498db; text-decoration: none; font-size: 13px; }
+  .toc a:hover { text-decoration: underline; }
+
+  .section {
+    background: white; border-radius: 10px; padding: 28px 32px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07); margin-bottom: 28px;
+  }
+  .section-header {
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 2px solid #f0f0f0; padding-bottom: 14px; margin-bottom: 20px;
+  }
+  .section-num {
+    background: #1a1a2e; color: #c89b3c; width: 32px; height: 32px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; flex-shrink: 0;
+  }
+  .section h2 { font-size: 18px; color: #1a1a2e; }
+
+  .info-box {
+    background: #f8f9fa; border-radius: 8px; padding: 16px 20px;
+    margin-bottom: 16px; border: 1px solid #e9ecef;
+  }
+  .info-box .row { display: flex; gap: 16px; margin-bottom: 10px; align-items: flex-start; }
+  .info-box .row:last-child { margin-bottom: 0; }
+  .info-box .key { min-width: 140px; font-weight: 600; color: #555; font-size: 13px; }
+  .info-box .val { color: #333; font-size: 13px; line-height: 1.6; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+  th { background: #1a1a2e; color: #c89b3c; padding: 10px 14px; text-align: left; font-weight: 600; font-size: 12px; letter-spacing: 0.5px; }
+  td { padding: 10px 14px; border-bottom: 1px solid #f0f0f0; vertical-align: top; line-height: 1.6; }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: #fafafa; }
+
+  .req-id { font-family: monospace; background: #e8f4fd; color: #2980b9; padding: 2px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .badge-must { background: #fde8e8; color: #c0392b; }
+  .badge-should { background: #fef9e7; color: #d68910; }
+  .badge-could { background: #eafaf1; color: #1e8449; }
+
+  .subsection { margin-top: 24px; }
+  .subsection h3 { font-size: 15px; color: #2c3e50; border-left: 3px solid #c89b3c; padding-left: 10px; margin-bottom: 14px; }
+
+  .out-of-scope li { padding: 6px 0; color: #636e72; border-bottom: 1px dashed #eee; list-style: none; padding-left: 20px; position: relative; }
+  .out-of-scope li::before { content: '✗'; color: #e74c3c; position: absolute; left: 0; }
+
+  .in-scope li { padding: 6px 0; color: #2c3e50; border-bottom: 1px dashed #eee; list-style: none; padding-left: 20px; position: relative; }
+  .in-scope li::before { content: '✓'; color: #27ae60; position: absolute; left: 0; }
+
+  .term-table td:first-child { font-weight: 600; color: #2980b9; font-family: monospace; }
+
+  .note { background: #fffbec; border: 1px solid #f39c12; border-radius: 6px; padding: 12px 16px; margin-top: 12px; font-size: 13px; color: #7d6608; }
+  .note::before { content: '⚠ Note: '; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="subtitle">LoL Champion Pick Tool</div>
+  <h1>要件定義書</h1>
+  <div class="meta-grid">
+    <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.1.0</div></div>
+    <div class="meta-item"><div class="label">ステータス</div><div class="value">Draft</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.1.0)</div><div class="value">FR-06 Tier閾値を明記</div></div>
+    <div class="meta-item"><div class="label">対象者</div><div class="value">個人利用 / AI学習目的</div></div>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="toc">
+    <h2>目次</h2>
+    <ol>
+      <li><a href="#s1">プロジェクト概要</a></li>
+      <li><a href="#s2">目的・背景</a></li>
+      <li><a href="#s3">機能要件</a></li>
+      <li><a href="#s4">非機能要件</a></li>
+      <li><a href="#s5">制約事項・前提条件</a></li>
+      <li><a href="#s6">スコープ外</a></li>
+      <li><a href="#s7">用語定義</a></li>
+    </ol>
+  </div>
+
+  <!-- 1. プロジェクト概要 -->
+  <div class="section" id="s1">
+    <div class="section-header">
+      <div class="section-num">1</div>
+      <h2>プロジェクト概要</h2>
+    </div>
+    <div class="info-box">
+      <div class="row"><div class="key">システム名</div><div class="val">LoL チャンピオンピックツール</div></div>
+      <div class="row"><div class="key">概要</div><div class="val">League of Legends のゲーム中にチャンピオン選択フェーズ（ピック）を補助するWebツール。先出しピックおよびカウンターピックの2機能を提供する。</div></div>
+      <div class="row"><div class="key">利用者</div><div class="val">個人（作成者のみ）</div></div>
+      <div class="row"><div class="key">利用場面</div><div class="val">ゲームセッション中のチャンピオン選択フェーズ（約30秒以内での参照を想定）</div></div>
+      <div class="row"><div class="key">利用環境</div><div class="val">PCブラウザ（Chrome推奨）、LoLクライアントと並行表示</div></div>
+    </div>
+  </div>
+
+  <!-- 2. 目的・背景 -->
+  <div class="section" id="s2">
+    <div class="section-header">
+      <div class="section-num">2</div>
+      <h2>目的・背景</h2>
+    </div>
+    <div class="subsection">
+      <h3>背景</h3>
+      <p style="line-height:1.8; color:#444;">
+        League of Legends のチャンピオン選択フェーズでは、環境（メタ）に強いチャンピオンや相手チャンピオンに有利なカウンターピックを素早く判断する必要がある。
+        既存の統計サイト（lolalytics等）は情報量が多く、短時間での参照に適していない場面がある。
+        本ツールはシンプルなUIで「今選ぶべきチャンピオン」を即座に確認できる環境を提供する。
+      </p>
+    </div>
+    <div class="subsection">
+      <h3>目的</h3>
+      <ul class="in-scope" style="margin-top:8px;">
+        <li>ピック時間内（約30秒）に勝率上位チャンピオンを即座に確認できること</li>
+        <li>相手チャンピオンに対して有利なチャンピオンをワンクリックで参照できること</li>
+        <li>Riot Games公式APIを活用したフルスタック開発のAI学習・技術習得</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 3. 機能要件 -->
+  <div class="section" id="s3">
+    <div class="section-header">
+      <div class="section-num">3</div>
+      <h2>機能要件</h2>
+    </div>
+
+    <div class="subsection">
+      <h3>3.1 先出しピック機能</h3>
+      <table>
+        <tr><th style="width:100px">要件ID</th><th style="width:80px">優先度</th><th>要件内容</th><th>補足</th></tr>
+        <tr>
+          <td><span class="req-id">FR-01</span></td>
+          <td><span class="badge badge-must">Must</span></td>
+          <td>レーン選択（TOP / JG / MID / BOT / SUP）</td>
+          <td>タブまたはボタンで選択</td>
+        </tr>
+        <tr>
+          <td><span class="req-id">FR-02</span></td>
+          <td><span class="badge badge-must">Must</span></td>
+          <td>選択レーンの勝率上位チャンピオン一覧を表示</td>
+          <td>勝率・試合数を表示。上位20体を表示</td>
+        </tr>
+        <tr>
+          <td><span class="req-id">FR-03</span></td>
+          <td><span class="badge badge-must">Must</span></td>
+          <td>パッチバージョンフィルター</td>
+          <td>現行パッチをデフォルト選択</td>
+        </tr>
+        <tr>
+          <td><span class="req-id">FR-04</span></td>
+          <td><span class="badge badge-must">Must</span></td>
+          <td>ランク帯フィルター（全体 / Platinum+ / Diamond+ / Master+）</td>
+          <td>デフォルト: Platinum+</td>
+        </tr>
+        <tr>
+          <td><span class="req-id">FR-05</span></td>
+          <td><span class="badge badge-should">Should</span></td>
+          <td>地域フィルター（JP / KR / NA / EUW）</td>
+          <td>デフォルト: JP</td>
+        </tr>
+        <tr>
+          <td><span class="req-id">FR-06</span></td>
+          <td><span class="badge badge-could">Could</span></td>
+          <td>Tier分類（S/A/B/C）でグルーピング表示</td>
+          <td>勝率に基づく自動分類。閾値：S ≥ 55% / A 53〜55% / B 51〜53% / C &lt; 51%</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="subsection">
+      <h3>3.2 カウンターピック機能</h3>
+      <table>
+        <tr><th style="width:100px">要件ID</th><th style="width:80px">優先度</th><th>要件内容</th><th>補足</th></tr>
+        <tr>
+          <td><span class="req-id">FR-10</span></td>
+          <td><span class="badge badge-must">Must</span></td>
+          <td>レーン選択（TOP / JG / MID / BOT / SUP）</td>
+          <td>選択レーンの相手チャンピオンのみ表示対象</td>
+        </tr>
+        <tr>
+          <td><span class="req-id">FR-11</span></td>
+          <td><span class="badge badge-must">Must</span></td>
+          <td>相手チャンピオン選択</td>
+          <td>検索ボックス＋アイコン一覧から選択</td>
+        </tr>
+        <tr>
+          <td><span class="req-id">FR-12</span></td>
+          <td><span class="badge badge-must">Must</span></td>
+          <td>相手チャンピオンに対して勝率の高いチャンピオンを一覧表示</td>
+          <td>対戦勝率・試合数を表示。上位15体</td>
+        </tr>
+        <tr>
+          <td><span class="req-id">FR-13</span></td>
+          <td><span class="badge badge-must">Must</span></td>
+          <td>FR-03〜05 と同様のフィルター適用</td>
+          <td>パッチ・ランク帯・地域フィルター</td>
+        </tr>
+        <tr>
+          <td><span class="req-id">FR-14</span></td>
+          <td><span class="badge badge-should">Should</span></td>
+          <td>相手チャンピオンの概要（勝率・ピック率）を表示</td>
+          <td>選択した相手チャンピオンの環境内強さを参考表示</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="subsection">
+      <h3>3.3 データ収集・管理機能（バックエンド）</h3>
+      <table>
+        <tr><th style="width:100px">要件ID</th><th style="width:80px">優先度</th><th>要件内容</th><th>補足</th></tr>
+        <tr>
+          <td><span class="req-id">FR-20</span></td>
+          <td><span class="badge badge-must">Must</span></td>
+          <td>Riot MATCH-V5 APIから試合データを収集</td>
+          <td>GitHub Actionsのバッチジョブで定期実行</td>
+        </tr>
+        <tr>
+          <td><span class="req-id">FR-21</span></td>
+          <td><span class="badge badge-must">Must</span></td>
+          <td>収集データをリージョン・ランク帯・パッチで集計</td>
+          <td>集計済みデータのみDBに保存（生データは保存しない）</td>
+        </tr>
+        <tr>
+          <td><span class="req-id">FR-22</span></td>
+          <td><span class="badge badge-must">Must</span></td>
+          <td>バッチの実行ログをDBに記録</td>
+          <td>収集件数・ステータス・エラー内容</td>
+        </tr>
+        <tr>
+          <td><span class="req-id">FR-23</span></td>
+          <td><span class="badge badge-should">Should</span></td>
+          <td>パッチ更新時に自動で前パッチをアーカイブ</td>
+          <td>gameVersionの変化を検知して自動切替</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- 4. 非機能要件 -->
+  <div class="section" id="s4">
+    <div class="section-header">
+      <div class="section-num">4</div>
+      <h2>非機能要件</h2>
+    </div>
+    <table>
+      <tr><th style="width:140px">カテゴリ</th><th>要件</th><th>目標値</th></tr>
+      <tr><td>パフォーマンス</td><td>画面表示レスポンスタイム</td><td>3秒以内（集計済みデータ参照のため）</td></tr>
+      <tr><td>コスト</td><td>月間運用コスト</td><td>$0（全サービス無料枠内）</td></tr>
+      <tr><td>可用性</td><td>稼働率</td><td>個人利用のため規定なし</td></tr>
+      <tr><td>セキュリティ</td><td>APIキー管理</td><td>GitHub Secrets / Vercel環境変数で管理。コードへの直書き禁止</td></tr>
+      <tr><td>保守性</td><td>パッチ対応工数</td><td>スクリプト再実行のみで更新可能なこと</td></tr>
+      <tr><td>UI</td><td>操作性</td><td>ピックフェーズ30秒以内に目的の情報へたどり着けること</td></tr>
+    </table>
+  </div>
+
+  <!-- 5. 制約事項 -->
+  <div class="section" id="s5">
+    <div class="section-header">
+      <div class="section-num">5</div>
+      <h2>制約事項・前提条件</h2>
+    </div>
+    <table>
+      <tr><th style="width:160px">項目</th><th>内容</th></tr>
+      <tr><td>Riot API キー</td><td>Development Keyを使用。有効期限24時間のため手動更新が必要。レート上限: 100 req/2分</td></tr>
+      <tr><td>Riot API 利用規約</td><td>個人・非商用・学習目的での利用のため許容範囲内だが、公開・商用利用は不可</td></tr>
+      <tr><td>スキル上げ順</td><td>Riot APIでは取得不可のため本ツールの対象外</td></tr>
+      <tr><td>データ更新頻度</td><td>パッチ更新（約2週間ごと）のタイミングでバッチ再実行を手動トリガーまたはCronで対応</td></tr>
+      <tr><td>収集対象リージョン</td><td>初期リリースはJP・KRの2リージョン</td></tr>
+    </table>
+    <div class="note">Riot Games Development APIキーは申請から最大2営業日で発行される。Production Keyへの移行は今回の目的外。</div>
+  </div>
+
+  <!-- 6. スコープ外 -->
+  <div class="section" id="s6">
+    <div class="section-header">
+      <div class="section-num">6</div>
+      <h2>スコープ外</h2>
+    </div>
+    <ul class="out-of-scope" style="margin-top:4px;">
+      <li>ユーザー認証・ログイン機能</li>
+      <li>マネタイズ・広告機能</li>
+      <li>スキル上げ順の統計表示</li>
+      <li>ルーン・サモナースペルの推奨表示</li>
+      <li>モバイル対応（スマートフォン）</li>
+      <li>複数ユーザーへの公開・シェア機能</li>
+      <li>リアルタイムデータ取得（ライブゲーム連携）</li>
+      <li>他ゲームへの対応</li>
+    </ul>
+  </div>
+
+  <!-- 7. 用語定義 -->
+  <div class="section" id="s7">
+    <div class="section-header">
+      <div class="section-num">7</div>
+      <h2>用語定義</h2>
+    </div>
+    <table class="term-table">
+      <tr><th style="width:160px">用語</th><th>定義</th></tr>
+      <tr><td>先出しピック</td><td>相手チームがどのチャンピオンを選ぶか分からない状態で自チャンピオンを選択すること</td></tr>
+      <tr><td>カウンターピック</td><td>相手チャンピオンが判明している状態で、そのチャンピオンに有利なチャンピオンを選択すること</td></tr>
+      <tr><td>Tier</td><td>チャンピオンの環境内強さのランク。S > A > B > C の順</td></tr>
+      <tr><td>パッチ</td><td>Riot Gamesが約2週間ごとにリリースするゲームバランス調整バージョン（例: 14.10）</td></tr>
+      <tr><td>ランク帯</td><td>プレイヤーのスキルランク。Iron / Bronze / Silver / Gold / Platinum / Emerald / Diamond / Master / Grandmaster / Challenger</td></tr>
+      <tr><td>レーン</td><td>ゲームマップ上のポジション。TOP（上）/ JG（ジャングル）/ MID（中）/ BOT（下）/ SUP（サポート）</td></tr>
+      <tr><td>PUUID</td><td>Riot Gamesが発行するプレイヤーの一意識別子</td></tr>
+      <tr><td>Data Dragon</td><td>Riot Gamesが提供する静的アセットCDN。チャンピオン情報・画像などを含む</td></tr>
+    </table>
+  </div>
+
+</div>
+</body>
+</html>

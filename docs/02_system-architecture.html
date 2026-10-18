@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>システム構成図 - LoL チャンピオンピックツール</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', 'Hiragino Sans', sans-serif; background: #f5f6fa; color: #2c3e50; font-size: 14px; }
+
+  .header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    color: white; padding: 32px 48px; border-bottom: 4px solid #c89b3c;
+  }
+  .header h1 { font-size: 26px; font-weight: 700; }
+  .header .subtitle { color: #c89b3c; font-size: 13px; margin-top: 6px; letter-spacing: 2px; text-transform: uppercase; }
+  .meta-grid { display: flex; gap: 24px; margin-top: 20px; }
+  .meta-item { background: rgba(255,255,255,0.08); padding: 10px 18px; border-radius: 6px; border-left: 3px solid #c89b3c; }
+  .meta-item .label { font-size: 10px; color: #a0aec0; text-transform: uppercase; }
+  .meta-item .value { font-size: 13px; color: white; margin-top: 2px; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 40px 24px; }
+
+  .section {
+    background: white; border-radius: 10px; padding: 28px 32px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07); margin-bottom: 28px;
+  }
+  .section-header {
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 2px solid #f0f0f0; padding-bottom: 14px; margin-bottom: 24px;
+  }
+  .section-num {
+    background: #1a1a2e; color: #c89b3c; width: 32px; height: 32px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; flex-shrink: 0;
+  }
+  .section h2 { font-size: 18px; color: #1a1a2e; }
+
+  /* Architecture Diagram */
+  .arch-diagram { width: 100%; overflow-x: auto; }
+  svg text { font-family: 'Segoe UI', sans-serif; }
+
+  /* Component cards */
+  .components-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 8px; }
+  .comp-card { background: #f8f9fa; border-radius: 8px; padding: 16px 18px; border: 1px solid #e9ecef; border-top: 3px solid; }
+  .comp-card.batch { border-top-color: #9b59b6; }
+  .comp-card.api { border-top-color: #e67e22; }
+  .comp-card.db { border-top-color: #27ae60; }
+  .comp-card.web { border-top-color: #2980b9; }
+  .comp-card.cdn { border-top-color: #c89b3c; }
+  .comp-card h3 { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+  .comp-card .service { font-size: 12px; color: #7f8c8d; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .comp-card .service-badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; background: #ecf0f1; }
+  .comp-card p { font-size: 12px; color: #555; line-height: 1.6; }
+  .comp-card ul { font-size: 12px; color: #555; padding-left: 16px; line-height: 1.8; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: #1a1a2e; color: #c89b3c; padding: 10px 14px; text-align: left; font-size: 12px; }
+  td { padding: 10px 14px; border-bottom: 1px solid #f0f0f0; vertical-align: top; line-height: 1.6; }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: #fafafa; }
+
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .free { background: #d5f5e3; color: #1e8449; }
+  .paid { background: #fde8e8; color: #c0392b; }
+
+  .flow-step { display: flex; align-items: flex-start; gap: 16px; padding: 14px 0; border-bottom: 1px dashed #eee; }
+  .flow-step:last-child { border-bottom: none; }
+  .step-num { background: #c89b3c; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-content h4 { font-size: 13px; color: #2c3e50; margin-bottom: 4px; }
+  .step-content p { font-size: 12px; color: #636e72; line-height: 1.6; }
+
+  .cron-box { background: #f8f0ff; border: 1px solid #d7bde2; border-radius: 8px; padding: 14px 18px; font-family: monospace; font-size: 13px; color: #6c3483; }
+  .cron-label { font-size: 11px; color: #999; font-family: sans-serif; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="subtitle">LoL Champion Pick Tool</div>
+  <h1>システム構成図</h1>
+  <div class="meta-grid">
+    <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.0.0</div></div>
+    <div class="meta-item"><div class="label">月額コスト見込み</div><div class="value">$0（全て無料枠）</div></div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- 1. アーキテクチャ全体図 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">1</div>
+      <h2>アーキテクチャ全体図</h2>
+    </div>
+    <div class="arch-diagram">
+      <svg viewBox="0 0 1020 500" width="100%" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#7f8c8d"/>
+          </marker>
+          <marker id="arrow-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#2980b9"/>
+          </marker>
+          <marker id="arrow-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#27ae60"/>
+          </marker>
+        </defs>
+
+        <!-- Background zones -->
+        <rect x="10" y="10" width="310" height="460" rx="12" fill="#fdf4ff" stroke="#d7bde2" stroke-width="1.5" stroke-dasharray="5,3"/>
+        <text x="165" y="35" text-anchor="middle" font-size="11" fill="#8e44ad" font-weight="600">BATCH ZONE（GitHub Actions）</text>
+
+        <rect x="360" y="10" width="190" height="460" rx="12" fill="#fff8f0" stroke="#f0a500" stroke-width="1.5" stroke-dasharray="5,3"/>
+        <text x="455" y="35" text-anchor="middle" font-size="11" fill="#d68910" font-weight="600">EXTERNAL API</text>
+
+        <rect x="590" y="10" width="190" height="460" rx="12" fill="#f0faf4" stroke="#27ae60" stroke-width="1.5" stroke-dasharray="5,3"/>
+        <text x="685" y="35" text-anchor="middle" font-size="11" fill="#1e8449" font-weight="600">DATABASE</text>
+
+        <rect x="820" y="10" width="190" height="220" rx="12" fill="#f0f8ff" stroke="#2980b9" stroke-width="1.5" stroke-dasharray="5,3"/>
+        <text x="915" y="35" text-anchor="middle" font-size="11" fill="#2471a3" font-weight="600">FRONTEND</text>
+
+        <rect x="820" y="250" width="190" height="220" rx="12" fill="#fffbf0" stroke="#c89b3c" stroke-width="1.5" stroke-dasharray="5,3"/>
+        <text x="915" y="273" text-anchor="middle" font-size="11" fill="#9a7d0a" font-weight="600">USER</text>
+
+        <!-- GitHub Actions box -->
+        <rect x="30" y="55" width="270" height="80" rx="8" fill="#9b59b6" />
+        <text x="165" y="83" text-anchor="middle" font-size="13" fill="white" font-weight="700">GitHub Actions</text>
+        <text x="165" y="100" text-anchor="middle" font-size="11" fill="#e8d5f5">Cron: 毎日 02:00 JST</text>
+        <text x="165" y="116" text-anchor="middle" font-size="11" fill="#e8d5f5">収集スクリプト（TypeScript）</text>
+
+        <!-- Collector script components -->
+        <rect x="30" y="155" width="120" height="55" rx="6" fill="white" stroke="#9b59b6" stroke-width="1.5"/>
+        <text x="90" y="177" text-anchor="middle" font-size="11" fill="#6c3483" font-weight="600">League-V4</text>
+        <text x="90" y="193" text-anchor="middle" font-size="10" fill="#888">プレイヤー収集</text>
+        <text x="90" y="206" text-anchor="middle" font-size="10" fill="#888">（ランク帯別）</text>
+
+        <rect x="160" y="155" width="120" height="55" rx="6" fill="white" stroke="#9b59b6" stroke-width="1.5"/>
+        <text x="220" y="177" text-anchor="middle" font-size="11" fill="#6c3483" font-weight="600">Match-V5</text>
+        <text x="220" y="193" text-anchor="middle" font-size="10" fill="#888">試合詳細取得</text>
+        <text x="220" y="206" text-anchor="middle" font-size="10" fill="#888">（100req/2min）</text>
+
+        <rect x="30" y="230" width="270" height="55" rx="6" fill="white" stroke="#9b59b6" stroke-width="1.5"/>
+        <text x="165" y="252" text-anchor="middle" font-size="11" fill="#6c3483" font-weight="600">集計処理エンジン</text>
+        <text x="165" y="268" text-anchor="middle" font-size="10" fill="#888">champion_stats / counter_stats / item_build_stats を計算</text>
+        <text x="165" y="281" text-anchor="middle" font-size="10" fill="#888">（生データは保存せず集計のみ）</text>
+
+        <!-- Data Dragon box -->
+        <rect x="30" y="305" width="270" height="55" rx="6" fill="white" stroke="#c89b3c" stroke-width="1.5"/>
+        <text x="165" y="327" text-anchor="middle" font-size="11" fill="#7d6608" font-weight="600">Data Dragon（Riot CDN）</text>
+        <text x="165" y="343" text-anchor="middle" font-size="10" fill="#888">チャンピオン名・画像URL取得（APIキー不要）</text>
+        <text x="165" y="356" text-anchor="middle" font-size="10" fill="#888">パッチ更新時に同期</text>
+
+        <!-- Rate limiter -->
+        <rect x="30" y="380" width="270" height="60" rx="6" fill="#fde8e8" stroke="#e74c3c" stroke-width="1.5"/>
+        <text x="165" y="402" text-anchor="middle" font-size="11" fill="#c0392b" font-weight="600">レート制限ハンドラー</text>
+        <text x="165" y="418" text-anchor="middle" font-size="10" fill="#888">100 req / 2分 → sleep(1200ms)制御</text>
+        <text x="165" y="431" text-anchor="middle" font-size="10" fill="#888">エクスポネンシャルバックオフ</text>
+
+        <!-- Riot API box -->
+        <rect x="380" y="140" width="150" height="65" rx="8" fill="#e67e22"/>
+        <text x="455" y="167" text-anchor="middle" font-size="12" fill="white" font-weight="700">Riot Games</text>
+        <text x="455" y="183" text-anchor="middle" font-size="11" fill="#fde8cc">Official API</text>
+        <text x="455" y="196" text-anchor="middle" font-size="10" fill="#fde8cc">developer.riotgames.com</text>
+
+        <!-- Supabase box -->
+        <rect x="610" y="55" width="150" height="400" rx="8" fill="white" stroke="#27ae60" stroke-width="2"/>
+        <rect x="610" y="55" width="150" height="34" rx="8" fill="#27ae60"/>
+        <rect x="610" y="75" width="150" height="14" rx="0" fill="#27ae60"/>
+        <text x="685" y="77" text-anchor="middle" font-size="12" fill="white" font-weight="700">Supabase</text>
+        <text x="685" y="108" text-anchor="middle" font-size="10" fill="#27ae60" font-weight="600">PostgreSQL</text>
+
+        <rect x="622" y="118" width="126" height="42" rx="4" fill="#eafaf1" stroke="#a9dfbf" stroke-width="1"/>
+        <text x="685" y="134" text-anchor="middle" font-size="10" fill="#1e8449" font-weight="600">champion_stats</text>
+        <text x="685" y="148" text-anchor="middle" font-size="9" fill="#555">勝率・試合数</text>
+
+        <rect x="622" y="168" width="126" height="42" rx="4" fill="#eafaf1" stroke="#a9dfbf" stroke-width="1"/>
+        <text x="685" y="184" text-anchor="middle" font-size="10" fill="#1e8449" font-weight="600">counter_stats</text>
+        <text x="685" y="198" text-anchor="middle" font-size="9" fill="#555">対戦勝率</text>
+
+        <rect x="622" y="218" width="126" height="42" rx="4" fill="#eafaf1" stroke="#a9dfbf" stroke-width="1"/>
+        <text x="685" y="234" text-anchor="middle" font-size="10" fill="#1e8449" font-weight="600">item_build_stats</text>
+        <text x="685" y="248" text-anchor="middle" font-size="9" fill="#555">ビルド勝率</text>
+
+        <rect x="622" y="268" width="126" height="42" rx="4" fill="#eafaf1" stroke="#a9dfbf" stroke-width="1"/>
+        <text x="685" y="284" text-anchor="middle" font-size="10" fill="#1e8449" font-weight="600">champions</text>
+        <text x="685" y="298" text-anchor="middle" font-size="9" fill="#555">チャンピオンマスター</text>
+
+        <rect x="622" y="318" width="126" height="42" rx="4" fill="#fde8e8" stroke="#f1948a" stroke-width="1"/>
+        <text x="685" y="334" text-anchor="middle" font-size="10" fill="#c0392b" font-weight="600">collection_logs</font>
+        <text x="685" y="348" text-anchor="middle" font-size="9" fill="#555">バッチ実行ログ</text>
+
+        <!-- Next.js Vercel box -->
+        <rect x="840" y="55" width="150" height="150" rx="8" fill="white" stroke="#2980b9" stroke-width="2"/>
+        <rect x="840" y="55" width="150" height="34" rx="8" fill="#2980b9"/>
+        <rect x="840" y="75" width="150" height="14" rx="0" fill="#2980b9"/>
+        <text x="915" y="77" text-anchor="middle" font-size="12" fill="white" font-weight="700">Vercel</text>
+        <text x="915" y="108" text-anchor="middle" font-size="10" fill="#2980b9" font-weight="600">Next.js 14</text>
+        <rect x="852" y="118" width="126" height="30" rx="4" fill="#ebf5fb" stroke="#aed6f1" stroke-width="1"/>
+        <text x="915" y="138" text-anchor="middle" font-size="10" fill="#2471a3">React UI（フロントエンド）</text>
+        <rect x="852" y="156" width="126" height="30" rx="4" fill="#ebf5fb" stroke="#aed6f1" stroke-width="1"/>
+        <text x="915" y="176" text-anchor="middle" font-size="10" fill="#2471a3">API Routes（読み取りAPI）</text>
+
+        <!-- User box -->
+        <rect x="855" y="290" width="120" height="80" rx="8" fill="#fffbf0" stroke="#c89b3c" stroke-width="2"/>
+        <text x="915" y="325" text-anchor="middle" font-size="28">👤</text>
+        <text x="915" y="354" text-anchor="middle" font-size="12" fill="#7d6608" font-weight="600">ユーザー</text>
+
+        <!-- Arrows -->
+        <!-- GitHub Actions → Riot API -->
+        <line x1="300" y1="172" x2="378" y2="172" stroke="#9b59b6" stroke-width="2" marker-end="url(#arrow)"/>
+        <text x="340" y="163" text-anchor="middle" font-size="10" fill="#9b59b6">API呼び出し</text>
+
+        <!-- Riot API → GitHub Actions (response) -->
+        <line x1="378" y1="185" x2="300" y2="200" stroke="#e67e22" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <text x="340" y="200" text-anchor="middle" font-size="10" fill="#e67e22">試合データ</text>
+
+        <!-- GitHub Actions → Supabase (write) -->
+        <line x1="300" y1="260" x2="608" y2="260" stroke="#9b59b6" stroke-width="2" marker-end="url(#arrow-green)"/>
+        <text x="454" y="252" text-anchor="middle" font-size="10" fill="#6c3483">集計データ書き込み</text>
+
+        <!-- Vercel → Supabase (read) -->
+        <line x1="840" y1="160" x2="762" y2="200" stroke="#2980b9" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrow-green)"/>
+        <text x="810" y="175" text-anchor="middle" font-size="10" fill="#2471a3">データ読み取り</text>
+
+        <!-- User → Vercel -->
+        <line x1="915" y1="290" x2="915" y2="207" stroke="#c89b3c" stroke-width="2" marker-end="url(#arrow-blue)"/>
+        <text x="935" y="252" text-anchor="start" font-size="10" fill="#9a7d0a">HTTPS</text>
+
+      </svg>
+    </div>
+  </div>
+
+  <!-- 2. コンポーネント詳細 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">2</div>
+      <h2>コンポーネント詳細</h2>
+    </div>
+    <div class="components-grid">
+      <div class="comp-card batch">
+        <h3>データ収集バッチ</h3>
+        <div class="service"><span class="service-badge">GitHub Actions</span> 無料（publicリポジトリ）</div>
+        <ul>
+          <li>TypeScript で実装</li>
+          <li>Cron スケジュール実行</li>
+          <li>最大6時間/ジョブ</li>
+          <li>Riot APIキーは GitHub Secrets で管理</li>
+          <li>レート制限ハンドラー内蔵</li>
+        </ul>
+      </div>
+      <div class="comp-card api">
+        <h3>Riot Games 公式API</h3>
+        <div class="service"><span class="service-badge">External</span> 無料（Development Key）</div>
+        <ul>
+          <li>LEAGUE-V4: ランク帯別プレイヤー取得</li>
+          <li>MATCH-V5: 試合詳細取得</li>
+          <li>レート: 100 req / 2分</li>
+          <li>APIキー有効期限: 24時間（手動更新）</li>
+        </ul>
+      </div>
+      <div class="comp-card cdn">
+        <h3>Data Dragon (Riot CDN)</h3>
+        <div class="service"><span class="service-badge">External CDN</span> 無料・APIキー不要</div>
+        <ul>
+          <li>チャンピオン名・ID一覧</li>
+          <li>チャンピオンアイコン画像</li>
+          <li>アイテム情報</li>
+          <li>パッチ更新時に同期</li>
+        </ul>
+      </div>
+      <div class="comp-card db">
+        <h3>データベース</h3>
+        <div class="service"><span class="service-badge">Supabase</span> Free Tier</div>
+        <ul>
+          <li>PostgreSQL</li>
+          <li>ストレージ: 500MB（集計データのみで数十MB想定）</li>
+          <li>月200万行 INSERT</li>
+          <li>読み取り無制限</li>
+          <li>Vercel公式連携サポート</li>
+        </ul>
+      </div>
+      <div class="comp-card web">
+        <h3>Webアプリ</h3>
+        <div class="service"><span class="service-badge">Vercel</span> Hobby（無料）</div>
+        <ul>
+          <li>Next.js 14（App Router）</li>
+          <li>TypeScript</li>
+          <li>API Routes でSupabase参照</li>
+          <li>関数タイムアウト: 60秒（読み取りのみのため十分）</li>
+        </ul>
+      </div>
+      <div class="comp-card" style="border-top-color:#e74c3c;">
+        <h3>言語・主要ライブラリ</h3>
+        <div class="service"><span class="service-badge">TypeScript</span> 統一</div>
+        <ul>
+          <li><strong>フロント:</strong> Next.js / React / Tailwind CSS</li>
+          <li><strong>DB Client:</strong> Supabase JS SDK</li>
+          <li><strong>バッチ:</strong> ts-node / axios</li>
+          <li><strong>型定義:</strong> Riot APIの型を共通パッケージ化</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. データフロー -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">3</div>
+      <h2>データフロー詳細</h2>
+    </div>
+
+    <h3 style="font-size:14px; margin-bottom:16px; color:#555;">3.1 バッチ収集フロー（GitHub Actions）</h3>
+    <div class="flow-step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h4>最新パッチバージョン取得（Data Dragon）</h4>
+        <p>APIキー不要の Data Dragon CDN から最新パッチを自動取得。<br>
+        <code>GET https://ddragon.leagueoflegends.com/api/versions.json</code><br>
+        先頭要素 "14.21.1" を正規化 → "14.21"（先頭2セグメント）。環境変数 TARGET_PATCH の手動更新は不要。</p>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h4>プレイヤーシード取得</h4>
+        <p>LEAGUE-V4 で Platinum以上のプレイヤーPUUIDを取得（対象リージョン・ランク帯ごと）</p>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h4>試合IDリスト取得</h4>
+        <p>各PUUIDのMATCH-V5 /matches エンドポイントで直近の試合IDを取得。gameVersion の先頭2セグメントが TARGET_PATCH と一致するもののみフィルタ。</p>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <h4>試合詳細取得 + リアルタイム集計</h4>
+        <p>試合IDごとに詳細データ取得。生データは保存せず、取得直後にメモリ上で集計処理。レート制限ハンドラーが1200ms sleep を自動制御。</p>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="step-num">5</div>
+      <div class="step-content">
+        <h4>Supabaseへ UPSERT</h4>
+        <p>champion_stats / counter_stats / item_build_stats を集計値で UPSERT（既存行は上書き更新）</p>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="step-num">6</div>
+      <div class="step-content">
+        <h4>ログ記録</h4>
+        <p>collection_logs テーブルに収集件数・実行時間・ステータスを記録</p>
+      </div>
+    </div>
+
+    <h3 style="font-size:14px; margin: 24px 0 16px; color:#555;">3.2 フロントエンド参照フロー（ユーザー操作時）</h3>
+    <div class="flow-step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h4>ユーザーがレーン・フィルターを選択</h4>
+        <p>ブラウザ上でレーン / パッチ / ランク帯 / リージョンを選択</p>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h4>Next.js API Route にリクエスト</h4>
+        <p>クライアントが `/api/champions?lane=MID&patch=14.10&tier=platinum_plus&region=JP` へ GET</p>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h4>Supabase から集計データ取得</h4>
+        <p>API Route が Supabase SDK でクエリ。集計済みデータを win_rate DESC でソートして返却。</p>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <h4>UI に表示</h4>
+        <p>チャンピオンアイコン（Data Dragon CDN）と勝率・試合数を一覧表示。レスポンス目標: 1秒以内。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. バッチスケジュール -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">4</div>
+      <h2>バッチスケジュール</h2>
+    </div>
+    <table>
+      <tr><th style="width:180px">ジョブ名</th><th style="width:200px">実行タイミング</th><th>内容</th><th style="width:100px">所要時間</th></tr>
+      <tr>
+        <td>インクリメンタル収集</td>
+        <td>
+          <div class="cron-label">Cron式</div>
+          <div class="cron-box">0 2 * * *</div>
+        </td>
+        <td>毎日午前2時（JST）に最新パッチの試合データを収集・集計してDBを更新</td>
+        <td>約2〜6時間</td>
+      </tr>
+      <tr>
+        <td>パッチ初回シード収集</td>
+        <td>手動トリガー（パッチ更新後）</td>
+        <td>新パッチリリース後（約2週間ごと）に大量試合を収集してパッチ単位の初期集計データを投入</td>
+        <td>約4〜8時間</td>
+      </tr>
+      <tr>
+        <td>チャンピオンマスター同期</td>
+        <td>手動トリガー（パッチ更新後）</td>
+        <td>Data Dragon から最新チャンピオン情報・画像URLを取得してchampionsテーブルを更新</td>
+        <td>約5分</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- 5. コスト試算 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">5</div>
+      <h2>コスト試算</h2>
+    </div>
+    <table>
+      <tr><th>サービス</th><th>用途</th><th>プラン</th><th>月額</th><th>無料枠との比較</th></tr>
+      <tr>
+        <td>Vercel</td>
+        <td>フロントエンド・API Routes ホスティング</td>
+        <td>Hobby</td>
+        <td><span class="badge free">$0</span></td>
+        <td>個人利用：問題なし</td>
+      </tr>
+      <tr>
+        <td>Supabase</td>
+        <td>PostgreSQL</td>
+        <td>Free</td>
+        <td><span class="badge free">$0</span></td>
+        <td>500MB / 200万行INSERT。集計データのみなので余裕あり</td>
+      </tr>
+      <tr>
+        <td>GitHub Actions</td>
+        <td>バッチ収集ジョブ</td>
+        <td>Free（Public Repo）</td>
+        <td><span class="badge free">$0</span></td>
+        <td>Publicリポジトリなら無制限</td>
+      </tr>
+      <tr>
+        <td>Riot API</td>
+        <td>試合データ・ランクデータ取得</td>
+        <td>Development Key</td>
+        <td><span class="badge free">$0</span></td>
+        <td>100 req/2min。レート管理必須</td>
+      </tr>
+      <tr style="background:#f0faf4; font-weight:700;">
+        <td colspan="3">合計</td>
+        <td><span class="badge free">$0 / 月</span></td>
+        <td>全て無料枠内で運用可能</td>
+      </tr>
+    </table>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DB設計図 - LoL チャンピオンピックツール</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', 'Hiragino Sans', sans-serif; background: #f5f6fa; color: #2c3e50; font-size: 14px; }
+
+  .header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    color: white; padding: 32px 48px; border-bottom: 4px solid #c89b3c;
+  }
+  .header h1 { font-size: 26px; font-weight: 700; }
+  .header .subtitle { color: #c89b3c; font-size: 13px; margin-top: 6px; letter-spacing: 2px; text-transform: uppercase; }
+  .meta-grid { display: flex; gap: 24px; margin-top: 20px; }
+  .meta-item { background: rgba(255,255,255,0.08); padding: 10px 18px; border-radius: 6px; border-left: 3px solid #c89b3c; }
+  .meta-item .label { font-size: 10px; color: #a0aec0; text-transform: uppercase; }
+  .meta-item .value { font-size: 13px; color: white; margin-top: 2px; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 40px 24px; }
+
+  .section { background: white; border-radius: 10px; padding: 28px 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); margin-bottom: 28px; }
+  .section-header { display: flex; align-items: center; gap: 12px; border-bottom: 2px solid #f0f0f0; padding-bottom: 14px; margin-bottom: 24px; }
+  .section-num { background: #1a1a2e; color: #c89b3c; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+  .section h2 { font-size: 18px; color: #1a1a2e; }
+
+  /* ER Diagram */
+  .er-diagram { width: 100%; overflow-x: auto; }
+
+  /* Table definition cards */
+  .table-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+  @media (max-width: 800px) { .table-cards { grid-template-columns: 1fr; } }
+
+  .table-card { border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden; }
+  .table-card-header {
+    padding: 12px 18px; display: flex; align-items: center; gap: 10px;
+  }
+  .table-card-header.master { background: #fff8e6; border-bottom: 2px solid #c89b3c; }
+  .table-card-header.stats { background: #e8f8f0; border-bottom: 2px solid #27ae60; }
+  .table-card-header.counter { background: #f0e8ff; border-bottom: 2px solid #9b59b6; }
+  .table-card-header.log { background: #fde8e8; border-bottom: 2px solid #e74c3c; }
+
+  .table-name { font-size: 15px; font-weight: 700; font-family: monospace; }
+  .table-desc { font-size: 12px; color: #666; margin-left: auto; }
+
+  .col-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .col-table thead th { background: #f8f9fa; padding: 7px 12px; text-align: left; font-size: 11px; color: #666; font-weight: 600; border-bottom: 1px solid #e0e0e0; }
+  .col-table tbody td { padding: 7px 12px; border-bottom: 1px solid #f5f5f5; vertical-align: top; }
+  .col-table tbody tr:last-child td { border-bottom: none; }
+  .col-table tbody tr:hover td { background: #fafafa; }
+
+  .col-name { font-family: monospace; font-weight: 600; color: #2c3e50; }
+  .col-type { font-family: monospace; color: #2980b9; font-size: 11px; }
+  .col-constraint { display: flex; flex-wrap: wrap; gap: 3px; }
+  .tag { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+  .tag-pk { background: #fde8a0; color: #7d6608; }
+  .tag-fk { background: #d6eaf8; color: #1a5276; }
+  .tag-nn { background: #e8f8f0; color: #1e8449; }
+  .tag-uq { background: #f0e8ff; color: #6c3483; }
+  .tag-idx { background: #fde8e8; color: #922b21; }
+
+  .index-section { margin-top: 0; }
+  .index-section .idx-header { background: #f8f9fa; padding: 7px 12px; font-size: 11px; color: #666; font-weight: 600; border-top: 1px solid #e0e0e0; border-bottom: 1px solid #e0e0e0; }
+  .index-row { padding: 6px 12px; border-bottom: 1px solid #f5f5f5; font-size: 11px; }
+  .index-row:last-child { border-bottom: none; }
+  .idx-name { font-family: monospace; color: #c0392b; margin-right: 8px; }
+  .idx-cols { color: #555; }
+
+  .enum-section { padding: 12px 18px; background: #f8f9fa; }
+  .enum-section h4 { font-size: 12px; color: #555; margin-bottom: 8px; }
+  .enum-values { display: flex; flex-wrap: wrap; gap: 6px; }
+  .enum-val { background: #ecf0f1; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-family: monospace; color: #2c3e50; }
+
+  .relation-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .relation-table th { background: #1a1a2e; color: #c89b3c; padding: 10px 14px; font-size: 12px; text-align: left; }
+  .relation-table td { padding: 10px 14px; border-bottom: 1px solid #f0f0f0; vertical-align: top; font-family: monospace; font-size: 12px; }
+  .relation-table tr:last-child td { border-bottom: none; }
+  .relation-table tr:nth-child(even) td { background: #fafafa; }
+  .fk-arrow { color: #c89b3c; font-weight: 700; }
+  .td-note { font-family: sans-serif; color: #666; font-size: 12px; }
+
+  .sql-block { background: #0d1117; border-radius: 8px; padding: 20px 24px; margin-top: 8px; overflow-x: auto; }
+  .sql-block pre { font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.8; color: #e6edf3; }
+  .sql-kw { color: #ff7b72; }
+  .sql-type { color: #79c0ff; }
+  .sql-str { color: #a5d6ff; }
+  .sql-comment { color: #8b949e; }
+  .sql-fn { color: #d2a8ff; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="subtitle">LoL Champion Pick Tool</div>
+  <h1>DB設計図</h1>
+  <div class="meta-grid">
+    <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.1.0</div></div>
+    <div class="meta-item"><div class="label">DB</div><div class="value">PostgreSQL (Supabase)</div></div>
+    <div class="meta-item"><div class="label">テーブル数</div><div class="value">5テーブル</div></div>
+    <div class="meta-item"><div class="label">RLS</div><div class="value">無効（個人利用のため）</div></div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- 1. ER Diagram -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">1</div>
+      <h2>ER図</h2>
+    </div>
+    <div class="er-diagram">
+      <svg viewBox="0 0 1000 540" width="100%" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arr-fk" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#c89b3c"/>
+          </marker>
+        </defs>
+
+        <!-- champions table (master) -->
+        <rect x="380" y="20" width="200" height="170" rx="6" fill="white" stroke="#c89b3c" stroke-width="2"/>
+        <rect x="380" y="20" width="200" height="32" rx="6" fill="#c89b3c"/>
+        <rect x="380" y="38" width="200" height="14" rx="0" fill="#c89b3c"/>
+        <text x="480" y="42" text-anchor="middle" font-size="13" fill="#1a1a2e" font-weight="700">champions</text>
+        <text x="395" y="72" font-size="11" fill="#7d6608" font-weight="600">🔑 champion_id</text>
+        <text x="395" y="90" font-size="11" fill="#555">champion_key</text>
+        <text x="395" y="107" font-size="11" fill="#555">champion_name</text>
+        <text x="395" y="124" font-size="11" fill="#555">image_url</text>
+        <text x="395" y="141" font-size="11" fill="#555">created_at</text>
+        <text x="395" y="158" font-size="11" fill="#555">updated_at</text>
+        <text x="480" y="180" text-anchor="middle" font-size="10" fill="#aaa">チャンピオンマスター</text>
+
+        <!-- champion_stats table -->
+        <rect x="20" y="200" width="220" height="230" rx="6" fill="white" stroke="#27ae60" stroke-width="2"/>
+        <rect x="20" y="200" width="220" height="32" rx="6" fill="#27ae60"/>
+        <rect x="20" y="218" width="220" height="14" rx="0" fill="#27ae60"/>
+        <text x="130" y="222" text-anchor="middle" font-size="13" fill="white" font-weight="700">champion_stats</text>
+        <text x="35" y="253" font-size="11" fill="#1e8449" font-weight="600">🔑 id (serial)</text>
+        <text x="35" y="270" font-size="11" fill="#1a5276">🔗 champion_id</text>
+        <text x="35" y="287" font-size="11" fill="#555">lane</text>
+        <text x="35" y="304" font-size="11" fill="#555">patch</text>
+        <text x="35" y="321" font-size="11" fill="#555">region</text>
+        <text x="35" y="338" font-size="11" fill="#555">rank_tier</text>
+        <text x="35" y="355" font-size="11" fill="#555">games_played</text>
+        <text x="35" y="372" font-size="11" fill="#555">wins</text>
+        <text x="35" y="389" font-size="11" fill="#555">win_rate</text>
+        <text x="35" y="406" font-size="11" fill="#555">updated_at</text>
+        <text x="130" y="422" text-anchor="middle" font-size="10" fill="#aaa">先出しピック用統計</text>
+
+        <!-- counter_stats table -->
+        <rect x="380" y="250" width="220" height="250" rx="6" fill="white" stroke="#9b59b6" stroke-width="2"/>
+        <rect x="380" y="250" width="220" height="32" rx="6" fill="#9b59b6"/>
+        <rect x="380" y="268" width="220" height="14" rx="0" fill="#9b59b6"/>
+        <text x="490" y="272" text-anchor="middle" font-size="13" fill="white" font-weight="700">counter_stats</text>
+        <text x="395" y="303" font-size="11" fill="#6c3483" font-weight="600">🔑 id (serial)</text>
+        <text x="395" y="320" font-size="11" fill="#1a5276">🔗 champion_id</text>
+        <text x="395" y="337" font-size="11" fill="#1a5276">🔗 enemy_champion_id</text>
+        <text x="395" y="354" font-size="11" fill="#555">lane</text>
+        <text x="395" y="371" font-size="11" fill="#555">patch</text>
+        <text x="395" y="388" font-size="11" fill="#555">region</text>
+        <text x="395" y="405" font-size="11" fill="#555">rank_tier</text>
+        <text x="395" y="422" font-size="11" fill="#555">games_played</text>
+        <text x="395" y="439" font-size="11" fill="#555">wins</text>
+        <text x="395" y="456" font-size="11" fill="#555">win_rate</text>
+        <text x="490" y="488" text-anchor="middle" font-size="10" fill="#aaa">カウンターピック用統計</text>
+
+        <!-- item_build_stats table -->
+        <rect x="750" y="200" width="220" height="230" rx="6" fill="white" stroke="#2980b9" stroke-width="2"/>
+        <rect x="750" y="200" width="220" height="32" rx="6" fill="#2980b9"/>
+        <rect x="750" y="218" width="220" height="14" rx="0" fill="#2980b9"/>
+        <text x="860" y="222" text-anchor="middle" font-size="13" fill="white" font-weight="700">item_build_stats</text>
+        <text x="765" y="253" font-size="11" fill="#2471a3" font-weight="600">🔑 id (serial)</text>
+        <text x="765" y="270" font-size="11" fill="#1a5276">🔗 champion_id</text>
+        <text x="765" y="287" font-size="11" fill="#555">lane</text>
+        <text x="765" y="304" font-size="11" fill="#555">patch</text>
+        <text x="765" y="321" font-size="11" fill="#555">region</text>
+        <text x="765" y="338" font-size="11" fill="#555">rank_tier</text>
+        <text x="765" y="355" font-size="11" fill="#555">item_ids (TEXT)</text>
+        <text x="765" y="372" font-size="11" fill="#555">games_played</text>
+        <text x="765" y="389" font-size="11" fill="#555">wins</text>
+        <text x="765" y="406" font-size="11" fill="#555">win_rate</text>
+        <text x="765" y="422" font-size="11" fill="#555">updated_at</text>
+        <text x="860" y="422" text-anchor="middle" font-size="10" fill="#aaa"></text>
+        <text x="860" y="435" text-anchor="middle" font-size="10" fill="#aaa">アイテムビルド統計</text>
+
+        <!-- collection_logs table -->
+        <rect x="750" y="20" width="220" height="150" rx="6" fill="white" stroke="#e74c3c" stroke-width="2"/>
+        <rect x="750" y="20" width="220" height="32" rx="6" fill="#e74c3c"/>
+        <rect x="750" y="38" width="220" height="14" rx="0" fill="#e74c3c"/>
+        <text x="860" y="42" text-anchor="middle" font-size="13" fill="white" font-weight="700">collection_logs</text>
+        <text x="765" y="72" font-size="11" fill="#922b21" font-weight="600">🔑 id (serial)</text>
+        <text x="765" y="90" font-size="11" fill="#555">patch / region / rank_tier</text>
+        <text x="765" y="107" font-size="11" fill="#555">status</text>
+        <text x="765" y="124" font-size="11" fill="#555">matches_collected</text>
+        <text x="765" y="141" font-size="11" fill="#555">started_at / completed_at</text>
+        <text x="765" y="158" font-size="11" fill="#555">error_message</text>
+        <text x="860" y="178" text-anchor="middle" font-size="10" fill="#aaa">バッチ実行ログ</text>
+
+        <!-- FK: champion_stats → champions -->
+        <line x1="240" y1="270" x2="378" y2="120" stroke="#c89b3c" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr-fk)"/>
+        <text x="290" y="200" text-anchor="middle" font-size="10" fill="#c89b3c" transform="rotate(-30, 290, 200)">FK</text>
+
+        <!-- FK: counter_stats champion_id → champions -->
+        <line x1="480" y1="250" x2="480" y2="192" stroke="#c89b3c" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr-fk)"/>
+        <text x="495" y="225" font-size="10" fill="#c89b3c">FK (×2)</text>
+
+        <!-- FK: item_build_stats → champions -->
+        <line x1="750" y1="270" x2="582" y2="120" stroke="#c89b3c" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr-fk)"/>
+        <text x="686" y="195" text-anchor="middle" font-size="10" fill="#c89b3c" transform="rotate(30, 686, 195)">FK</text>
+
+        <!-- Legend -->
+        <rect x="20" y="460" width="300" height="70" rx="6" fill="#f8f9fa" stroke="#e0e0e0" stroke-width="1"/>
+        <text x="32" y="480" font-size="12" fill="#555" font-weight="600">凡例</text>
+        <text x="32" y="498" font-size="12" fill="#7d6608">🔑 Primary Key</text>
+        <text x="32" y="515" font-size="12" fill="#1a5276">🔗 Foreign Key</text>
+        <line x1="160" y1="503" x2="200" y2="503" stroke="#c89b3c" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr-fk)"/>
+        <text x="208" y="507" font-size="11" fill="#555">外部キー参照</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- 2. Table definitions -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">2</div>
+      <h2>テーブル定義</h2>
+    </div>
+    <div class="table-cards">
+
+      <!-- champions -->
+      <div class="table-card">
+        <div class="table-card-header master">
+          <span class="table-name" style="color:#7d6608;">champions</span>
+          <span class="table-desc">チャンピオンマスター（Data Dragonから同期）</span>
+        </div>
+        <table class="col-table">
+          <thead><tr><th>カラム名</th><th>型</th><th>制約</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td class="col-name">champion_id</td><td class="col-type">INTEGER</td><td><div class="col-constraint"><span class="tag tag-pk">PK</span><span class="tag tag-nn">NN</span></div></td><td>RiotのチャンピオンID</td></tr>
+            <tr><td class="col-name">champion_key</td><td class="col-type">VARCHAR(50)</td><td><div class="col-constraint"><span class="tag tag-uq">UQ</span><span class="tag tag-nn">NN</span></div></td><td>英語キー名 例: "Ahri"</td></tr>
+            <tr><td class="col-name">champion_name</td><td class="col-type">VARCHAR(100)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>表示名 例: "アーリ"</td></tr>
+            <tr><td class="col-name">image_url</td><td class="col-type">TEXT</td><td></td><td>Data DragonアイコンURL</td></tr>
+            <tr><td class="col-name">created_at</td><td class="col-type">TIMESTAMPTZ</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>DEFAULT now()</td></tr>
+            <tr><td class="col-name">updated_at</td><td class="col-type">TIMESTAMPTZ</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>DEFAULT now()</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- champion_stats -->
+      <div class="table-card">
+        <div class="table-card-header stats">
+          <span class="table-name" style="color:#1e8449;">champion_stats</span>
+          <span class="table-desc">先出しピック用集計</span>
+        </div>
+        <table class="col-table">
+          <thead><tr><th>カラム名</th><th>型</th><th>制約</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td class="col-name">id</td><td class="col-type">BIGSERIAL</td><td><div class="col-constraint"><span class="tag tag-pk">PK</span></div></td><td>自動採番</td></tr>
+            <tr><td class="col-name">champion_id</td><td class="col-type">INTEGER</td><td><div class="col-constraint"><span class="tag tag-fk">FK</span><span class="tag tag-nn">NN</span><span class="tag tag-idx">IDX</span></div></td><td>→ champions.champion_id</td></tr>
+            <tr><td class="col-name">lane</td><td class="col-type">VARCHAR(5)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>TOP/JG/MID/BOT/SUP</td></tr>
+            <tr><td class="col-name">patch</td><td class="col-type">VARCHAR(20)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>例: "14.21"</td></tr>
+            <tr><td class="col-name">region</td><td class="col-type">VARCHAR(10)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>JP/KR/NA/EUW等</td></tr>
+            <tr><td class="col-name">rank_tier</td><td class="col-type">VARCHAR(20)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>platinum_plus 等</td></tr>
+            <tr><td class="col-name">games_played</td><td class="col-type">INTEGER</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>総試合数</td></tr>
+            <tr><td class="col-name">wins</td><td class="col-type">INTEGER</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>勝利数</td></tr>
+            <tr><td class="col-name">win_rate</td><td class="col-type">DECIMAL(5,4)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>勝率 例: 0.5741</td></tr>
+            <tr><td class="col-name">updated_at</td><td class="col-type">TIMESTAMPTZ</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>最終更新日時</td></tr>
+          </tbody>
+        </table>
+        <div class="index-section">
+          <div class="idx-header">ユニーク制約 / インデックス</div>
+          <div class="index-row"><span class="idx-name">uq_champ_stats</span><span class="idx-cols">UNIQUE (champion_id, lane, patch, region, rank_tier)</span></div>
+          <div class="index-row"><span class="idx-name">idx_stats_filter</span><span class="idx-cols">INDEX (lane, patch, region, rank_tier)</span></div>
+        </div>
+      </div>
+
+      <!-- counter_stats -->
+      <div class="table-card">
+        <div class="table-card-header counter">
+          <span class="table-name" style="color:#6c3483;">counter_stats</span>
+          <span class="table-desc">カウンターピック用対戦統計</span>
+        </div>
+        <table class="col-table">
+          <thead><tr><th>カラム名</th><th>型</th><th>制約</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td class="col-name">id</td><td class="col-type">BIGSERIAL</td><td><div class="col-constraint"><span class="tag tag-pk">PK</span></div></td><td>自動採番</td></tr>
+            <tr><td class="col-name">champion_id</td><td class="col-type">INTEGER</td><td><div class="col-constraint"><span class="tag tag-fk">FK</span><span class="tag tag-nn">NN</span><span class="tag tag-idx">IDX</span></div></td><td>使用チャンピオン</td></tr>
+            <tr><td class="col-name">enemy_champion_id</td><td class="col-type">INTEGER</td><td><div class="col-constraint"><span class="tag tag-fk">FK</span><span class="tag tag-nn">NN</span><span class="tag tag-idx">IDX</span></div></td><td>対戦相手チャンピオン</td></tr>
+            <tr><td class="col-name">lane</td><td class="col-type">VARCHAR(5)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>TOP/JG/MID/BOT/SUP</td></tr>
+            <tr><td class="col-name">patch</td><td class="col-type">VARCHAR(20)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>例: "14.21"</td></tr>
+            <tr><td class="col-name">region</td><td class="col-type">VARCHAR(10)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>JP/KR/NA/EUW等</td></tr>
+            <tr><td class="col-name">rank_tier</td><td class="col-type">VARCHAR(20)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>platinum_plus 等</td></tr>
+            <tr><td class="col-name">games_played</td><td class="col-type">INTEGER</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>総対戦試合数</td></tr>
+            <tr><td class="col-name">wins</td><td class="col-type">INTEGER</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>champion_id側の勝利数</td></tr>
+            <tr><td class="col-name">win_rate</td><td class="col-type">DECIMAL(5,4)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>対戦勝率</td></tr>
+            <tr><td class="col-name">updated_at</td><td class="col-type">TIMESTAMPTZ</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>最終更新日時</td></tr>
+          </tbody>
+        </table>
+        <div class="index-section">
+          <div class="idx-header">ユニーク制約 / インデックス</div>
+          <div class="index-row"><span class="idx-name">uq_counter</span><span class="idx-cols">UNIQUE (champion_id, enemy_champion_id, lane, patch, region, rank_tier)</span></div>
+          <div class="index-row"><span class="idx-name">idx_counter_enemy</span><span class="idx-cols">INDEX (enemy_champion_id, lane, patch, region, rank_tier)</span></div>
+        </div>
+      </div>
+
+      <!-- item_build_stats -->
+      <div class="table-card">
+        <div class="table-card-header" style="background:#e8f0ff; border-bottom: 2px solid #2980b9;">
+          <span class="table-name" style="color:#2471a3;">item_build_stats</span>
+          <span class="table-desc">アイテムビルド別統計</span>
+        </div>
+        <table class="col-table">
+          <thead><tr><th>カラム名</th><th>型</th><th>制約</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td class="col-name">id</td><td class="col-type">BIGSERIAL</td><td><div class="col-constraint"><span class="tag tag-pk">PK</span></div></td><td>自動採番</td></tr>
+            <tr><td class="col-name">champion_id</td><td class="col-type">INTEGER</td><td><div class="col-constraint"><span class="tag tag-fk">FK</span><span class="tag tag-nn">NN</span><span class="tag tag-idx">IDX</span></div></td><td>→ champions.champion_id</td></tr>
+            <tr><td class="col-name">lane</td><td class="col-type">VARCHAR(5)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>TOP/JG/MID/BOT/SUP</td></tr>
+            <tr><td class="col-name">patch</td><td class="col-type">VARCHAR(20)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>例: "14.21"</td></tr>
+            <tr><td class="col-name">region</td><td class="col-type">VARCHAR(10)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>JP/KR/NA等</td></tr>
+            <tr><td class="col-name">rank_tier</td><td class="col-type">VARCHAR(20)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>platinum_plus 等</td></tr>
+            <tr><td class="col-name">item_ids</td><td class="col-type">TEXT</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>ソート済みアイテムID列 例: "3153,3031,6675"</td></tr>
+            <tr><td class="col-name">games_played</td><td class="col-type">INTEGER</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>総試合数</td></tr>
+            <tr><td class="col-name">wins</td><td class="col-type">INTEGER</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>勝利数</td></tr>
+            <tr><td class="col-name">win_rate</td><td class="col-type">DECIMAL(5,4)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>勝率</td></tr>
+            <tr><td class="col-name">updated_at</td><td class="col-type">TIMESTAMPTZ</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>最終更新日時</td></tr>
+          </tbody>
+        </table>
+        <div class="index-section">
+          <div class="idx-header">ユニーク制約 / インデックス</div>
+          <div class="index-row"><span class="idx-name">uq_item_build</span><span class="idx-cols">UNIQUE (champion_id, lane, patch, region, rank_tier, item_ids)</span></div>
+          <div class="index-row"><span class="idx-name">idx_item_filter</span><span class="idx-cols">INDEX (champion_id, lane, patch, region, rank_tier)</span></div>
+        </div>
+      </div>
+
+      <!-- collection_logs -->
+      <div class="table-card" style="grid-column: span 2;">
+        <div class="table-card-header log">
+          <span class="table-name" style="color:#922b21;">collection_logs</span>
+          <span class="table-desc">バッチ実行ログ（監視・デバッグ用）</span>
+        </div>
+        <table class="col-table">
+          <thead><tr><th>カラム名</th><th>型</th><th>制約</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td class="col-name">id</td><td class="col-type">BIGSERIAL</td><td><div class="col-constraint"><span class="tag tag-pk">PK</span></div></td><td>自動採番</td></tr>
+            <tr><td class="col-name">patch</td><td class="col-type">VARCHAR(20)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>収集対象パッチ</td></tr>
+            <tr><td class="col-name">region</td><td class="col-type">VARCHAR(10)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>収集対象リージョン</td></tr>
+            <tr><td class="col-name">rank_tier</td><td class="col-type">VARCHAR(20)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>収集対象ランク帯</td></tr>
+            <tr><td class="col-name">status</td><td class="col-type">VARCHAR(20)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>running / completed / failed</td></tr>
+            <tr><td class="col-name">matches_collected</td><td class="col-type">INTEGER</td><td></td><td>収集済み試合数（完了時に記録）</td></tr>
+            <tr><td class="col-name">started_at</td><td class="col-type">TIMESTAMPTZ</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>ジョブ開始時刻</td></tr>
+            <tr><td class="col-name">completed_at</td><td class="col-type">TIMESTAMPTZ</td><td></td><td>ジョブ完了時刻（失敗時はNULL）</td></tr>
+            <tr><td class="col-name">error_message</td><td class="col-type">TEXT</td><td></td><td>エラー内容（失敗時のみ記録）</td></tr>
+          </tbody>
+        </table>
+        <div class="enum-section">
+          <h4>status の取り得る値</h4>
+          <div class="enum-values">
+            <span class="enum-val">running</span>
+            <span class="enum-val">completed</span>
+            <span class="enum-val">failed</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 3. FK Relations -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">3</div>
+      <h2>外部キー関連一覧</h2>
+    </div>
+    <table class="relation-table">
+      <tr><th>FK元テーブル.カラム</th><th>参照先</th><th>ON DELETE</th><th>備考</th></tr>
+      <tr>
+        <td>champion_stats.champion_id</td>
+        <td><span class="fk-arrow">→</span> champions.champion_id</td>
+        <td>RESTRICT</td>
+        <td class="td-note">チャンピオン削除時は統計データも手動削除</td>
+      </tr>
+      <tr>
+        <td>counter_stats.champion_id</td>
+        <td><span class="fk-arrow">→</span> champions.champion_id</td>
+        <td>RESTRICT</td>
+        <td class="td-note">使用チャンピオン側FK</td>
+      </tr>
+      <tr>
+        <td>counter_stats.enemy_champion_id</td>
+        <td><span class="fk-arrow">→</span> champions.champion_id</td>
+        <td>RESTRICT</td>
+        <td class="td-note">相手チャンピオン側FK（同一テーブルへの2FK）</td>
+      </tr>
+      <tr>
+        <td>item_build_stats.champion_id</td>
+        <td><span class="fk-arrow">→</span> champions.champion_id</td>
+        <td>RESTRICT</td>
+        <td class="td-note">アイテムビルドのチャンピオン参照</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- 4. Enum values -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">4</div>
+      <h2>マスター値一覧（lane / region / rank_tier）</h2>
+    </div>
+    <div style="display:grid; grid-template-columns: repeat(3,1fr); gap: 20px;">
+      <div>
+        <h3 style="font-size:13px; margin-bottom:10px; color:#555;">lane</h3>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          <span class="enum-val">TOP</span>
+          <span class="enum-val">JG</span>
+          <span class="enum-val">MID</span>
+          <span class="enum-val">BOT</span>
+          <span class="enum-val">SUP</span>
+        </div>
+      </div>
+      <div>
+        <h3 style="font-size:13px; margin-bottom:10px; color:#555;">region</h3>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          <span class="enum-val">JP</span>
+          <span class="enum-val">KR</span>
+          <span class="enum-val">NA</span>
+          <span class="enum-val">EUW</span>
+          <span class="enum-val">EUNE</span>
+        </div>
+      </div>
+      <div>
+        <h3 style="font-size:13px; margin-bottom:10px; color:#555;">rank_tier</h3>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">
+          <span class="enum-val">all</span>
+          <span class="enum-val">platinum_plus</span>
+          <span class="enum-val">diamond_plus</span>
+          <span class="enum-val">master_plus</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. DDL -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">5</div>
+      <h2>DDL（主要テーブル）</h2>
+    </div>
+    <div class="sql-block">
+      <pre><span class="sql-comment">-- champions (マスターテーブル)</span>
+<span class="sql-kw">CREATE TABLE</span> champions (
+  champion_id   <span class="sql-type">INTEGER</span>       <span class="sql-kw">PRIMARY KEY</span>,
+  champion_key  <span class="sql-type">VARCHAR(50)</span>   <span class="sql-kw">NOT NULL UNIQUE</span>,
+  champion_name <span class="sql-type">VARCHAR(100)</span>  <span class="sql-kw">NOT NULL</span>,
+  image_url     <span class="sql-type">TEXT</span>,
+  created_at    <span class="sql-type">TIMESTAMPTZ</span>   <span class="sql-kw">NOT NULL DEFAULT</span> <span class="sql-fn">now</span>(),
+  updated_at    <span class="sql-type">TIMESTAMPTZ</span>   <span class="sql-kw">NOT NULL DEFAULT</span> <span class="sql-fn">now</span>()
+);
+
+<span class="sql-comment">-- champion_stats (先出しピック用集計)</span>
+<span class="sql-kw">CREATE TABLE</span> champion_stats (
+  id            <span class="sql-type">BIGSERIAL</span>     <span class="sql-kw">PRIMARY KEY</span>,
+  champion_id   <span class="sql-type">INTEGER</span>       <span class="sql-kw">NOT NULL REFERENCES</span> champions(champion_id),
+  lane          <span class="sql-type">VARCHAR(5)</span>    <span class="sql-kw">NOT NULL</span>,
+  patch         <span class="sql-type">VARCHAR(20)</span>   <span class="sql-kw">NOT NULL</span>,
+  region        <span class="sql-type">VARCHAR(10)</span>   <span class="sql-kw">NOT NULL</span>,
+  rank_tier     <span class="sql-type">VARCHAR(20)</span>   <span class="sql-kw">NOT NULL</span>,
+  games_played  <span class="sql-type">INTEGER</span>       <span class="sql-kw">NOT NULL DEFAULT</span> <span class="sql-str">0</span>,
+  wins          <span class="sql-type">INTEGER</span>       <span class="sql-kw">NOT NULL DEFAULT</span> <span class="sql-str">0</span>,
+  win_rate      <span class="sql-type">DECIMAL(5,4)</span>  <span class="sql-kw">NOT NULL DEFAULT</span> <span class="sql-str">0</span>,
+  updated_at    <span class="sql-type">TIMESTAMPTZ</span>   <span class="sql-kw">NOT NULL DEFAULT</span> <span class="sql-fn">now</span>(),
+  <span class="sql-kw">UNIQUE</span> (champion_id, lane, patch, region, rank_tier)
+);
+<span class="sql-kw">CREATE INDEX</span> idx_stats_filter <span class="sql-kw">ON</span> champion_stats (lane, patch, region, rank_tier);
+
+<span class="sql-comment">-- counter_stats (カウンターピック用対戦統計)</span>
+<span class="sql-kw">CREATE TABLE</span> counter_stats (
+  id                <span class="sql-type">BIGSERIAL</span>     <span class="sql-kw">PRIMARY KEY</span>,
+  champion_id       <span class="sql-type">INTEGER</span>       <span class="sql-kw">NOT NULL REFERENCES</span> champions(champion_id),
+  enemy_champion_id <span class="sql-type">INTEGER</span>       <span class="sql-kw">NOT NULL REFERENCES</span> champions(champion_id),
+  lane              <span class="sql-type">VARCHAR(5)</span>    <span class="sql-kw">NOT NULL</span>,
+  patch             <span class="sql-type">VARCHAR(20)</span>   <span class="sql-kw">NOT NULL</span>,
+  region            <span class="sql-type">VARCHAR(10)</span>   <span class="sql-kw">NOT NULL</span>,
+  rank_tier         <span class="sql-type">VARCHAR(20)</span>   <span class="sql-kw">NOT NULL</span>,
+  games_played      <span class="sql-type">INTEGER</span>       <span class="sql-kw">NOT NULL DEFAULT</span> <span class="sql-str">0</span>,
+  wins              <span class="sql-type">INTEGER</span>       <span class="sql-kw">NOT NULL DEFAULT</span> <span class="sql-str">0</span>,
+  win_rate          <span class="sql-type">DECIMAL(5,4)</span>  <span class="sql-kw">NOT NULL DEFAULT</span> <span class="sql-str">0</span>,
+  updated_at        <span class="sql-type">TIMESTAMPTZ</span>   <span class="sql-kw">NOT NULL DEFAULT</span> <span class="sql-fn">now</span>(),
+  <span class="sql-kw">UNIQUE</span> (champion_id, enemy_champion_id, lane, patch, region, rank_tier)
+);
+<span class="sql-kw">CREATE INDEX</span> idx_counter_enemy <span class="sql-kw">ON</span> counter_stats (enemy_champion_id, lane, patch, region, rank_tier);</pre>
+    </div>
+  </div>
+
+  <!-- 6. RLS方針 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">6</div>
+      <h2>Row Level Security（RLS）方針</h2>
+    </div>
+    <table class="relation-table">
+      <tr><th style="width:180px">項目</th><th>内容</th></tr>
+      <tr>
+        <td>RLS設定</td>
+        <td><strong>全テーブル無効</strong>（個人利用・非商用のため）</td>
+      </tr>
+      <tr>
+        <td>理由</td>
+        <td>ユーザー認証なし・外部公開なし・個人利用のみのため、RLSによるアクセス制御は不要と判断</td>
+      </tr>
+      <tr>
+        <td>フロントエンドからの操作</td>
+        <td>anon キーで SELECT のみ。INSERT / UPDATE / DELETE はバッチ（service_role キー）のみ実行</td>
+      </tr>
+      <tr>
+        <td>将来的に公開する場合</td>
+        <td>RLS を有効化し、各テーブルに <code>FOR SELECT USING (true)</code> ポリシーを追加すること</td>
+      </tr>
+    </table>
+  </div>
+
+</div>
+</body>
+</html>
