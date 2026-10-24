@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import AppHeader from '@/components/AppHeader';
-import { LANES, REGIONS, TIERS, getWinRateColor, formatWinRate, formatGames } from '@/lib/types';
-import type { Lane, Region, Tier, ChampionStatRow, CounterStatRow } from '@/lib/types';
+import { LANES, REGIONS, TIERS } from '@/lib/constants';
+import { getWinRateColor, formatWinRate, formatGames } from '@/lib/utils';
+import type { Lane, Region, Tier } from '@/lib/constants';
+import type { ChampionStatRow, CounterStatRow } from '@/lib/types';
 
 export default function CounterPickPage() {
   const [lane, setLane]               = useState<Lane>('TOP');

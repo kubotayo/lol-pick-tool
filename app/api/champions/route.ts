@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { LANES, REGIONS, TIERS, type Lane, type Region, type Tier } from '@/lib/types';
+import { LANES, REGIONS, TIERS, type Lane, type Region, type Tier } from '@/lib/constants';
 import { MOCK_CHAMPION_STATS } from '@/lib/mock-data';
 
 export async function GET(req: NextRequest) {

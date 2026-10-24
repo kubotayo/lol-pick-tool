@@ -4,7 +4,7 @@ import {
   getWinRateColor,
   formatWinRate,
   formatGames,
-} from './types';
+} from './utils';
 
 // -------------------------------------------------------
 // getTierLabel

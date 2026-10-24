@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import AppHeader from '@/components/AppHeader';
-import { LANES, REGIONS, TIERS, getTierLabel, getWinRateColor, formatWinRate, formatGames } from '@/lib/types';
-import type { Lane, Region, Tier, ChampionStatRow, Tier_Label } from '@/lib/types';
+import { LANES, REGIONS, TIERS } from '@/lib/constants';
+import { getTierLabel, getWinRateColor, formatWinRate, formatGames } from '@/lib/utils';
+import type { Lane, Region, Tier } from '@/lib/constants';
+import type { ChampionStatRow, Tier_Label } from '@/lib/types';
 
 const TIER_COLORS: Record<Tier_Label, string> = {
   S: '#ffd700', A: '#ff6b35', B: '#4169e1', C: '#6b7280',
