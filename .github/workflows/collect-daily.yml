@@ -1,0 +1,44 @@
+name: Collect Daily
+
+on:
+  # 毎日 JST 02:00（UTC 17:00）に実行
+  schedule:
+    - cron: '0 17 * * *'
+  # 手動実行（パッチ更新後の初回シード収集・デバッグ用）
+  workflow_dispatch:
+    inputs:
+      regions:
+        description: '収集対象リージョン（カンマ区切り）'
+        required: false
+        default: 'jp1,kr'
+      tier:
+        description: '収集対象ランク帯'
+        required: false
+        default: 'DIAMOND'
+
+jobs:
+  collect:
+    name: データ収集・集計
+    runs-on: ubuntu-latest
+    # Riot API レート制限を考慮し最大6時間まで許容する
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: 依存パッケージをインストール
+        run: npm ci --legacy-peer-deps
+
+      - name: データ収集スクリプトを実行
+        run: npm run collect
+        env:
+          RIOT_API_KEY:              ${{ secrets.RIOT_API_KEY }}
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TARGET_REGIONS:            ${{ github.event.inputs.regions || 'jp1,kr' }}
+          TARGET_TIER:               ${{ github.event.inputs.tier || 'DIAMOND' }}
