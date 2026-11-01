@@ -81,8 +81,9 @@
   <h1>システム構成図</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.0.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.4.0</div></div>
     <div class="meta-item"><div class="label">月額コスト見込み</div><div class="value">$0（全て無料枠）</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.4.0)</div><div class="value">集計の上書きを加算に変更・apply_batch_result関数・同時実行防止の詳細化</div></div>
   </div>
 </div>
 
@@ -243,11 +244,13 @@
         <h3>データ収集バッチ</h3>
         <div class="service"><span class="service-badge">GitHub Actions</span> 無料（publicリポジトリ）</div>
         <ul>
-          <li>TypeScript で実装</li>
-          <li>Cron スケジュール実行</li>
-          <li>最大6時間/ジョブ</li>
+          <li>TypeScript で実装（collect.ts）</li>
+          <li>Cron スケジュール実行：毎日 JST 02:00（UTC 17:00）</li>
+          <li>最大6時間/ジョブ（timeout-minutes: 360）</li>
+          <li>環境変数：TARGET_REGIONS（デフォルト jp1、現在1リージョンのみ対応）/ TARGET_TIER（デフォルト DIAMOND）/ MAX_DURATION_MINUTES（デフォルト 330分）/ MAX_MATCHES（未指定時は上限なし）</li>
           <li>Riot APIキーは GitHub Secrets で管理</li>
-          <li>レート制限ハンドラー内蔵</li>
+          <li>レート制限ハンドラー内蔵（100 req/2分 → 1200ms sleep制御）</li>
+          <li>同時実行防止：Concurrency group「collect-daily」で1ジョブずつ実行（cancel-in-progress: false）。同時実行により同じ試合を二重加算しようとして片方の書き込みが全体取り消しされることを防止</li>
         </ul>
       </div>
       <div class="comp-card api">
@@ -311,49 +314,64 @@
       <h2>データフロー詳細</h2>
     </div>
 
-    <h3 style="font-size:14px; margin-bottom:16px; color:#555;">3.1 バッチ収集フロー（GitHub Actions）</h3>
+    <h3 style="font-size:14px; margin-bottom:16px; color:#555;">3.1 バッチ収集フロー（スノーボール方式 / GitHub Actions）</h3>
     <div class="flow-step">
       <div class="step-num">1</div>
       <div class="step-content">
-        <h4>最新パッチバージョン取得（Data Dragon）</h4>
-        <p>APIキー不要の Data Dragon CDN から最新パッチを自動取得。<br>
-        <code>GET https://ddragon.leagueoflegends.com/api/versions.json</code><br>
-        先頭要素 "14.21.1" を正規化 → "14.21"（先頭2セグメント）。環境変数 TARGET_PATCH の手動更新は不要。</p>
+        <h4>起動時準備（APIキー検証・パッチ取得・champions同期）</h4>
+        <p>① Riot APIキーの有効性を検証。<br>
+        ② Data Dragon CDN から最新パッチを自動取得（<code>versions.json</code> の先頭要素を正規化）。<br>
+        ③ Data Dragon から最新チャンピオン一覧を取得し champions テーブルへ UPSERT（FR-24）。新チャンピオン追加・パッチ更新時も自動対応。</p>
       </div>
     </div>
     <div class="flow-step">
       <div class="step-num">2</div>
       <div class="step-content">
-        <h4>プレイヤーシード取得</h4>
-        <p>LEAGUE-V4 で Platinum以上のプレイヤーPUUIDを取得（対象リージョン・ランク帯ごと）</p>
+        <h4>collection_logs にジョブ開始を記録</h4>
+        <p>collection_logs テーブルに <code>status: 'running'</code> で行を INSERT し、採番された id（BIGSERIAL）を保持。その後のループ終了時・エラー発生時にこの id で UPDATE する。</p>
       </div>
     </div>
     <div class="flow-step">
       <div class="step-num">3</div>
       <div class="step-content">
-        <h4>試合IDリスト取得</h4>
-        <p>各PUUIDのMATCH-V5 /matches エンドポイントで直近の試合IDを取得。gameVersion の先頭2セグメントが TARGET_PATCH と一致するもののみフィルタ。</p>
+        <h4>シードプレイヤーを取得（LEAGUE-V4）</h4>
+        <p>LEAGUE-V4 で JP の Challenger → Grandmaster → Diamond I の順でプレイヤーを取得し、少数（約10〜20人）のシードPUUIDを確保。スノーボールの起点として使用する。</p>
       </div>
     </div>
     <div class="flow-step">
       <div class="step-num">4</div>
       <div class="step-content">
-        <h4>試合詳細取得 + リアルタイム集計</h4>
-        <p>試合IDごとに詳細データ取得。生データは保存せず、取得直後にメモリ上で集計処理。レート制限ハンドラーが1200ms sleep を自動制御。</p>
+        <h4>processed_matches から処理済み試合IDを全件取得</h4>
+        <p><code>processed_matches</code> テーブルからパッチに該当する処理済み試合IDをすべて取得（Supabase PostgREST の1回1000件上限に対応するため、ページ単位で繰り返し取得）。このセットはループ内で処理済み判定に使用。</p>
       </div>
     </div>
     <div class="flow-step">
       <div class="step-num">5</div>
       <div class="step-content">
-        <h4>Supabaseへ UPSERT</h4>
-        <p>champion_stats / counter_stats / item_build_stats を集計値で UPSERT（既存行は上書き更新）</p>
+        <h4>スノーボールメインループ（BFS方式）</h4>
+        <p>各イテレーション先頭で終了条件を判定。以下のうち先に達した方で終了：<br>
+        ① 時間上限（MAX_DURATION_MINUTES、デフォルト330分）<br>
+        ② 試合数上限（MAX_MATCHES、未指定なら上限なし）<br>
+        ③ キュー枯渇（PUUIDキューと試合IDキュー両方が空）<br>
+        ループ内の処理：PUUIDキューから試合IDを取得 → <code>processed_matches</code> と <code>queuedMatchIds</code> で重複除外してmatchQueueに追加 → matchQueueから試合詳細を取得 → パッチが不一致ならスキップ → メモリ上で即座に集計 → 参加者10人のPUUIDを未訪問ならキューに追加し、集計結果を蓄積。</p>
       </div>
     </div>
     <div class="flow-step">
       <div class="step-num">6</div>
       <div class="step-content">
-        <h4>ログ記録</h4>
-        <p>collection_logs テーブルに収集件数・実行時間・ステータスを記録</p>
+        <h4>Supabaseへ加算書き込み（DB関数apply_batch_result）</h4>
+        <p>ループ終了後、新規処理試合が0件以上の場合、集計結果をDB関数 <code>apply_batch_result()</code> で書き込み。この関数は以下を1トランザクション内で実行：<br>
+        ① <code>processed_matches</code> から処理済み試合をチェック。1件でも含まれていたらエラーで全体を ROLLBACK（同時実行時の二重加算を防止）。<br>
+        ② <code>processed_matches</code> に新規処理試合IDを INSERT。<br>
+        ③ champion_stats / counter_stats / item_build_stats の既存行に games_played / wins を加算し、win_rate を再計算。新規行は INSERT。<br>
+        実行権限：service_role キーのみ（GitHub Actions 環境から）。</p>
+      </div>
+    </div>
+    <div class="flow-step">
+      <div class="step-num">7</div>
+      <div class="step-content">
+        <h4>collection_logs をジョブ完了で UPDATE</h4>
+        <p>ループ終了時・エラー発生時に、ステップ2で保持した id で UPDATE。<code>status</code> を 'completed' または 'failed' に、<code>matches_collected</code> を試合数に、<code>completed_at</code> を現在時刻に、エラー時は <code>error_message</code> を記録。</p>
       </div>
     </div>
 
