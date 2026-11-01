@@ -4,6 +4,9 @@ import {
   normalizePatch,
   normalizeItemIds,
   is429Error,
+  parseTargetRegion,
+  parsePositiveInt,
+  getStopReason,
 } from './utils';
 
 // -------------------------------------------------------
@@ -121,5 +124,73 @@ describe('is429Error', () => {
     expect(is429Error('error string')).toBe(false);
     expect(is429Error(null)).toBe(false);
     expect(is429Error(429)).toBe(false);
+  });
+});
+
+// -------------------------------------------------------
+// parseTargetRegion
+// TARGET_REGIONS → 収集対象プラットフォーム（現状は1つのみ）
+// -------------------------------------------------------
+describe('parseTargetRegion', () => {
+  it('jp1はjp1を返す', () => {
+    expect(parseTargetRegion('jp1')).toBe('jp1');
+  });
+
+  it('未指定ならjp1を返す', () => {
+    expect(parseTargetRegion(undefined)).toBe('jp1');
+    expect(parseTargetRegion('')).toBe('jp1');
+  });
+
+  it('前後の空白・大文字を正規化する', () => {
+    expect(parseTargetRegion(' JP1 ')).toBe('jp1');
+  });
+
+  it('複数指定はエラーにする', () => {
+    expect(() => parseTargetRegion('jp1,kr')).toThrow('複数のリージョン');
+  });
+});
+
+// -------------------------------------------------------
+// parsePositiveInt
+// 上限値の環境変数（MAX_DURATION_MINUTES / MAX_MATCHES）
+// -------------------------------------------------------
+describe('parsePositiveInt', () => {
+  it('数値文字列を数値にする', () => {
+    expect(parsePositiveInt('MAX_MATCHES', '50', null)).toBe(50);
+  });
+
+  it('未指定・空文字ならデフォルト値を返す', () => {
+    expect(parsePositiveInt('MAX_DURATION_MINUTES', undefined, 330)).toBe(330);
+    expect(parsePositiveInt('MAX_MATCHES', '', null)).toBeNull();
+  });
+
+  it('0・負数・小数・数値以外はエラーにする', () => {
+    for (const v of ['0', '-5', '1.5', 'abc']) {
+      expect(() => parsePositiveInt('MAX_MATCHES', v, null)).toThrow('MAX_MATCHES');
+    }
+  });
+});
+
+// -------------------------------------------------------
+// getStopReason
+// 時間上限・試合数上限のうち先に達した方で止める
+// -------------------------------------------------------
+describe('getStopReason', () => {
+  const base = { elapsedMs: 0, maxDurationMs: 1000, totalMatches: 0, maxMatches: 50 };
+
+  it('どちらにも達していなければnull', () => {
+    expect(getStopReason({ ...base, elapsedMs: 999, totalMatches: 49 })).toBeNull();
+  });
+
+  it('時間上限に達したらtime_limit', () => {
+    expect(getStopReason({ ...base, elapsedMs: 1000 })).toBe('time_limit');
+  });
+
+  it('試合数上限に達したらmatch_limit', () => {
+    expect(getStopReason({ ...base, totalMatches: 50 })).toBe('match_limit');
+  });
+
+  it('試合数上限がnullなら試合数では止めない', () => {
+    expect(getStopReason({ ...base, totalMatches: 100000, maxMatches: null })).toBeNull();
   });
 });

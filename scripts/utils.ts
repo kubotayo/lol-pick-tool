@@ -60,3 +60,51 @@ export function is429Error(err: unknown): boolean {
   }
   return false;
 }
+
+/**
+ * 環境変数 TARGET_REGIONS（カンマ区切り）から収集対象のプラットフォームを1つ取り出す
+ * 現時点は単一リージョンのみ対応。複数指定はエラーにする（将来リージョンごとのループで対応予定）
+ * 例: "jp1" → "jp1" / 未指定 → "jp1" / "jp1,kr" → エラー
+ */
+export function parseTargetRegion(value: string | undefined): string {
+  const regions = (value ?? '')
+    .split(',')
+    .map(r => r.trim().toLowerCase())
+    .filter(r => r !== '');
+
+  if (regions.length === 0) return 'jp1';
+  if (regions.length > 1) {
+    throw new Error(`TARGET_REGIONS に複数のリージョンが指定されています（${regions.join(', ')}）。現在は1リージョンのみ対応しています`);
+  }
+  return regions[0];
+}
+
+/**
+ * 上限値の環境変数（正の整数）を読む
+ * 未指定・空文字なら defaultValue を返す。不正な値はエラーにする
+ */
+export function parsePositiveInt(name: string, value: string | undefined, defaultValue: number | null): number | null {
+  if (value === undefined || value.trim() === '') return defaultValue;
+  const n = Number(value);
+  if (!Number.isInteger(n) || n <= 0) {
+    throw new Error(`${name} は正の整数で指定してください（指定値: "${value}"）`);
+  }
+  return n;
+}
+
+export type StopReason = 'time_limit' | 'match_limit';
+
+/**
+ * バッチのループを止めるべきかを判定する（先に達した上限で止める）
+ * 止める必要がなければ null を返す
+ */
+export function getStopReason(params: {
+  elapsedMs:     number;
+  maxDurationMs: number;
+  totalMatches:  number;
+  maxMatches:    number | null;
+}): StopReason | null {
+  if (params.elapsedMs >= params.maxDurationMs) return 'time_limit';
+  if (params.maxMatches !== null && params.totalMatches >= params.maxMatches) return 'match_limit';
+  return null;
+}
