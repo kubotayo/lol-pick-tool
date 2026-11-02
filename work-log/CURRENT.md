@@ -19,7 +19,8 @@
 
 ## 次にやること
 
-- [ ] #1〜#7 のレビュー・マージ（順番: #4 → #5、#1 → #6、#2 → #3 と #7 は一緒に）
+- [ ] #8〜#11 のマージ（#11 を先に。#8〜#10 は #5〜#7 の development への取り込み直し）
+- [ ] マージ後、作業用の worktree 2つを片付け、ローカルの development を origin に合わせる
 - [ ] master_plus・diamond_plus の試合数を、4ランクで集め始めてから確認する（少なすぎれば基準を調整。ユーザーは案A=様子見を選択）
 - [ ] 各 PR の CI 結果を確認し、レビュー・マージする
 - [ ] マージ後、ローカルの `development` を `origin/development` に合わせる（ローカルには未 push の `fcad790` が残っているが、#1 に含まれている）
@@ -28,7 +29,8 @@
 ## 未解決の課題 / 保留中の確認事項
 
 - 005 適用済みのため、PR #3 単体の古いコードでは DB に書き込めない（#3 は feat/rank-tier と一緒にマージする）
-- #5〜#7 は CI が動かない（CI の対象が main / development 向けの PR のみ）
+- 積み上げ型の PR は、土台が先に development へマージされると取り込み漏れが起きる（#5〜#7 で発生）。今後は development 向けに作るか、土台のマージ後に向き先を変える
+- `/api/patches` がビルド時に静的生成される。Supabase 接続時に動的にする
 - 画面の lint エラー3件（もともとあったもの）
 - worktree 2つ（`../lol-pick-tool-docs`・`../lol-pick-tool-code`）はマージ後に `git worktree remove` で片付ける
 
