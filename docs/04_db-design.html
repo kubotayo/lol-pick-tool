@@ -97,10 +97,11 @@
   <h1>DB設計図</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.1.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.4.0</div></div>
     <div class="meta-item"><div class="label">DB</div><div class="value">PostgreSQL (Supabase)</div></div>
-    <div class="meta-item"><div class="label">テーブル数</div><div class="value">5テーブル</div></div>
-    <div class="meta-item"><div class="label">RLS</div><div class="value">無効（個人利用のため）</div></div>
+    <div class="meta-item"><div class="label">テーブル数</div><div class="value">6テーブル + 関数1個</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.4.0)</div><div class="value">apply_batch_result() 関数で集計値の加算・1トランザクション書き込みを実装</div></div>
+    <div class="meta-item"><div class="label">RLS</div><div class="value">有効（表示用4テーブルのみ anon SELECT 許可）</div></div>
   </div>
 </div>
 
@@ -253,7 +254,7 @@
       <div class="table-card">
         <div class="table-card-header stats">
           <span class="table-name" style="color:#1e8449;">champion_stats</span>
-          <span class="table-desc">先出しピック用集計</span>
+          <span class="table-desc">先出しピック用集計（バッチ実行ごとに既存値に加算）</span>
         </div>
         <table class="col-table">
           <thead><tr><th>カラム名</th><th>型</th><th>制約</th><th>説明</th></tr></thead>
@@ -281,7 +282,7 @@
       <div class="table-card">
         <div class="table-card-header counter">
           <span class="table-name" style="color:#6c3483;">counter_stats</span>
-          <span class="table-desc">カウンターピック用対戦統計</span>
+          <span class="table-desc">カウンターピック用対戦統計（バッチ実行ごとに加算）</span>
         </div>
         <table class="col-table">
           <thead><tr><th>カラム名</th><th>型</th><th>制約</th><th>説明</th></tr></thead>
@@ -310,7 +311,7 @@
       <div class="table-card">
         <div class="table-card-header" style="background:#e8f0ff; border-bottom: 2px solid #2980b9;">
           <span class="table-name" style="color:#2471a3;">item_build_stats</span>
-          <span class="table-desc">アイテムビルド別統計</span>
+          <span class="table-desc">アイテムビルド別統計（バッチ実行ごとに加算）</span>
         </div>
         <table class="col-table">
           <thead><tr><th>カラム名</th><th>型</th><th>制約</th><th>説明</th></tr></thead>
@@ -332,6 +333,26 @@
           <div class="idx-header">ユニーク制約 / インデックス</div>
           <div class="index-row"><span class="idx-name">uq_item_build</span><span class="idx-cols">UNIQUE (champion_id, lane, patch, region, rank_tier, item_ids)</span></div>
           <div class="index-row"><span class="idx-name">idx_item_filter</span><span class="idx-cols">INDEX (champion_id, lane, patch, region, rank_tier)</span></div>
+        </div>
+      </div>
+
+      <!-- processed_matches -->
+      <div class="table-card" style="grid-column: span 2;">
+        <div class="table-card-header" style="background:#e8fff0; border-bottom: 2px solid #16a34a;">
+          <span class="table-name" style="color:#15803d;">processed_matches</span>
+          <span class="table-desc">処理済み試合ID管理（スノーボール方式の重複除去用）</span>
+        </div>
+        <table class="col-table">
+          <thead><tr><th>カラム名</th><th>型</th><th>制約</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td class="col-name">match_id</td><td class="col-type">VARCHAR(30)</td><td><div class="col-constraint"><span class="tag tag-pk">PK</span><span class="tag tag-nn">NN</span></div></td><td>Riot試合ID 例: "JP1_1234567890"</td></tr>
+            <tr><td class="col-name">patch</td><td class="col-type">VARCHAR(20)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span><span class="tag tag-idx">IDX</span></div></td><td>試合のパッチバージョン 例: "14.21"</td></tr>
+            <tr><td class="col-name">processed_at</td><td class="col-type">TIMESTAMPTZ</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>DEFAULT now()</td></tr>
+          </tbody>
+        </table>
+        <div class="index-section">
+          <div class="idx-header">インデックス</div>
+          <div class="index-row"><span class="idx-name">idx_processed_patch</span><span class="idx-cols">INDEX (patch) — パッチ別の処理件数集計・古いパッチのクリーンアップ用</span></div>
         </div>
       </div>
 
@@ -490,7 +511,73 @@
   updated_at        <span class="sql-type">TIMESTAMPTZ</span>   <span class="sql-kw">NOT NULL DEFAULT</span> <span class="sql-fn">now</span>(),
   <span class="sql-kw">UNIQUE</span> (champion_id, enemy_champion_id, lane, patch, region, rank_tier)
 );
-<span class="sql-kw">CREATE INDEX</span> idx_counter_enemy <span class="sql-kw">ON</span> counter_stats (enemy_champion_id, lane, patch, region, rank_tier);</pre>
+<span class="sql-kw">CREATE INDEX</span> idx_counter_enemy <span class="sql-kw">ON</span> counter_stats (enemy_champion_id, lane, patch, region, rank_tier);
+
+<span class="sql-comment">-- processed_matches (スノーボール方式の重複除去・バッチ実行をまたいだ処理済み管理)</span>
+<span class="sql-kw">CREATE TABLE</span> processed_matches (
+  match_id      <span class="sql-type">VARCHAR(30)</span>   <span class="sql-kw">PRIMARY KEY</span>,
+  patch         <span class="sql-type">VARCHAR(20)</span>   <span class="sql-kw">NOT NULL</span>,
+  processed_at  <span class="sql-type">TIMESTAMPTZ</span>   <span class="sql-kw">NOT NULL DEFAULT</span> <span class="sql-fn">now</span>()
+);
+<span class="sql-kw">CREATE INDEX</span> idx_processed_patch <span class="sql-kw">ON</span> processed_matches (patch);
+
+<span class="sql-comment">-- Row Level Security（RLS）有効化</span>
+<span class="sql-kw">ALTER TABLE</span> champions         <span class="sql-kw">ENABLE ROW LEVEL SECURITY</span>;
+<span class="sql-kw">ALTER TABLE</span> champion_stats    <span class="sql-kw">ENABLE ROW LEVEL SECURITY</span>;
+<span class="sql-kw">ALTER TABLE</span> counter_stats     <span class="sql-kw">ENABLE ROW LEVEL SECURITY</span>;
+<span class="sql-kw">ALTER TABLE</span> item_build_stats  <span class="sql-kw">ENABLE ROW LEVEL SECURITY</span>;
+<span class="sql-kw">ALTER TABLE</span> collection_logs   <span class="sql-kw">ENABLE ROW LEVEL SECURITY</span>;
+<span class="sql-kw">ALTER TABLE</span> processed_matches <span class="sql-kw">ENABLE ROW LEVEL SECURITY</span>;
+
+<span class="sql-comment">-- anon ロール用ポリシー（画面表示用テーブルのみ SELECT 許可）</span>
+<span class="sql-kw">CREATE POLICY</span> <span class="sql-str">"anon_select_champions"</span>        <span class="sql-kw">ON</span> champions        <span class="sql-kw">FOR SELECT TO</span> anon <span class="sql-kw">USING</span> (true);
+<span class="sql-kw">CREATE POLICY</span> <span class="sql-str">"anon_select_champion_stats"</span>   <span class="sql-kw">ON</span> champion_stats   <span class="sql-kw">FOR SELECT TO</span> anon <span class="sql-kw">USING</span> (true);
+<span class="sql-kw">CREATE POLICY</span> <span class="sql-str">"anon_select_counter_stats"</span>    <span class="sql-kw">ON</span> counter_stats    <span class="sql-kw">FOR SELECT TO</span> anon <span class="sql-kw">USING</span> (true);
+<span class="sql-kw">CREATE POLICY</span> <span class="sql-str">"anon_select_item_build_stats"</span> <span class="sql-kw">ON</span> item_build_stats <span class="sql-kw">FOR SELECT TO</span> anon <span class="sql-kw">USING</span> (true);
+
+<span class="sql-comment">-- apply_batch_result 関数（バッチ実装 v1.4.0）</span>
+<span class="sql-comment">-- 集計結果の加算書き込みを1トランザクション内で実行</span>
+<span class="sql-kw">CREATE OR REPLACE FUNCTION</span> <span class="sql-fn">apply_batch_result</span>(
+  p_patch         <span class="sql-type">text</span>,
+  p_region        <span class="sql-type">text</span>,
+  p_rank_tier     <span class="sql-type">text</span>,
+  p_champion_rows <span class="sql-type">jsonb</span>,   <span class="sql-comment">-- [{champion_id, lane, games_played, wins}]</span>
+  p_counter_rows  <span class="sql-type">jsonb</span>,   <span class="sql-comment">-- [{champion_id, enemy_champion_id, lane, games_played, wins}]</span>
+  p_item_rows     <span class="sql-type">jsonb</span>,   <span class="sql-comment">-- [{champion_id, lane, item_ids, games_played, wins}]</span>
+  p_match_ids     <span class="sql-type">text</span>[]
+) <span class="sql-kw">RETURNS void</span>
+<span class="sql-kw">LANGUAGE</span> plpgsql
+<span class="sql-kw">SECURITY INVOKER</span>
+<span class="sql-kw">AS</span> $$
+<span class="sql-kw">DECLARE</span>
+  v_duplicates <span class="sql-type">text</span>[];
+<span class="sql-kw">BEGIN</span>
+  <span class="sql-comment">-- 処理済み試合が含まれていないか確認</span>
+  <span class="sql-kw">SELECT array_agg</span>(match_id) <span class="sql-kw">INTO</span> v_duplicates
+  <span class="sql-kw">FROM</span> processed_matches
+  <span class="sql-kw">WHERE</span> match_id = <span class="sql-kw">ANY</span>(p_match_ids);
+
+  <span class="sql-kw">IF</span> v_duplicates <span class="sql-kw">IS NOT NULL THEN</span>
+    <span class="sql-kw">RAISE EXCEPTION</span> <span class="sql-str">'処理済みの試合が % 件含まれています'</span>, array_length(v_duplicates, <span class="sql-str">1</span>);
+  <span class="sql-kw">END IF</span>;
+
+  <span class="sql-comment">-- processed_matches へ記録（重複チェック）</span>
+  <span class="sql-kw">INSERT INTO</span> processed_matches (match_id, patch)
+  <span class="sql-kw">SELECT unnest</span>(p_match_ids), p_patch;
+
+  <span class="sql-comment">-- champion_stats に加算</span>
+  <span class="sql-kw">INSERT INTO</span> champion_stats <span class="sql-kw">AS</span> t (...) <span class="sql-kw">VALUES</span> (...)
+  <span class="sql-kw">ON CONFLICT</span> (...) <span class="sql-kw">DO UPDATE SET</span>
+    games_played = t.games_played + <span class="sql-kw">EXCLUDED</span>.games_played,
+    wins         = t.wins + <span class="sql-kw">EXCLUDED</span>.wins,
+    win_rate     = (t.wins + <span class="sql-kw">EXCLUDED</span>.wins)::numeric / (t.games_played + <span class="sql-kw">EXCLUDED</span>.games_played);
+
+  <span class="sql-comment">-- counter_stats / item_build_stats も同様に加算</span>
+<span class="sql-kw">END</span> $$;
+
+<span class="sql-comment">-- apply_batch_result 実行権限: service_role のみ</span>
+<span class="sql-kw">REVOKE ALL ON FUNCTION</span> <span class="sql-fn">apply_batch_result</span>(...) <span class="sql-kw">FROM PUBLIC, anon, authenticated</span>;
+<span class="sql-kw">GRANT EXECUTE ON FUNCTION</span> <span class="sql-fn">apply_batch_result</span>(...) <span class="sql-kw">TO</span> service_role;</pre>
     </div>
   </div>
 
@@ -504,19 +591,24 @@
       <tr><th style="width:180px">項目</th><th>内容</th></tr>
       <tr>
         <td>RLS設定</td>
-        <td><strong>全テーブル無効</strong>（個人利用・非商用のため）</td>
+        <td><strong>全テーブル有効</strong>（セキュリティアドバイザーの推奨により有効化）</td>
       </tr>
       <tr>
-        <td>理由</td>
-        <td>ユーザー認証なし・外部公開なし・個人利用のみのため、RLSによるアクセス制御は不要と判断</td>
+        <td>ポリシー詳細</td>
+        <td>
+          <strong>画面表示用4テーブル</strong>（champions / champion_stats / counter_stats / item_build_stats）：
+          <code>anon_select_&lt;テーブル名&gt;</code> ポリシーで anon ロールに SELECT のみ許可（USING (true)）<br>
+          <strong>バッチ専用2テーブル</strong>（collection_logs / processed_matches）：
+          ポリシーなし（anon からのアクセス不可）
+        </td>
       </tr>
       <tr>
         <td>フロントエンドからの操作</td>
-        <td>anon キーで SELECT のみ。INSERT / UPDATE / DELETE はバッチ（service_role キー）のみ実行</td>
+        <td>Next.js API Routes（lib/supabase/server.ts）で anon キーを使用し、SELECT のみ実行。INSERT / UPDATE / DELETE はバッチ（GitHub Actions）の service_role キーのみ実行</td>
       </tr>
       <tr>
-        <td>将来的に公開する場合</td>
-        <td>RLS を有効化し、各テーブルに <code>FOR SELECT USING (true)</code> ポリシーを追加すること</td>
+        <td>service_role キーについて</td>
+        <td>service_role キーは Supabase セキュリティモデルで RLS をバイパスする。バッチ専用2テーブルへの書き込みは service_role キーでのみ可能</td>
       </tr>
     </table>
   </div>
