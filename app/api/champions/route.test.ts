@@ -4,9 +4,12 @@ import { NextRequest } from 'next/server';
 
 // テスト用リクエストを生成するヘルパー
 // URLを組み立てる処理を共通化し、各テストの可読性を上げるため
-function makeRequest(params: Record<string, string>): NextRequest {
+// patch は必須のため既定で付ける。外したいときは patch: undefined を渡す
+function makeRequest(params: Record<string, string | undefined>): NextRequest {
   const url = new URL('http://localhost/api/champions');
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  Object.entries({ patch: '14.21', ...params }).forEach(([k, v]) => {
+    if (v !== undefined) url.searchParams.set(k, v);
+  });
   return new NextRequest(url.toString());
 }
 
@@ -93,5 +96,42 @@ describe('GET /api/champions', () => {
       const res = await GET(req);
       expect(res.status).toBe(400);
     });
+  });
+});
+
+describe('GET /api/champions（patch・数値パラメーター・キャッシュ）', () => {
+  it('patch が未指定の場合、400 を返す', async () => {
+    const res = await GET(makeRequest({ lane: 'MID', patch: undefined }));
+    expect(res.status).toBe(400);
+  });
+
+  it('patch の形式が不正な場合、400 を返す', async () => {
+    const res = await GET(makeRequest({ lane: 'MID', patch: '14.21.1' }));
+    expect(res.status).toBe(400);
+  });
+
+  it.each(['abc', '0', '-1', '1.5'])('limit=%s の場合、400 を返す', async (limit) => {
+    const res = await GET(makeRequest({ lane: 'MID', limit }));
+    expect(res.status).toBe(400);
+  });
+
+  it.each(['abc', '-1'])('min_games=%s の場合、400 を返す', async (minGames) => {
+    const res = await GET(makeRequest({ lane: 'MID', min_games: minGames }));
+    expect(res.status).toBe(400);
+  });
+
+  it('min_games=0 は許可する', async () => {
+    const res = await GET(makeRequest({ lane: 'MID', min_games: '0' }));
+    expect(res.status).toBe(200);
+  });
+
+  it('成功時は CDN に1時間キャッシュするヘッダーを付ける', async () => {
+    const res = await GET(makeRequest({ lane: 'MID' }));
+    expect(res.headers.get('Cache-Control')).toBe('s-maxage=3600, stale-while-revalidate=86400');
+  });
+
+  it('エラー時はキャッシュしない', async () => {
+    const res = await GET(makeRequest({ lane: 'INVALID' }));
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
   });
 });
