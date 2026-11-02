@@ -97,9 +97,10 @@
   <h1>DB設計図</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.4.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.5.0</div></div>
     <div class="meta-item"><div class="label">DB</div><div class="value">PostgreSQL (Supabase)</div></div>
     <div class="meta-item"><div class="label">テーブル数</div><div class="value">6テーブル + 関数1個</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.5.0)</div><div class="value">Riot API の値からの変換ルール（lane・region・patch）・平均ランクによる rank_tier 判定・apply_batch_result の rank_tier を行ごとに変更・collection_logs.rank_tier を TEXT に</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.4.0)</div><div class="value">apply_batch_result() 関数で集計値の加算・1トランザクション書き込みを実装</div></div>
     <div class="meta-item"><div class="label">RLS</div><div class="value">有効（表示用4テーブルのみ anon SELECT 許可）</div></div>
   </div>
@@ -368,7 +369,7 @@
             <tr><td class="col-name">id</td><td class="col-type">BIGSERIAL</td><td><div class="col-constraint"><span class="tag tag-pk">PK</span></div></td><td>自動採番</td></tr>
             <tr><td class="col-name">patch</td><td class="col-type">VARCHAR(20)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>収集対象パッチ</td></tr>
             <tr><td class="col-name">region</td><td class="col-type">VARCHAR(10)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>収集対象リージョン</td></tr>
-            <tr><td class="col-name">rank_tier</td><td class="col-type">VARCHAR(20)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>収集対象ランク帯</td></tr>
+            <tr><td class="col-name">rank_tier</td><td class="col-type">TEXT</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>試合を集めた対象のランク（環境変数 TARGET_TIERS の値。例: "PLATINUM" / "PLATINUM,EMERALD,DIAMOND,MASTER"）。v1.5.0 で VARCHAR(20) から変更</td></tr>
             <tr><td class="col-name">status</td><td class="col-type">VARCHAR(20)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>running / completed / failed</td></tr>
             <tr><td class="col-name">matches_collected</td><td class="col-type">INTEGER</td><td></td><td>収集済み試合数（完了時に記録）</td></tr>
             <tr><td class="col-name">started_at</td><td class="col-type">TIMESTAMPTZ</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>ジョブ開始時刻</td></tr>
@@ -461,6 +462,17 @@
         </div>
       </div>
     </div>
+    <h3 style="font-size:13px; margin:24px 0 10px; color:#555;">Riot API の値からの変換</h3>
+    <table class="relation-table">
+      <tr><th style="width:120px">カラム</th><th>変換ルール</th></tr>
+      <tr><td>lane</td><td>試合詳細の <code>teamPosition</code> を変換する: TOP → <code>TOP</code>／JUNGLE → <code>JG</code>／MIDDLE → <code>MID</code>／BOTTOM → <code>BOT</code>／UTILITY → <code>SUP</code>。それ以外（空文字など）の参加者は集計しない</td></tr>
+      <tr><td>region</td><td>プラットフォーム名から数字を除いて大文字にする（例: <code>jp1</code> → <code>JP</code>、<code>euw1</code> → <code>EUW</code>）</td></tr>
+      <tr><td>patch</td><td>gameVersion の先頭2つ（例: <code>14.21.619.9898</code> → <code>14.21</code>）</td></tr>
+      <tr><td>rank_tier</td><td><code>_plus</code> が付く値はそのランク以上をすべて含む（例: <code>diamond_plus</code> = Diamond・Master・Grandmaster・Challenger）。<code>all</code> は収集したすべての試合。<br>
+      試合のランク帯は<b>参加者10人の平均ランク</b>で決め、当てはまるランク帯すべてに加算する（例: 平均 Diamond の試合 → <code>all</code>・<code>platinum_plus</code>・<code>diamond_plus</code> の3行に加算）。<br>
+      平均の出し方: ランクをポイントにして平均する。Iron IV 0LP を 0 とし、1段階 100・1ランク 400（Platinum IV = 1600、Emerald IV = 2000、Diamond IV = 2400、Master = 2800）。段階内の LP は 99 まで足す。Master 以上は 2800 + LP（LP は 400 で打ち切る。1人の高い LP が平均を大きく動かさないため）。名簿（Platinum 以上）にいない人は Gold II 50LP 相当（1450）として平均に入れる（外すと実際より高いランクの試合として数えられるため）。<br>
+      判定: 平均 1600 以上 → <code>platinum_plus</code>／2400 以上 → <code>diamond_plus</code>／2800 以上 → <code>master_plus</code>。ランクは試合時点ではなくバッチ実行時点のもの</td></tr>
+    </table>
   </div>
 
   <!-- 5. DDL -->
@@ -535,15 +547,14 @@
 <span class="sql-kw">CREATE POLICY</span> <span class="sql-str">"anon_select_counter_stats"</span>    <span class="sql-kw">ON</span> counter_stats    <span class="sql-kw">FOR SELECT TO</span> anon <span class="sql-kw">USING</span> (true);
 <span class="sql-kw">CREATE POLICY</span> <span class="sql-str">"anon_select_item_build_stats"</span> <span class="sql-kw">ON</span> item_build_stats <span class="sql-kw">FOR SELECT TO</span> anon <span class="sql-kw">USING</span> (true);
 
-<span class="sql-comment">-- apply_batch_result 関数（バッチ実装 v1.4.0）</span>
-<span class="sql-comment">-- 集計結果の加算書き込みを1トランザクション内で実行</span>
+<span class="sql-comment">-- apply_batch_result 関数（v1.4.0 で追加、v1.5.0 で p_rank_tier を廃止し各行が rank_tier を持つ形に変更。005 マイグレーション）</span>
+<span class="sql-comment">-- 集計結果の加算書き込みを1トランザクション内で実行。1試合が複数のランク帯に加算されるため、ランク帯は行ごとに渡す</span>
 <span class="sql-kw">CREATE OR REPLACE FUNCTION</span> <span class="sql-fn">apply_batch_result</span>(
   p_patch         <span class="sql-type">text</span>,
   p_region        <span class="sql-type">text</span>,
-  p_rank_tier     <span class="sql-type">text</span>,
-  p_champion_rows <span class="sql-type">jsonb</span>,   <span class="sql-comment">-- [{champion_id, lane, games_played, wins}]</span>
-  p_counter_rows  <span class="sql-type">jsonb</span>,   <span class="sql-comment">-- [{champion_id, enemy_champion_id, lane, games_played, wins}]</span>
-  p_item_rows     <span class="sql-type">jsonb</span>,   <span class="sql-comment">-- [{champion_id, lane, item_ids, games_played, wins}]</span>
+  p_champion_rows <span class="sql-type">jsonb</span>,   <span class="sql-comment">-- [{champion_id, lane, rank_tier, games_played, wins}]</span>
+  p_counter_rows  <span class="sql-type">jsonb</span>,   <span class="sql-comment">-- [{champion_id, enemy_champion_id, lane, rank_tier, games_played, wins}]</span>
+  p_item_rows     <span class="sql-type">jsonb</span>,   <span class="sql-comment">-- [{champion_id, lane, item_ids, rank_tier, games_played, wins}]</span>
   p_match_ids     <span class="sql-type">text</span>[]
 ) <span class="sql-kw">RETURNS void</span>
 <span class="sql-kw">LANGUAGE</span> plpgsql
@@ -577,7 +588,10 @@
 
 <span class="sql-comment">-- apply_batch_result 実行権限: service_role のみ</span>
 <span class="sql-kw">REVOKE ALL ON FUNCTION</span> <span class="sql-fn">apply_batch_result</span>(...) <span class="sql-kw">FROM PUBLIC, anon, authenticated</span>;
-<span class="sql-kw">GRANT EXECUTE ON FUNCTION</span> <span class="sql-fn">apply_batch_result</span>(...) <span class="sql-kw">TO</span> service_role;</pre>
+<span class="sql-kw">GRANT EXECUTE ON FUNCTION</span> <span class="sql-fn">apply_batch_result</span>(...) <span class="sql-kw">TO</span> service_role;
+
+<span class="sql-comment">-- collection_logs.rank_tier に収集対象ランクの設定を残すため型を広げる（v1.5.0）</span>
+<span class="sql-kw">ALTER TABLE</span> collection_logs <span class="sql-kw">ALTER COLUMN</span> rank_tier <span class="sql-kw">TYPE</span> <span class="sql-type">TEXT</span>;</pre>
     </div>
   </div>
 

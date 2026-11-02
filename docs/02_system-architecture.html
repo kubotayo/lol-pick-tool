@@ -81,8 +81,9 @@
   <h1>システム構成図</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.4.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.5.0</div></div>
     <div class="meta-item"><div class="label">月額コスト見込み</div><div class="value">$0（全て無料枠）</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.5.0)</div><div class="value">Riot API・Data Dragon の使い方・名簿と収集対象ランク（TARGET_TIERS）・API のキャッシュ・API設計書（05）への参照</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.4.0)</div><div class="value">集計の上書きを加算に変更・apply_batch_result関数・同時実行防止の詳細化</div></div>
   </div>
 </div>
@@ -247,7 +248,7 @@
           <li>TypeScript で実装（collect.ts）</li>
           <li>Cron スケジュール実行：毎日 JST 02:00（UTC 17:00）</li>
           <li>最大6時間/ジョブ（timeout-minutes: 360）</li>
-          <li>環境変数：TARGET_REGIONS（デフォルト jp1、現在1リージョンのみ対応）/ TARGET_TIER（デフォルト DIAMOND）/ MAX_DURATION_MINUTES（デフォルト 330分）/ MAX_MATCHES（未指定時は上限なし）</li>
+          <li>環境変数：TARGET_REGIONS（デフォルト jp1、現在1リージョンのみ対応）/ TARGET_TIERS（試合を集める対象のランク。PLATINUM / EMERALD / DIAMOND / MASTER のカンマ区切り。未指定時は4ランクすべて。Actions の既定値は当面 PLATINUM）/ MAX_DURATION_MINUTES（デフォルト 330分）/ MAX_MATCHES（未指定時は上限なし）</li>
           <li>Riot APIキーは GitHub Secrets で管理</li>
           <li>レート制限ハンドラー内蔵（100 req/2分 → 1200ms sleep制御）</li>
           <li>同時実行防止：Concurrency group「collect-daily」で1ジョブずつ実行（cancel-in-progress: false）。同時実行により同じ試合を二重加算しようとして片方の書き込みが全体取り消しされることを防止</li>
@@ -257,9 +258,13 @@
         <h3>Riot Games 公式API</h3>
         <div class="service"><span class="service-badge">External</span> 無料（Development Key）</div>
         <ul>
-          <li>LEAGUE-V4: ランク帯別プレイヤー取得</li>
-          <li>MATCH-V5: 試合詳細取得</li>
-          <li>レート: 100 req / 2分</li>
+          <li>LEAGUE-V4 <code>/lol/league/v4/entries/RANKED_SOLO_5x5/{tier}/{division}?page={n}</code>: Platinum〜Diamond の段階ごとのプレイヤー一覧（1ページ約205人）。名簿の作成に使う</li>
+          <li>LEAGUE-V4 <code>/lol/league/v4/{challenger|grandmaster|master}leagues/by-queue/RANKED_SOLO_5x5</code>: Master 以上のリーグ全員（上の entries は Master 以上に対応していないため）</li>
+          <li>名簿（Platinum 以上の全プレイヤーのランク）の作成: JP で約12万人・約600リクエスト・約14分（2026-11-02 計測）</li>
+          <li>MATCH-V5 <code>/lol/match/v5/matches/by-puuid/{puuid}/ids?queue=420&amp;count=20</code>: プレイヤーの直近の試合ID（ソロランクのみ・20件）</li>
+          <li>MATCH-V5 <code>/lol/match/v5/matches/{matchId}</code>: 試合詳細（参加者のチャンピオン・teamPosition・勝敗・アイテム・gameVersion）</li>
+          <li>ホスト: LEAGUE-V4 はプラットフォーム（<code>jp1.api.riotgames.com</code>）、MATCH-V5 はルーティング（<code>asia.api.riotgames.com</code>）。対応: jp1・kr → asia／na1 → americas／euw1・eune1 → europe</li>
+          <li>レート: 20 req / 秒・100 req / 2分 → リクエスト間隔 1.2秒。429 は指数バックオフ（1s → 2s → 4s → 8s）</li>
           <li>APIキー有効期限: 24時間（手動更新）</li>
         </ul>
       </div>
@@ -271,6 +276,7 @@
           <li>チャンピオンアイコン画像</li>
           <li>アイテム情報</li>
           <li>パッチ更新時に同期</li>
+          <li>最新パッチ: <code>/api/versions.json</code> の先頭要素を使い、<code>14.21.1</code> → <code>14.21</code> の形（先頭2つ）にそろえる。試合詳細の gameVersion（例: <code>14.21.619.9898</code>）も同じ形にそろえて比べる</li>
         </ul>
       </div>
       <div class="comp-card db">
@@ -334,8 +340,8 @@
     <div class="flow-step">
       <div class="step-num">3</div>
       <div class="step-content">
-        <h4>シードプレイヤーを取得（LEAGUE-V4）</h4>
-        <p>LEAGUE-V4 で JP の Challenger → Grandmaster → Diamond I の順でプレイヤーを取得し、少数（約10〜20人）のシードPUUIDを確保。スノーボールの起点として使用する。</p>
+        <h4>名簿を作成（LEAGUE-V4）</h4>
+        <p>LEAGUE-V4 で JP の Platinum 以上の全プレイヤーのランク（puuid → ランク）を取得し、メモリ上に名簿を作る（約14分）。一部のページの取得に失敗しても続行し、その人たちは名簿にいない扱いになる（失敗が20回を超えたら中止）。名簿は試合の平均ランクの計算と、シードの選択に使う。</p>
       </div>
     </div>
     <div class="flow-step">
@@ -348,12 +354,13 @@
     <div class="flow-step">
       <div class="step-num">5</div>
       <div class="step-content">
-        <h4>スノーボールメインループ（BFS方式）</h4>
+        <h4>スノーボールメインループ</h4>
         <p>各イテレーション先頭で終了条件を判定。以下のうち先に達した方で終了：<br>
         ① 時間上限（MAX_DURATION_MINUTES、デフォルト330分）<br>
         ② 試合数上限（MAX_MATCHES、未指定なら上限なし）<br>
-        ③ キュー枯渇（PUUIDキューと試合IDキュー両方が空）<br>
-        ループ内の処理：PUUIDキューから試合IDを取得 → <code>processed_matches</code> と <code>queuedMatchIds</code> で重複除外してmatchQueueに追加 → matchQueueから試合詳細を取得 → パッチが不一致ならスキップ → メモリ上で即座に集計 → 参加者10人のPUUIDを未訪問ならキューに追加し、集計結果を蓄積。</p>
+        ③ キュー枯渇（収集対象のすべてのランクで、キューも名簿の未使用プレイヤーも尽きた）<br>
+        キューは収集対象のランク（TARGET_TIERS）ごとに持つ。空になったランクには、名簿からまだ使っていないプレイヤーを5人ずつ補充する。<br>
+        ループ内の処理：集めた試合数が最も少ないランクを選ぶ → そのランクの試合IDキューが空ならプレイヤーの直近20試合のIDを取得し、<code>processed_matches</code> と <code>queuedMatchIds</code> で重複除外して追加 → 試合詳細を取得 → パッチが不一致ならスキップし、そのプレイヤーの残りの試合も取りに行かない（試合IDは新しい順のため残りも古い。休止中のプレイヤーでリクエストを無駄にしないため） → 参加者10人の平均ランクからランク帯を決め、当てはまるランク帯すべてにメモリ上で集計 → 参加者のうち名簿にいて収集対象ランクの人を、未訪問ならそのランクのキューに追加。</p>
       </div>
     </div>
     <div class="flow-step">
@@ -363,7 +370,7 @@
         <p>ループ終了後、新規処理試合が0件以上の場合、集計結果をDB関数 <code>apply_batch_result()</code> で書き込み。この関数は以下を1トランザクション内で実行：<br>
         ① <code>processed_matches</code> から処理済み試合をチェック。1件でも含まれていたらエラーで全体を ROLLBACK（同時実行時の二重加算を防止）。<br>
         ② <code>processed_matches</code> に新規処理試合IDを INSERT。<br>
-        ③ champion_stats / counter_stats / item_build_stats の既存行に games_played / wins を加算し、win_rate を再計算。新規行は INSERT。<br>
+        ③ champion_stats / counter_stats / item_build_stats の既存行（行ごとに rank_tier を持つ）に games_played / wins を加算し、win_rate を再計算。新規行は INSERT。<br>
         実行権限：service_role キーのみ（GitHub Actions 環境から）。</p>
       </div>
     </div>
@@ -394,7 +401,7 @@
       <div class="step-num">3</div>
       <div class="step-content">
         <h4>Supabase から集計データ取得</h4>
-        <p>API Route が Supabase SDK でクエリ。集計済みデータを win_rate DESC でソートして返却。</p>
+        <p>API Route が Supabase SDK でクエリ。集計済みデータを win_rate DESC でソートして返却。成功した応答は Vercel の CDN に1時間キャッシュする。API の詳細な仕様は <code>05_api-design.html</code> を参照。</p>
       </div>
     </div>
     <div class="flow-step">
