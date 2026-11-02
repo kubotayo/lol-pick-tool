@@ -1,6 +1,6 @@
 # 現在の状況
 
-最終更新: 2026-11-01
+最終更新: 2026-11-02
 
 ## 進行中のタスク
 
@@ -9,15 +9,30 @@
   - #2 マイグレーション 002〜004（`db/migrations-002-004`。Supabase には適用済み）
   - #3 バッチ本体（`feat/batch-collect`。スクリプト・テスト・workflow）
   - #4 作業ログと CLAUDE.md のルール（`chore/work-log`）
+- **エージェント構成の見直し**（`chore/agent-restructure`、未コミット）: `reviewer` を追加し、専門エージェント4つを削除、CLAUDE.md を書き換え。コミット・PR 作成はユーザーの指示待ち
+- **追加の PR を作成**（2026-11-02、レビュー待ち）。土台の PR の上に積んでいる
+  - #5 エージェント構成の見直し（`chore/agent-restructure`、base: #4 の `chore/work-log`）
+  - #6 API設計書・ランク帯の仕様（`docs/api-design`、base: #1 の `docs/design-v1.4.0`）。worktree `../lol-pick-tool-docs`
+  - #7 ランク帯の実装（`feat/rank-tier`、base: #3 の `feat/batch-collect`）。worktree `../lol-pick-tool-code`。migration 005 は Supabase に適用済み
+- DB には手元で確認した35試合分（正しいデータ）が入っている
 - バッチのローカル確認は完了（50試合 + 10試合で、データの中身・加算・重複スキップ・実行ログを確認）
 
 ## 次にやること
 
+- [ ] #8〜#11 のマージ（#11 を先に。#8〜#10 は #5〜#7 の development への取り込み直し）
+- [ ] マージ後、作業用の worktree 2つを片付け、ローカルの development を origin に合わせる
+- [ ] master_plus・diamond_plus の試合数を、4ランクで集め始めてから確認する（少なすぎれば基準を調整。ユーザーは案A=様子見を選択）
 - [ ] 各 PR の CI 結果を確認し、レビュー・マージする
 - [ ] マージ後、ローカルの `development` を `origin/development` に合わせる（ローカルには未 push の `fcad790` が残っているが、#1 に含まれている）
 - [ ] GitHub Actions の Secrets（`RIOT_API_KEY` など）を確認し、定期実行を始める
 
 ## 未解決の課題 / 保留中の確認事項
+
+- 005 適用済みのため、PR #3 単体の古いコードでは DB に書き込めない（#3 は feat/rank-tier と一緒にマージする）
+- 積み上げ型の PR は、土台が先に development へマージされると取り込み漏れが起きる（#5〜#7 で発生）。今後は development 向けに作るか、土台のマージ後に向き先を変える
+- `/api/patches` がビルド時に静的生成される。Supabase 接続時に動的にする
+- 画面の lint エラー3件（もともとあったもの）
+- worktree 2つ（`../lol-pick-tool-docs`・`../lol-pick-tool-code`）はマージ後に `git worktree remove` で片付ける
 
 - CHALLENGER / GRANDMASTER のシード取得が 400 エラー（エンドポイントが apex ティア非対応）。今は DIAMOND I で足りているが、直すかは未定
 - 進み具合のログが100試合ごとにしか出ない。少ない試合数での確認時に状況が見えない
