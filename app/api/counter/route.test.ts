@@ -3,9 +3,12 @@ import { GET } from './route';
 import { NextRequest } from 'next/server';
 
 // テスト用リクエストを生成するヘルパー
-function makeRequest(params: Record<string, string>): NextRequest {
+// patch は必須のため既定で付ける。外したいときは patch: undefined を渡す
+function makeRequest(params: Record<string, string | undefined>): NextRequest {
   const url = new URL('http://localhost/api/counter');
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  Object.entries({ patch: '14.21', ...params }).forEach(([k, v]) => {
+    if (v !== undefined) url.searchParams.set(k, v);
+  });
   return new NextRequest(url.toString());
 }
 
@@ -78,5 +81,22 @@ describe('GET /api/counter', () => {
       const res = await GET(req);
       expect(res.status).toBe(400);
     });
+  });
+});
+
+describe('GET /api/counter（patch・キャッシュ）', () => {
+  it('patch が未指定の場合、400 を返す', async () => {
+    const res = await GET(makeRequest({ enemy_champion_id: '122', lane: 'TOP', patch: undefined }));
+    expect(res.status).toBe(400);
+  });
+
+  it('enemy_champion_id が小数の場合、400 を返す', async () => {
+    const res = await GET(makeRequest({ enemy_champion_id: '1.5', lane: 'TOP' }));
+    expect(res.status).toBe(400);
+  });
+
+  it('成功時は CDN に1時間キャッシュするヘッダーを付ける', async () => {
+    const res = await GET(makeRequest({ enemy_champion_id: '122', lane: 'TOP' }));
+    expect(res.headers.get('Cache-Control')).toBe('s-maxage=3600, stale-while-revalidate=86400');
   });
 });

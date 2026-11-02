@@ -1,5 +1,5 @@
 import { sleep, is429Error } from './utils';
-import type { MatchDto, LeagueEntryDto } from './types';
+import type { MatchDto, LeagueEntryDto, LeagueListDto } from './types';
 
 // Riot API のリージョン別エンドポイント定義
 // jp1 は asia ルーティングを使用する
@@ -58,6 +58,15 @@ export class RiotClient {
   ): Promise<LeagueEntryDto[]> {
     const url = `https://${this.platform}.api.riotgames.com/lol/league/v4/entries/${queue}/${tier}/${division}?page=${page}`;
     return this.fetchWithRetry<LeagueEntryDto[]>(() => this.get(url));
+  }
+
+  // LEAGUE-V4: Master 以上のリーグを丸ごと取得する（entries エンドポイントは Master 以上に対応していないため）
+  async getApexLeague(
+    queue: string,
+    tier: 'challenger' | 'grandmaster' | 'master'
+  ): Promise<LeagueListDto> {
+    const url = `https://${this.platform}.api.riotgames.com/lol/league/v4/${tier}leagues/by-queue/${queue}`;
+    return this.fetchWithRetry<LeagueListDto>(() => this.get(url));
   }
 
   // MATCH-V5: プレイヤーの直近試合IDリストを取得する
