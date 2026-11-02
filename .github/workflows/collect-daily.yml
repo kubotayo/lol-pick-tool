@@ -8,13 +8,18 @@ on:
   workflow_dispatch:
     inputs:
       regions:
-        description: '収集対象リージョン（カンマ区切り）'
+        description: '収集対象リージョン（現在は1つのみ対応。将来はカンマ区切りで複数指定予定）'
         required: false
-        default: 'jp1,kr'
+        default: 'jp1'
       tier:
         description: '収集対象ランク帯'
         required: false
         default: 'DIAMOND'
+
+# バッチを同時に1つしか動かさない（同時実行すると同じ試合を二重に加算しようとして、片方の書き込みが全部取り消されるため）
+concurrency:
+  group: collect-daily
+  cancel-in-progress: false
 
 jobs:
   collect:
@@ -40,5 +45,7 @@ jobs:
           RIOT_API_KEY:              ${{ secrets.RIOT_API_KEY }}
           SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          TARGET_REGIONS:            ${{ github.event.inputs.regions || 'jp1,kr' }}
+          TARGET_REGIONS:            ${{ github.event.inputs.regions || 'jp1' }}
           TARGET_TIER:               ${{ github.event.inputs.tier || 'DIAMOND' }}
+          # 時間上限（分）。timeout-minutes: 360 に達する前に止めて DB に書き込むため、30分の余裕を残す
+          MAX_DURATION_MINUTES:      '330'
