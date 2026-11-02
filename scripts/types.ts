@@ -48,8 +48,16 @@ export interface LeagueEntryDto {
   leagueId:   string;
   tier:       string;
   rank:       string;
+  leaguePoints: number;
   wins:       number;
   losses:     number;
+}
+
+// Master 以上のリーグ（/challengerleagues・/grandmasterleagues・/masterleagues）
+// tier はリーグ単位で1つ。entries の rank は常に "I"
+export interface LeagueListDto {
+  tier:    string;
+  entries: Array<{ puuid: string; rank: string; leaguePoints: number }>;
 }
 
 // -------------------------------------------------------

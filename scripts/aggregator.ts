@@ -37,12 +37,13 @@ export function createAggregationResult(): AggregationResult {
 /**
  * 1試合のデータをメモリ上の集計マップに加算する
  * 生データはDBに保存しない設計のため、この関数で全集計を完結させる
+ * rankTiers: この試合を加算するランク帯（例: ['all', 'platinum_plus']。rank.ts の rankTiersForPoints）
  */
 export function aggregateMatch(
   match: MatchDto,
   targetPatch: string,
   region: string,
-  rankTier: string,
+  rankTiers: readonly string[],
   result: AggregationResult
 ): void {
   const patch = match.info.gameVersion.split('.').slice(0, 2).join('.');
@@ -56,42 +57,34 @@ export function aggregateMatch(
     const lane = normalizePosition(p.teamPosition);
     if (!lane) continue; // レーン未割り当て（カスタムゲーム等）はスキップ
 
-    const base: Omit<AggregationKey, 'enemyChampionId' | 'itemIds'> = {
-      championId: p.championId,
-      lane,
-      patch,
-      region,
-      rankTier,
-    };
-
-    // champion_stats: チャンピオンの先出し勝率
-    increment(
-      result.championStats,
-      makeKey(base),
-      p.win
-    );
-
-    // counter_stats: 同レーンの相手チャンピオンとの対戦勝率
+    // 同レーンの相手チャンピオン（counter_stats 用）
     const enemy = participants.find(
       e => e.teamPosition === p.teamPosition && e.teamId !== p.teamId
     );
-    if (enemy) {
-      increment(
-        result.counterStats,
-        makeKey({ ...base, enemyChampionId: enemy.championId }),
-        p.win
-      );
-    }
-
-    // item_build_stats: アイテムビルド別勝率
     // item6はトリンケットのため除外（item0〜item5のみ集計）
     const itemIds = normalizeItemIds([p.item0, p.item1, p.item2, p.item3, p.item4, p.item5]);
-    if (itemIds) {
-      increment(
-        result.itemBuildStats,
-        makeKey({ ...base, itemIds }),
-        p.win
-      );
+
+    for (const rankTier of rankTiers) {
+      const base: Omit<AggregationKey, 'enemyChampionId' | 'itemIds'> = {
+        championId: p.championId,
+        lane,
+        patch,
+        region,
+        rankTier,
+      };
+
+      // champion_stats: チャンピオンの先出し勝率
+      increment(result.championStats, makeKey(base), p.win);
+
+      // counter_stats: 同レーンの相手チャンピオンとの対戦勝率
+      if (enemy) {
+        increment(result.counterStats, makeKey({ ...base, enemyChampionId: enemy.championId }), p.win);
+      }
+
+      // item_build_stats: アイテムビルド別勝率
+      if (itemIds) {
+        increment(result.itemBuildStats, makeKey({ ...base, itemIds }), p.win);
+      }
     }
   }
 }

@@ -1,19 +1,19 @@
 import { RiotClient } from './riotClient';
-import { createAggregationResult, aggregateMatch, AggregationResult } from './aggregator';
 import { applyBatchResult, getProcessedMatchIds } from './supabaseWriter';
 import { supabase } from './supabase';
 import { normalizePatch, parseTargetRegion, parsePositiveInt, getStopReason, StopReason } from './utils';
+import { collectMatches } from './collector';
+import { buildRoster, groupRosterByTier } from './roster';
+import { parseTargetTiers, type CollectTier } from './rank';
 
 // 時間上限の起点（プロセス開始時点）
 const PROCESS_STARTED_AT = Date.now();
 
-const RANK_TIER   = process.env.TARGET_TIER       ?? 'DIAMOND';
-
 // 時間上限のデフォルト: GitHub Actions の timeout-minutes: 360 から、書き込み用に30分の余裕を見る
 const DEFAULT_MAX_DURATION_MINUTES = 330;
 
-// スノーボールのシードに使うプレイヤー数（多すぎるとAPIレートを無駄遣いするため絞る）
-const SEED_PLAYERS  = 15;
+// ランクごとに一度に入れるシードの人数（キューが空になったら名簿から同じ人数を補充する）
+const SEED_PLAYERS_PER_TIER = 5;
 // 1プレイヤーあたりの試合取得数
 const MATCHES_PER_PLAYER = 20;
 
@@ -27,6 +27,7 @@ const STOP_REASON_LABEL: Record<StopReason | 'queue_empty', string> = {
 function loadConfig() {
   return {
     platform:      parseTargetRegion(process.env.TARGET_REGIONS),
+    targetTiers:   parseTargetTiers(process.env.TARGET_TIERS),
     maxDurationMs: (parsePositiveInt('MAX_DURATION_MINUTES', process.env.MAX_DURATION_MINUTES, DEFAULT_MAX_DURATION_MINUTES) ?? DEFAULT_MAX_DURATION_MINUTES) * 60_000,
     maxMatches:    parsePositiveInt('MAX_MATCHES', process.env.MAX_MATCHES, null),
   };
@@ -95,9 +96,10 @@ async function fetchLatestPatch(): Promise<string> {
 
 // スノーボール方式でメイン収集処理を実行する
 async function runCollection(): Promise<void> {
-  const { platform, maxDurationMs, maxMatches } = loadConfig();
+  const { platform, targetTiers, maxDurationMs, maxMatches } = loadConfig();
   const client = new RiotClient(platform);
   const region  = platform.replace(/[0-9]/g, '').toUpperCase(); // "jp1" → "JP"
+  const tiersLabel = targetTiers.join(',');
   console.log(`[collect] 終了条件: 時間上限 ${maxDurationMs / 60_000}分 / 試合数上限 ${maxMatches ?? 'なし'}`);
 
   // ① APIキー事前検証（失効していれば即座に失敗させる）
@@ -105,121 +107,53 @@ async function runCollection(): Promise<void> {
 
   // ② 最新パッチ取得 + champions 同期
   const patch = await fetchLatestPatch();
-  console.log(`[collect] 対象パッチ: ${patch} / リージョン: ${region} / ランク帯: ${RANK_TIER}`);
+  console.log(`[collect] 対象パッチ: ${patch} / リージョン: ${region} / 収集対象ランク: ${tiersLabel}`);
   await syncChampions(patch);
 
-  // ③ collection_logs にジョブ開始を記録
-  const logId = await startLog({ patch, region, rank_tier: RANK_TIER, status: 'running', started_at: new Date().toISOString() });
-
-  let totalMatches = 0;
+  // ③ collection_logs にジョブ開始を記録（rank_tier には収集対象ランクの設定を残す）
+  const logId = await startLog({ patch, region, rank_tier: tiersLabel, status: 'running', started_at: new Date().toISOString() });
 
   try {
-    // ④ シードプレイヤーを LEAGUE-V4 から取得（Challenger → Grandmaster → Diamond I の順）
-    console.log(`[collect] シードプレイヤーを取得中...`);
-    const seedPuuids: string[] = [];
-    const seedTiers = [
-      { tier: 'CHALLENGER',   division: 'I' },
-      { tier: 'GRANDMASTER',  division: 'I' },
-      { tier: RANK_TIER,      division: 'I' },
-    ];
-
-    for (const { tier, division } of seedTiers) {
-      if (seedPuuids.length >= SEED_PLAYERS) break;
-      try {
-        const entries = await client.getLeagueEntries('RANKED_SOLO_5x5', tier, division, 1);
-        for (const entry of entries) {
-          if (seedPuuids.length >= SEED_PLAYERS) break;
-          if (entry.puuid) seedPuuids.push(entry.puuid);
-        }
-      } catch (err) {
-        console.warn(`[collect] ${tier} シード取得失敗（スキップ）:`, err);
-      }
-    }
-
-    console.log(`[collect] シードプレイヤー ${seedPuuids.length}人 取得完了`);
+    // ④ 名簿（Platinum 以上の全プレイヤーのランク）を作る。試合の平均ランクの計算とシードに使う
+    console.log('[collect] 名簿を作成中...');
+    const roster = await buildRoster(client);
 
     // ⑤ 処理済み試合IDをDBから取得してスノーボールの重複除去に使用
     const processedIds = await getProcessedMatchIds(patch);
     console.log(`[collect] 既処理済み試合: ${processedIds.size}件`);
 
-    // スノーボール用のキュー（処理待ち試合ID）とPUUIDキュー
-    const matchQueue:  string[] = [];
-    const puuidQueue:  string[] = [...seedPuuids];
-    const seenPuuids   = new Set<string>(seedPuuids);
-    const aggregation: AggregationResult = createAggregationResult();
-    const newlyProcessed: string[] = [];
-    // 一度でもキューに入れた試合ID。同じ試合に出た複数プレイヤーから同じIDが返るため、二重集計を防ぐ
-    const queuedMatchIds = new Set<string>();
-
-    // ⑥ スノーボールメインループ（BFS方式）
+    // ⑥ スノーボールメインループ（scripts/collector.ts）
     // スノーボールではキューがほぼ空にならないため、時間上限・試合数上限のうち先に達した方で止める
-    let stopReason: StopReason | 'queue_empty' = 'queue_empty';
-    while (puuidQueue.length > 0 || matchQueue.length > 0) {
-      const reason = getStopReason({
+    const result = await collectMatches(client, {
+      patch,
+      region,
+      targetTiers,
+      roster,
+      seedPools:        groupRosterByTier(roster),
+      processedIds,
+      seedsPerTier:     SEED_PLAYERS_PER_TIER,
+      matchesPerPlayer: MATCHES_PER_PLAYER,
+      shouldStop: totalMatches => getStopReason({
         elapsedMs: Date.now() - PROCESS_STARTED_AT,
         maxDurationMs,
         totalMatches,
         maxMatches,
-      });
-      if (reason) {
-        stopReason = reason;
-        break;
-      }
-
-      // PUUIDキューから試合IDを取得してmatchQueueに追加
-      if (puuidQueue.length > 0) {
-        const puuid = puuidQueue.shift()!;
-        try {
-          const matchIds = await client.getMatchIds(puuid, MATCHES_PER_PLAYER);
-          for (const id of matchIds) {
-            if (!processedIds.has(id) && !queuedMatchIds.has(id)) {
-              queuedMatchIds.add(id);
-              matchQueue.push(id);
-            }
-          }
-        } catch (err) {
-          console.warn(`[collect] 試合ID取得失敗 PUUID=${puuid.slice(0, 8)}...:`, err);
+      }),
+      onProgress: (totalMatches, collected) => {
+        if (totalMatches % 100 === 0) {
+          console.log(`[collect] 処理済み試合: ${totalMatches}件 / 収集元ランク別: ${formatCollected(collected, targetTiers)}`);
         }
-      }
+      },
+    });
+    const totalMatches = result.matchIds.length;
 
-      // matchQueueから試合を処理
-      if (matchQueue.length > 0) {
-        const matchId = matchQueue.shift()!;
-        try {
-          const match = await client.getMatch(matchId);
-
-          // 対象パッチ以外はスキップ
-          const matchPatch = normalizePatch(match.info.gameVersion);
-          if (matchPatch !== patch) continue;
-
-          // 集計処理
-          aggregateMatch(match, patch, region, RANK_TIER, aggregation);
-          newlyProcessed.push(matchId);
-          totalMatches++;
-
-          // 参加者10人のPUUIDを未訪問であればキューに追加（スノーボール拡張）
-          for (const p of match.info.participants) {
-            if (!seenPuuids.has(p.puuid)) {
-              seenPuuids.add(p.puuid);
-              puuidQueue.push(p.puuid);
-            }
-          }
-
-          if (totalMatches % 100 === 0) {
-            console.log(`[collect] 処理済み試合: ${totalMatches}件 / キュー残: ${matchQueue.length}件`);
-          }
-        } catch (err) {
-          console.warn(`[collect] 試合詳細取得失敗 ${matchId}:`, err);
-        }
-      }
-    }
-
-    console.log(`[collect] ループ終了: ${STOP_REASON_LABEL[stopReason]}（処理済み ${totalMatches}試合 / 経過 ${Math.round((Date.now() - PROCESS_STARTED_AT) / 60_000)}分）`);
+    console.log(`[collect] ループ終了: ${STOP_REASON_LABEL[result.stopReason]}（処理済み ${totalMatches}試合 / 経過 ${Math.round((Date.now() - PROCESS_STARTED_AT) / 60_000)}分）`);
+    console.log(`[collect] 収集元ランク別: ${formatCollected(result.collected, targetTiers)} / ランク帯別の加算試合数: ${JSON.stringify(result.rankTierCounts)}`);
 
     // ⑦ 集計結果の加算と処理済み試合IDの記録を、1トランザクションで書き込む
-    if (newlyProcessed.length > 0) {
+    if (totalMatches > 0) {
       console.log(`[collect] DBに書き込み中... (${totalMatches}試合分)`);
-      const counts = await applyBatchResult(aggregation, newlyProcessed, patch, region, RANK_TIER);
+      const counts = await applyBatchResult(result.aggregation, result.matchIds, patch, region);
       console.log(`[collect] champion_stats: ${counts.championRows}件 / counter_stats: ${counts.counterRows}件 / item_build_stats: ${counts.itemRows}件 を加算`);
     } else {
       console.log('[collect] 新しく処理した試合がないため、書き込みをスキップ');
@@ -245,6 +179,10 @@ async function runCollection(): Promise<void> {
     });
     throw err;
   }
+}
+
+function formatCollected(collected: Record<CollectTier, number>, tiers: readonly CollectTier[]): string {
+  return tiers.map(t => `${t} ${collected[t]}`).join(' / ');
 }
 
 // エントリーポイント
