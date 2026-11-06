@@ -1,17 +1,18 @@
 # 現在の状況
 
-最終更新: 2026-11-07
+最終更新: 2026-11-07（DB の結合テスト後）
 
 ## 進行中のタスク
 
-- **バッチのテスト**（PR #12・#13 は development にマージ済み。06 の自動テストを実装した PR #14 を作成し、reviewer の指摘も反映済み。マージ待ち）
-  - テスト仕様書 `docs/06_batch-test-spec.html` v1.1.0。単体の自動テストは「追加」分も含めてすべて実装済み（全163件成功）。手動（IT・ST・OT）はまだ
+- **バッチのテスト**（PR #12・#13 は development にマージ済み。PR #14 もマージ済み。DB の結合テストの結果を記録した PR をブランチ `test/db-integration` から作成。マージ待ち）
+  - テスト仕様書 `docs/06_batch-test-spec.html` v1.2.0。単体の自動テストはすべて実装済み（全163件成功）。結合テスト DB-01〜11 はローカルの Supabase で全項目合格。ST・OT はまだ
+  - ローカルの Supabase は `supabase/config.toml` を作成済み。Docker Desktop を起動して `npx supabase start` で使える
 - DB（本番）には手元で確認した35試合分（正しいデータ）が入っている。migration 005 まで適用済み
 
 ## 次にやること
 
-- [ ] `test/batch-auto-tests` の PR を development へマージする
-- [ ] ローカルの Supabase を準備（`npx supabase init` → `start`）し、IT（DB-01〜12）と ST-01〜07 を実施
+- [ ] `test/db-integration` の PR を development へマージする
+- [ ] ST-01〜07 を実施（当日に Riot の Development Key を発行。DB-12 も ST で確認）
 - [ ] 06 の未決事項 Q-1〜Q-8 をユーザーと決める（特に Q-1: 開始ログ前のエラーが DB に残らない、Q-8: 手動実行に MAX_MATCHES の入力欄がない）
 - [ ] P1・P2 が合格したら development → main へマージし、OT（Secrets 確認・手動実行）→ 定期実行を始める。Riot の Development Key は24時間で失効するので運用方法も決める
 - [ ] API を Supabase に接続する（今はモックデータ。05 の「実装状況」参照）
