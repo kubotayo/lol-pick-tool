@@ -2,11 +2,13 @@
 // 実行: npm run it:db（ローカルの DB を初期状態に戻してから実行する）
 // - 接続先と鍵は `npx supabase status` から取る。ローカル以外の接続先なら実行しない（本番データを汚さないため）
 // - 初期状態（champions が空）でなければ実行しない。結果が前回の実行に左右されないようにするため
+// - 項目は上から順に、前の項目で入れたデータを使う（DB-02・04 は DB-01、DB-06 は DB-01 の試合 IT_01）。前の項目が NG なら後ろも NG になる
 import { execSync } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
 
 function localSupabaseEnv(): { url: string; serviceRoleKey: string; anonKey: string } {
-  const out = execSync('npx supabase status -o env', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  // stderr は捨てずに表示する（起動していないときの原因がわかるように）
+  const out = execSync('npx supabase status -o env', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] });
   const env = Object.fromEntries(
     out.split('\n')
       .map(line => line.match(/^([A-Z_]+)="?(.*?)"?$/))
@@ -130,7 +132,8 @@ async function main() {
     });
     const after = await snapshot();
     const { count } = await admin.from('processed_matches').select('*', { count: 'exact', head: true }).eq('match_id', 'IT_06_new');
-    record('DB-06', !!error && before === after && count === 0,
+    // 関数は重複を見つけると書き込む前に止まる。書き込んだ後の取り消しは DB-07 で確かめる
+    record('DB-06', !!error && /処理済みの試合/.test(error.message) && before === after && count === 0,
       `error=${error?.message ?? 'なし'} 変化なし=${before === after} IT_06_new=${count}件`);
   }
 
@@ -139,7 +142,8 @@ async function main() {
     const before = await snapshot();
     const { error } = await apply(admin, { champion: [champ(1, 'all', 1, 1), champ(9999, 'all', 1, 1)], matchIds: ['IT_07'] });
     const after = await snapshot();
-    record('DB-07', !!error && /foreign key|外部キー/i.test(error.message) && before === after,
+    // processed_matches と champion 1 の行を書いた後に外部キー違反（23503）になるので、書き込んだ後の取り消しを確かめられる
+    record('DB-07', error?.code === '23503' && before === after,
       `error=${error?.code} ${error?.message ?? 'なし'} 変化なし=${before === after}`);
   }
 
@@ -171,7 +175,7 @@ async function main() {
   {
     const { error } = await apply(anon, { champion: [champ(3, 'all', 1, 1)], matchIds: ['IT_09'] });
     const rows = await championRow(3, 'all');
-    record('DB-09', !!error && rows.length === 0, `error=${error?.code} ${error?.message ?? 'なし'} 書き込まれた行=${rows.length}`);
+    record('DB-09', error?.code === '42501' && rows.length === 0, `error=${error?.code} ${error?.message ?? 'なし'} 書き込まれた行=${rows.length}`);
   }
 
   // DB-10
@@ -185,8 +189,13 @@ async function main() {
       ['item_build_stats', { champion_id: 1 }, { champion_id: 3, lane: 'MID', patch: PATCH, region: REGION, rank_tier: 'all', item_ids: '1', games_played: 1, wins: 1 }],
     ];
     // DB-06 は取り消されたので counter・item は空。SELECT の確認用に1行ずつ入れておく
-    await admin.from('counter_stats').insert({ champion_id: 1, enemy_champion_id: 2, lane: 'MID', patch: PATCH, region: REGION, rank_tier: 'all', games_played: 1, wins: 1, win_rate: 1 });
-    await admin.from('item_build_stats').insert({ champion_id: 1, lane: 'MID', patch: PATCH, region: REGION, rank_tier: 'all', item_ids: '3031', games_played: 1, wins: 1, win_rate: 1 });
+    for (const [table, row] of [
+      ['counter_stats',    { champion_id: 1, enemy_champion_id: 2, lane: 'MID', patch: PATCH, region: REGION, rank_tier: 'all', games_played: 1, wins: 1, win_rate: 1 }],
+      ['item_build_stats', { champion_id: 1, lane: 'MID', patch: PATCH, region: REGION, rank_tier: 'all', item_ids: '3031', games_played: 1, wins: 1, win_rate: 1 }],
+    ] as const) {
+      const { error } = await admin.from(table).insert(row);
+      if (error) throw error;
+    }
 
     for (const [table, match, insertRow] of tables) {
       const before = await snapshot() + JSON.stringify((await admin.from('champions').select('*').order('champion_id')).data);
@@ -205,7 +214,8 @@ async function main() {
 
   // DB-11
   {
-    await admin.from('collection_logs').insert({ patch: PATCH, region: REGION, rank_tier: 'PLATINUM', status: 'completed', started_at: new Date().toISOString() });
+    const { error: logError } = await admin.from('collection_logs').insert({ patch: PATCH, region: REGION, rank_tier: 'PLATINUM', status: 'completed', started_at: new Date().toISOString() });
+    if (logError) throw logError;
     const detail: string[] = [];
     let ok = true;
     for (const table of ['collection_logs', 'processed_matches']) {
