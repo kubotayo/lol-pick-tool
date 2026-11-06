@@ -111,6 +111,22 @@ describe('collectMatches', () => {
     expect(source.getMatch.mock.calls.map(c => c[0])).toEqual(['new1', 'old1']);
   });
 
+  it('リメイクの試合は集計せず、参加者も次のシードにしないが、同じプレイヤーの残りの試合は続ける', async () => {
+    const roster = makeRoster([['p1', 'PLATINUM', 1700], ['p2', 'PLATINUM', 1700]]);
+    const remake = makeMatch(['p1', 'p2', ...others('r1').slice(0, 8)]);
+    remake.info.participants.forEach(p => { p.gameEndedInEarlySurrender = true; });
+    const source = makeSource(
+      { p1: ['r1', 'm2'] },
+      { r1: remake, m2: makeMatch(['p1', ...others('m2')]) },
+    );
+
+    const result = await collectMatches(source, options({ roster, seedPools: { PLATINUM: ['p1'], EMERALD: [], DIAMOND: [], MASTER: [] } }));
+
+    expect(result.matchIds).toEqual(['m2']);
+    expect(result.collected.PLATINUM).toBe(1);
+    expect(source.getMatchIds).not.toHaveBeenCalledWith('p2', expect.anything());
+  });
+
   it('複数のランクを対象にしたとき、ランクごとの試合数をそろえる', async () => {
     // 各ランクに十分な数のプレイヤーと試合を用意する
     const roster: Array<[string, CollectTier, number]> = [];
