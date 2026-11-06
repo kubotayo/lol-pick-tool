@@ -1,4 +1,4 @@
-import { sleep, is429Error } from './utils';
+import { sleep, is429Error, HttpError } from './utils';
 import type { MatchDto, LeagueEntryDto, LeagueListDto } from './types';
 
 // Riot API のリージョン別エンドポイント定義
@@ -42,7 +42,7 @@ export class RiotClient {
       );
       console.log('[RiotClient] APIキー検証OK');
     } catch (err) {
-      if (err instanceof Error && err.message.includes('403')) {
+      if (err instanceof HttpError && err.status === 403) {
         throw new Error('Riot APIキーが無効または失効しています。GitHub Secrets を更新してください。');
       }
       throw err;
@@ -90,7 +90,7 @@ export class RiotClient {
     });
 
     if (!res.ok) {
-      throw new Error(`Riot API エラー: ${res.status} ${res.statusText} [${url}]`);
+      throw new HttpError(`Riot API エラー: ${res.status} ${res.statusText} [${url}]`, res.status);
     }
 
     return res.json() as Promise<T>;

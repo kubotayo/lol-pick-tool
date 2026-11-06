@@ -7,6 +7,7 @@ import {
   parseTargetRegion,
   parsePositiveInt,
   getStopReason,
+  HttpError,
 } from './utils';
 
 // -------------------------------------------------------
@@ -108,16 +109,17 @@ describe('normalizeItemIds', () => {
 // Riot API のレート制限エラー判定
 // -------------------------------------------------------
 describe('is429Error', () => {
-  it('エラーメッセージに429が含まれる場合はtrueを返す', () => {
-    expect(is429Error(new Error('Request failed with status 429'))).toBe(true);
+  it('ステータスコードが429ならtrueを返す', () => {
+    expect(is429Error(new HttpError('Too Many Requests', 429))).toBe(true);
   });
 
-  it('エラーメッセージにRate limitが含まれる場合はtrueを返す', () => {
-    expect(is429Error(new Error('Rate limit exceeded'))).toBe(true);
+  it('429以外のステータスコードはfalseを返す', () => {
+    expect(is429Error(new HttpError('Internal Server Error', 500))).toBe(false);
   });
 
-  it('429以外のエラーはfalseを返す', () => {
-    expect(is429Error(new Error('Request failed with status 500'))).toBe(false);
+  it('メッセージ（URL）に429が含まれていても、ステータスコードが429でなければfalseを返す', () => {
+    expect(is429Error(new HttpError('404 Not Found [https://asia.api.riotgames.com/lol/match/v5/matches/JP1_4290000]', 404))).toBe(false);
+    expect(is429Error(new Error('Request failed with status 429'))).toBe(false);
   });
 
   it('Errorインスタンス以外はfalseを返す', () => {
@@ -157,6 +159,11 @@ describe('parseTargetRegion', () => {
 describe('parsePositiveInt', () => {
   it('数値文字列を数値にする', () => {
     expect(parsePositiveInt('MAX_MATCHES', '50', null)).toBe(50);
+  });
+
+  // ENV-09
+  it('最小の正の整数 1 は受け付ける', () => {
+    expect(parsePositiveInt('MAX_DURATION_MINUTES', '1', 330)).toBe(1);
   });
 
   it('未指定・空文字ならデフォルト値を返す', () => {

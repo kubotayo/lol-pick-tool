@@ -1,17 +1,16 @@
 # 現在の状況
 
-最終更新: 2026-11-06
+最終更新: 2026-11-07
 
 ## 進行中のタスク
 
-- **バッチのテスト**（PR #12 は development にマージ済み。レビューの指摘を直す PR をブランチ `docs/review-fixes-pr12` から作成済み。マージ待ち）
-  - テスト仕様書 `docs/06_batch-test-spec.html` v1.0.1。まだ実施していない
+- **バッチのテスト**（PR #12・#13 は development にマージ済み。06 の自動テストを実装した PR #14 を作成し、reviewer の指摘も反映済み。マージ待ち）
+  - テスト仕様書 `docs/06_batch-test-spec.html` v1.1.0。単体の自動テストは「追加」分も含めてすべて実装済み（全163件成功）。手動（IT・ST・OT）はまだ
 - DB（本番）には手元で確認した35試合分（正しいデータ）が入っている。migration 005 まで適用済み
 
 ## 次にやること
 
-- [ ] `docs/review-fixes-pr12` の PR を development へマージする
-- [ ] 06 の「追加」の自動テストを書く（境界値・429 のリトライ・ページングなど）
+- [ ] `test/batch-auto-tests` の PR を development へマージする
 - [ ] ローカルの Supabase を準備（`npx supabase init` → `start`）し、IT（DB-01〜12）と ST-01〜07 を実施
 - [ ] 06 の未決事項 Q-1〜Q-8 をユーザーと決める（特に Q-1: 開始ログ前のエラーが DB に残らない、Q-8: 手動実行に MAX_MATCHES の入力欄がない）
 - [ ] P1・P2 が合格したら development → main へマージし、OT（Secrets 確認・手動実行）→ 定期実行を始める。Riot の Development Key は24時間で失効するので運用方法も決める

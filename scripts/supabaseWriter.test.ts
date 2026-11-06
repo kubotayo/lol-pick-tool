@@ -1,9 +1,32 @@
 import { describe, it, expect, vi } from 'vitest';
 
 // supabase クライアントは環境変数がないと初期化時にエラーになるため、モックに置き換える
-vi.mock('./supabase', () => ({ supabase: {} }));
+// processed_matches の取得だけは、偽のテーブル（rows）から PostgREST と同じく1回最大1000行を返す
+const db = vi.hoisted(() => ({
+  rows:        [] as Array<{ match_id: string; patch: string }>,
+  rangeCalls:  0,
+  eqColumns:   [] as string[],
+}));
+vi.mock('./supabase', () => ({
+  supabase: {
+    from: () => {
+      let patch: string | undefined;
+      const query = {
+        select: () => query,
+        eq:     (column: string, value: string) => { db.eqColumns.push(column); patch = value; return query; },
+        order:  () => query,
+        range:  async (from: number, to: number) => {
+          db.rangeCalls++;
+          const matched = db.rows.filter(r => r.patch === patch);
+          return { data: matched.slice(from, Math.min(to + 1, from + 1000)).map(r => ({ match_id: r.match_id })), error: null };
+        },
+      };
+      return query;
+    },
+  },
+}));
 
-import { buildChampionRows, buildCounterRows, buildItemRows } from './supabaseWriter';
+import { buildChampionRows, buildCounterRows, buildItemRows, getProcessedMatchIds } from './supabaseWriter';
 import { createAggregationResult, aggregateMatch } from './aggregator';
 import type { MatchDto } from './types';
 
@@ -62,5 +85,26 @@ describe('aggregateMatch（複数のランク帯への加算）', () => {
     const agg = createAggregationResult();
     aggregateMatch(makeMatch('16.20.1.1'), '16.21', 'JP', ['all'], agg);
     expect(agg.championStats.size).toBe(0);
+  });
+});
+
+// DB-08
+describe('getProcessedMatchIds', () => {
+  it.each([
+    [999, 1], [1000, 2], [1001, 2], [2000, 3],
+  ])('対象パッチの行が %i 件なら全件をページ単位で取り、別パッチの行は含まない', async (count, pages) => {
+    db.rows = [
+      ...Array.from({ length: count }, (_, i) => ({ match_id: `JP1_${i}`, patch: '16.21' })),
+      ...Array.from({ length: 5 },     (_, i) => ({ match_id: `JP1_old${i}`, patch: '16.20' })),
+    ];
+    db.rangeCalls = 0;
+    db.eqColumns = [];
+
+    const ids = await getProcessedMatchIds('16.21');
+
+    expect(ids.size).toBe(count);
+    expect([...ids].some(id => id.startsWith('JP1_old'))).toBe(false);
+    expect(db.rangeCalls).toBe(pages);
+    expect(db.eqColumns.every(c => c === 'patch')).toBe(true);
   });
 });
