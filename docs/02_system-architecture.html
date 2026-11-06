@@ -81,9 +81,10 @@
   <h1>システム構成図</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.5.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.6.0</div></div>
     <div class="meta-item"><div class="label">月額コスト見込み</div><div class="value">$0（全て無料枠）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.5.0)</div><div class="value">Riot API・Data Dragon の使い方・名簿と収集対象ランク（TARGET_TIERS）・API のキャッシュ・API設計書（05）への参照</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.6.0)</div><div class="value">2026-11-04 リメイクの試合のスキップ・書き込み条件と失敗時の completed_at の記載を実装に合わせて明確化</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.4.0)</div><div class="value">集計の上書きを加算に変更・apply_batch_result関数・同時実行防止の詳細化</div></div>
   </div>
 </div>
@@ -360,14 +361,14 @@
         ② 試合数上限（MAX_MATCHES、未指定なら上限なし）<br>
         ③ キュー枯渇（収集対象のすべてのランクで、キューも名簿の未使用プレイヤーも尽きた）<br>
         キューは収集対象のランク（TARGET_TIERS）ごとに持つ。空になったランクには、名簿からまだ使っていないプレイヤーを5人ずつ補充する。<br>
-        ループ内の処理：集めた試合数が最も少ないランクを選ぶ → そのランクの試合IDキューが空ならプレイヤーの直近20試合のIDを取得し、<code>processed_matches</code> と <code>queuedMatchIds</code> で重複除外して追加 → 試合詳細を取得 → パッチが不一致ならスキップし、そのプレイヤーの残りの試合も取りに行かない（試合IDは新しい順のため残りも古い。休止中のプレイヤーでリクエストを無駄にしないため） → 参加者10人の平均ランクからランク帯を決め、当てはまるランク帯すべてにメモリ上で集計 → 参加者のうち名簿にいて収集対象ランクの人を、未訪問ならそのランクのキューに追加。</p>
+        ループ内の処理：集めた試合数が最も少ないランクを選ぶ → そのランクの試合IDキューが空ならプレイヤーの直近20試合のIDを取得し、<code>processed_matches</code> と <code>queuedMatchIds</code> で重複除外して追加 → 試合詳細を取得 → パッチが不一致ならスキップし、そのプレイヤーの残りの試合も取りに行かない（試合IDは新しい順のため残りも古い。休止中のプレイヤーでリクエストを無駄にしないため） → リメイクの試合（参加者の <code>gameEndedInEarlySurrender</code> が true）はスキップする。集計せず、processed_matches にも記録せず、参加者を次のシードにも使わない。同じプレイヤーの残りの試合は続ける（v1.6.0 で追加。FR-21） → 参加者10人の平均ランクからランク帯を決め、当てはまるランク帯すべてにメモリ上で集計 → 参加者のうち名簿にいて収集対象ランクの人を、未訪問ならそのランクのキューに追加。</p>
       </div>
     </div>
     <div class="flow-step">
       <div class="step-num">6</div>
       <div class="step-content">
         <h4>Supabaseへ加算書き込み（DB関数apply_batch_result）</h4>
-        <p>ループ終了後、新規処理試合が0件以上の場合、集計結果をDB関数 <code>apply_batch_result()</code> で書き込み。この関数は以下を1トランザクション内で実行：<br>
+        <p>ループ終了後、新規処理試合が1件以上の場合（0件なら書き込みをスキップ。v1.6.0 で「0件以上」の誤記を修正）、集計結果をDB関数 <code>apply_batch_result()</code> で書き込み。この関数は以下を1トランザクション内で実行：<br>
         ① <code>processed_matches</code> から処理済み試合をチェック。1件でも含まれていたらエラーで全体を ROLLBACK（同時実行時の二重加算を防止）。<br>
         ② <code>processed_matches</code> に新規処理試合IDを INSERT。<br>
         ③ champion_stats / counter_stats / item_build_stats の既存行（行ごとに rank_tier を持つ）に games_played / wins を加算し、win_rate を再計算。新規行は INSERT。<br>
@@ -378,7 +379,7 @@
       <div class="step-num">7</div>
       <div class="step-content">
         <h4>collection_logs をジョブ完了で UPDATE</h4>
-        <p>ループ終了時・エラー発生時に、ステップ2で保持した id で UPDATE。<code>status</code> を 'completed' または 'failed' に、<code>matches_collected</code> を試合数に、<code>completed_at</code> を現在時刻に、エラー時は <code>error_message</code> を記録。</p>
+        <p>ループ終了時・エラー発生時に、ステップ2で保持した id で UPDATE。<code>status</code> を 'completed' または 'failed' に、<code>matches_collected</code> を試合数に、<code>completed_at</code> を現在時刻に（失敗時も記録し、失敗までの所要時間がわかるようにする）、エラー時は <code>error_message</code> を記録。</p>
       </div>
     </div>
 

@@ -97,10 +97,11 @@
   <h1>DB設計図</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.5.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.6.0</div></div>
     <div class="meta-item"><div class="label">DB</div><div class="value">PostgreSQL (Supabase)</div></div>
     <div class="meta-item"><div class="label">テーブル数</div><div class="value">6テーブル + 関数1個</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.5.0)</div><div class="value">Riot API の値からの変換ルール（lane・region・patch）・平均ランクによる rank_tier 判定・apply_batch_result の rank_tier を行ごとに変更・collection_logs.rank_tier を TEXT に</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.6.0)</div><div class="value">2026-11-04 collection_logs.completed_at を失敗時も記録する仕様に変更・リメイクの試合は集計しないことを追記</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.4.0)</div><div class="value">apply_batch_result() 関数で集計値の加算・1トランザクション書き込みを実装</div></div>
     <div class="meta-item"><div class="label">RLS</div><div class="value">有効（表示用4テーブルのみ anon SELECT 許可）</div></div>
   </div>
@@ -373,7 +374,7 @@
             <tr><td class="col-name">status</td><td class="col-type">VARCHAR(20)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>running / completed / failed</td></tr>
             <tr><td class="col-name">matches_collected</td><td class="col-type">INTEGER</td><td></td><td>収集済み試合数（完了時に記録）</td></tr>
             <tr><td class="col-name">started_at</td><td class="col-type">TIMESTAMPTZ</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>ジョブ開始時刻</td></tr>
-            <tr><td class="col-name">completed_at</td><td class="col-type">TIMESTAMPTZ</td><td></td><td>ジョブ完了時刻（失敗時はNULL）</td></tr>
+            <tr><td class="col-name">completed_at</td><td class="col-type">TIMESTAMPTZ</td><td></td><td>ジョブ終了時刻。完了・失敗のどちらでも記録する（失敗までの所要時間を見るため）。実行中は NULL。<br>（v1.6.0 で変更。旧仕様は「失敗時は NULL」だったが、実装は失敗時も記録しており、所要時間がわかる方が調査に役立つため実装に合わせた）</td></tr>
             <tr><td class="col-name">error_message</td><td class="col-type">TEXT</td><td></td><td>エラー内容（失敗時のみ記録）</td></tr>
           </tbody>
         </table>
@@ -468,6 +469,7 @@
       <tr><td>lane</td><td>試合詳細の <code>teamPosition</code> を変換する: TOP → <code>TOP</code>／JUNGLE → <code>JG</code>／MIDDLE → <code>MID</code>／BOTTOM → <code>BOT</code>／UTILITY → <code>SUP</code>。それ以外（空文字など）の参加者は集計しない</td></tr>
       <tr><td>region</td><td>プラットフォーム名から数字を除いて大文字にする（例: <code>jp1</code> → <code>JP</code>、<code>euw1</code> → <code>EUW</code>）</td></tr>
       <tr><td>patch</td><td>gameVersion の先頭2つ（例: <code>14.21.619.9898</code> → <code>14.21</code>）</td></tr>
+      <tr><td>（対象外の試合）</td><td>リメイク（参加者の <code>gameEndedInEarlySurrender</code> が true）の試合はどの集計テーブルにも加算せず、processed_matches にも記録しない（v1.6.0 で追加。01 FR-21）</td></tr>
       <tr><td>rank_tier</td><td><code>_plus</code> が付く値はそのランク以上をすべて含む（例: <code>diamond_plus</code> = Diamond・Master・Grandmaster・Challenger）。<code>all</code> は収集したすべての試合。<br>
       試合のランク帯は<b>参加者10人の平均ランク</b>で決め、当てはまるランク帯すべてに加算する（例: 平均 Diamond の試合 → <code>all</code>・<code>platinum_plus</code>・<code>diamond_plus</code> の3行に加算）。<br>
       平均の出し方: ランクをポイントにして平均する。Iron IV 0LP を 0 とし、1段階 100・1ランク 400（Platinum IV = 1600、Emerald IV = 2000、Diamond IV = 2400、Master = 2800）。段階内の LP は 99 まで足す。Master 以上は 2800 + LP（LP は 400 で打ち切る。1人の高い LP が平均を大きく動かさないため）。名簿（Platinum 以上）にいない人は Gold II 50LP 相当（1450）として平均に入れる（外すと実際より高いランクの試合として数えられるため）。<br>
