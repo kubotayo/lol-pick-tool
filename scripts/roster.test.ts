@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { buildRoster, groupRosterByTier } from './roster';
+import { parseTargetTiers } from './rank';
+import { collectMatches } from './collector';
 import type { RiotClient } from './riotClient';
 
 // 偽の Riot API: 各段階は1ページ目だけにプレイヤーがいて、2ページ目は空
@@ -41,6 +43,30 @@ describe('buildRoster', () => {
     await expect(buildRoster(makeClient({ failPages: 21 }))).rejects.toThrow('20回');
   });
 
+  // RST-03
+  it('取得の失敗がちょうど20回なら中止せずに続ける', async () => {
+    const roster = await buildRoster(makeClient({ failPages: 20 }));
+    expect(roster.has('PLATINUM-IV')).toBe(true);
+  });
+
+  // RST-06
+  it('Diamond I 50LP・Master 120LP のプレイヤーは、DIAMOND 2750・MASTER 2920 で名簿に入る', async () => {
+    const client = makeClient();
+    vi.mocked(client.getApexLeague).mockImplementation(async (_queue, tier) => ({
+      tier: tier.toUpperCase(),
+      entries: tier === 'master' ? [{ puuid: 'ms', rank: 'I', leaguePoints: 120 }] : [],
+    }) as never);
+    vi.mocked(client.getLeagueEntries).mockImplementation(async (_queue, tier, division, page) =>
+      (tier === 'DIAMOND' && division === 'I' && page === 1
+        ? [{ puuid: 'dia', tier, rank: division, leaguePoints: 50 }]
+        : []) as never);
+
+    const roster = await buildRoster(client);
+
+    expect(roster.get('dia')).toEqual({ tier: 'DIAMOND', points: 2750 });
+    expect(roster.get('ms')).toEqual({ tier: 'MASTER', points: 2920 });
+  });
+
   it('puuid がないプレイヤーは名簿に入れない', async () => {
     const client = makeClient();
     vi.mocked(client.getApexLeague).mockResolvedValueOnce({ tier: 'CHALLENGER', entries: [{ puuid: '', rank: 'I', leaguePoints: 0 }] });
@@ -54,5 +80,26 @@ describe('groupRosterByTier', () => {
     const groups = groupRosterByTier(await buildRoster(makeClient()));
     expect(groups.MASTER).toEqual(['chal']);
     expect(groups.PLATINUM.sort()).toEqual(['PLATINUM-I', 'PLATINUM-II', 'PLATINUM-III', 'PLATINUM-IV']);
+  });
+
+  // ENV-16
+  it('TARGET_TIERS=MASTER なら、名簿の Master・Grandmaster・Challenger のプレイヤーがシードになる', async () => {
+    const client = makeClient();
+    vi.mocked(client.getApexLeague).mockImplementation(async (_queue, tier) => ({
+      tier: tier.toUpperCase(),
+      entries: [{ puuid: tier, rank: 'I', leaguePoints: 100 }],
+    }) as never);
+    const roster = await buildRoster(client);
+    const targetTiers = parseTargetTiers('MASTER');
+    const source = { getMatchIds: vi.fn<(puuid: string) => Promise<string[]>>(async () => []), getMatch: vi.fn() };
+
+    await collectMatches(source, {
+      patch: '16.21', region: 'JP', targetTiers, roster,
+      seedPools: groupRosterByTier(roster), processedIds: new Set(),
+      seedsPerTier: 5, matchesPerPlayer: 20, shouldStop: () => null,
+    });
+
+    expect(targetTiers).toEqual(['MASTER']);
+    expect(source.getMatchIds.mock.calls.map(c => c[0]).sort()).toEqual(['challenger', 'grandmaster', 'master']);
   });
 });

@@ -200,6 +200,61 @@ describe('collectMatches', () => {
     expect(result.matchIds).toEqual(['m2']);
   });
 
+  // LOOP-05
+  it('対象パッチより新しいパッチの試合も集計しない', async () => {
+    const roster = makeRoster([['p1', 'PLATINUM', 1700]]);
+    const source = makeSource({ p1: ['newer'] }, { newer: makeMatch(['p1', ...others('nw')], '16.22.1.1') });
+
+    const result = await collectMatches(source, options({ roster, seedPools: { PLATINUM: ['p1'], EMERALD: [], DIAMOND: [], MASTER: [] } }));
+
+    expect(result.matchIds).toEqual([]);
+    expect(result.aggregation.championStats.size).toBe(0);
+  });
+
+  // LOOP-08
+  it('キューが空のランクには名簿から5人ずつ補充し、残りが5人未満なら残り全員を入れる', async () => {
+    // シードは末尾から使うので、s7〜s3 の5人が先に入り、s2・s1 は次の補充で入る
+    const seeds = ['s1', 's2', 's3', 's4', 's5', 's6', 's7'];
+    const roster = makeRoster([...seeds, 'snow'].map(p => [p, 'PLATINUM', 1700] as [string, CollectTier, number]));
+    // s7 の試合に名簿の snow が出ている。snow はスノーボールで、最初の5人の後ろに並ぶ
+    const source = makeSource({ s7: ['m1'] }, { m1: makeMatch(['s7', 'snow', ...others('m1').slice(0, 8)]) });
+
+    await collectMatches(source, options({ roster, seedPools: { PLATINUM: seeds, EMERALD: [], DIAMOND: [], MASTER: [] } }));
+
+    // 補充が1人ずつなら snow が s6 より前に、7人まとめてなら s1 より後ろに来る
+    expect(source.getMatchIds.mock.calls.map(c => c[0])).toEqual(['s7', 's6', 's5', 's4', 's3', 'snow', 's2', 's1']);
+  });
+
+  // LOOP-10
+  it('一度キューに入れたプレイヤーが別の試合にも出ていたら、二度目はキューに入れない', async () => {
+    const roster = makeRoster([['p1', 'PLATINUM', 1700], ['p2', 'PLATINUM', 1700]]);
+    const source = makeSource(
+      { p1: ['m1', 'm2'] },
+      {
+        m1: makeMatch(['p1', 'p2', ...others('m1').slice(0, 8)]),
+        m2: makeMatch(['p1', 'p2', ...others('m2').slice(0, 8)]),
+      },
+    );
+
+    await collectMatches(source, options({ roster, seedPools: { PLATINUM: ['p1'], EMERALD: [], DIAMOND: [], MASTER: [] } }));
+
+    expect(source.getMatchIds.mock.calls.map(c => c[0])).toEqual(['p1', 'p2']);
+  });
+
+  // LOOP-11（06 の未決事項 Q-4。今の実装の動きを記録する）
+  it('試合ID一覧の取得に失敗したプレイヤーは飛ばして、次のプレイヤーに進む', async () => {
+    const roster = makeRoster([['p1', 'PLATINUM', 1700], ['p2', 'PLATINUM', 1700]]);
+    const source = makeSource({ p2: ['m2'] }, { m2: makeMatch(['p2', ...others('m2')]) });
+    source.getMatchIds.mockRejectedValueOnce(new Error('500'));
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // 末尾から使うので p1 が先
+    const result = await collectMatches(source, options({ roster, seedPools: { PLATINUM: ['p2', 'p1'], EMERALD: [], DIAMOND: [], MASTER: [] } }));
+
+    expect(source.getMatchIds.mock.calls.map(c => c[0])).toEqual(['p1', 'p2']);
+    expect(result.matchIds).toEqual(['m2']);
+  });
+
   it('名簿のプレイヤーを使い切ったら queue_empty で終わる', async () => {
     const result = await collectMatches(makeSource({}, {}), options({}));
     expect(result.stopReason).toBe('queue_empty');
