@@ -67,9 +67,10 @@
   <h1>バッチテスト仕様書</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-11-04</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.0.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.0.1</div></div>
     <div class="meta-item"><div class="label">対象</div><div class="value">データ収集バッチ（scripts/・DB関数 apply_batch_result・collect-daily.yml）</div></div>
     <div class="meta-item"><div class="label">根拠とする設計書</div><div class="value">01 v1.6.0 / 02 v1.6.0 / 04 v1.6.0</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.0.1)</div><div class="value">2026-11-06 レビューの指摘を反映。境界値の自動テストの有無（ENV-09・RANK-17〜19）、SQL-1 の説明、SQL-4 の LEFT JOIN の SQL、ST-06 の手順</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.0.0)</div><div class="value">新規作成。定期実行を始める前のバッチのテスト</div></div>
   </div>
 </div>
@@ -191,7 +192,7 @@ npx supabase db reset</pre>
       <tr><td class="id">ENV-06</td><td><span class="badge p2">P2</span></td><td>同値</td><td><code>platinum, diamond</code></td><td>PLATINUM・DIAMOND が対象（大文字小文字・空白を問わない）</td><td>01 FR-20</td><td><span class="badge auto">既存</span> rank › 大文字小文字・空白・順番・重複を整える</td><td></td></tr>
       <tr><td class="id">ENV-07</td><td><span class="badge p2">P2</span></td><td>同値</td><td><code>GOLD</code>／<code>PLATINUM,GOLD</code></td><td>エラー終了（許可値以外）</td><td>01 FR-20 の許可値</td><td><span class="badge auto">既存</span> rank › 不正な値はエラー</td><td></td></tr>
       <tr><td class="id">ENV-08</td><td><span class="badge p2">P2</span></td><td>同値</td><td><code>MAX_DURATION_MINUTES</code> 未指定</td><td>330分</td><td>01 FR-20</td><td><span class="badge auto">既存</span> utils › 未指定・空文字ならデフォルト値を返す</td><td></td></tr>
-      <tr><td class="id">ENV-09</td><td><span class="badge p2">P2</span></td><td>境界値</td><td><code>0</code>／<code>1</code></td><td>0 はエラー終了、1 は 1分で受け付ける</td><td>01 FR-20（正の値）</td><td><span class="badge auto">既存</span> utils › 0・負数・小数・数値以外はエラーにする</td><td></td></tr>
+      <tr><td class="id">ENV-09</td><td><span class="badge p2">P2</span></td><td>境界値</td><td><code>0</code>／<code>1</code></td><td>0 はエラー終了、1 は 1分で受け付ける</td><td>01 FR-20（正の値）</td><td><span class="badge auto">既存</span> utils › 0・負数・小数・数値以外はエラーにする（0）＋ <span class="badge add">追加</span>（1）</td><td></td></tr>
       <tr><td class="id">ENV-10</td><td><span class="badge p2">P2</span></td><td>同値</td><td><code>-1</code>／<code>1.5</code>／<code>abc</code></td><td>エラー終了</td><td>同上</td><td><span class="badge auto">既存</span> 同上</td><td></td></tr>
       <tr><td class="id">ENV-11</td><td><span class="badge p2">P2</span></td><td>同値</td><td><code>MAX_MATCHES</code> 未指定</td><td>試合数の上限なし</td><td>01 FR-20</td><td><span class="badge auto">既存</span> utils › 試合数上限がnullなら試合数では止めない</td><td></td></tr>
       <tr><td class="id">ENV-12</td><td><span class="badge p2">P2</span></td><td>境界値</td><td><code>MAX_MATCHES</code> = <code>0</code>／<code>1</code></td><td>0 はエラー終了、1 は1試合で終了</td><td>01 FR-20</td><td><span class="badge auto">既存</span>（0）／ST-03（1）</td><td></td></tr>
@@ -242,9 +243,9 @@ npx supabase db reset</pre>
       <tr><td class="id">RANK-14</td><td><span class="badge p1">P1</span></td><td>境界値</td><td>平均 2399.9／2400</td><td>all・platinum_plus／＋diamond_plus</td><td>04「2400 以上 → diamond_plus」</td><td><span class="badge add">追加</span>（2399.9）</td><td></td></tr>
       <tr><td class="id">RANK-15</td><td><span class="badge p1">P1</span></td><td>境界値</td><td>平均 2799.9／2800</td><td>diamond_plus まで／＋master_plus（4つすべて）</td><td>04「2800 以上 → master_plus」</td><td><span class="badge add">追加</span>（2799.9）</td><td></td></tr>
       <tr><td class="id">RANK-16</td><td><span class="badge p1">P1</span></td><td>境界値</td><td>名簿のランク分け 1599／1600</td><td>名簿に入らない／PLATINUM</td><td>02 3.1 ステップ3（Platinum 以上）</td><td><span class="badge auto">既存</span> rank › 境界値でランクが切り替わる</td><td></td></tr>
-      <tr><td class="id">RANK-17</td><td><span class="badge p1">P1</span></td><td>境界値</td><td>1999／2000</td><td>PLATINUM／EMERALD</td><td>同上</td><td><span class="badge auto">既存</span> 同上</td><td></td></tr>
-      <tr><td class="id">RANK-18</td><td><span class="badge p1">P1</span></td><td>境界値</td><td>2399／2400</td><td>EMERALD／DIAMOND</td><td>同上</td><td><span class="badge auto">既存</span> 同上</td><td></td></tr>
-      <tr><td class="id">RANK-19</td><td><span class="badge p1">P1</span></td><td>境界値</td><td>2799／2800</td><td>DIAMOND／MASTER</td><td>同上</td><td><span class="badge auto">既存</span> 同上</td><td></td></tr>
+      <tr><td class="id">RANK-17</td><td><span class="badge p1">P1</span></td><td>境界値</td><td>1999／2000</td><td>PLATINUM／EMERALD</td><td>同上</td><td><span class="badge auto">既存</span> rank › 境界値でランクが切り替わる（2000）＋ <span class="badge add">追加</span>（1999）</td><td></td></tr>
+      <tr><td class="id">RANK-18</td><td><span class="badge p1">P1</span></td><td>境界値</td><td>2399／2400</td><td>EMERALD／DIAMOND</td><td>同上</td><td><span class="badge auto">既存</span> rank › 境界値でランクが切り替わる（2400）＋ <span class="badge add">追加</span>（2399）</td><td></td></tr>
+      <tr><td class="id">RANK-19</td><td><span class="badge p1">P1</span></td><td>境界値</td><td>2799／2800</td><td>DIAMOND／MASTER</td><td>同上</td><td><span class="badge auto">既存</span> rank › 境界値でランクが切り替わる（2800）＋ <span class="badge add">追加</span>（2799）</td><td></td></tr>
       <tr><td class="id">RANK-20</td><td><span class="badge p1">P1</span></td><td>デシジョン</td><td>平均 Emerald（2100）の試合</td><td>all・platinum_plus の2つ（Emerald は Platinum+ に含まれる）</td><td>01 FR-04</td><td><span class="badge auto">既存</span> collector › 10人の平均ランクで、加算するランク帯を決める</td><td></td></tr>
     </table></div>
 
@@ -315,7 +316,7 @@ npx supabase db reset</pre>
       <tr><th>ID</th><th>優先</th><th>技法</th><th>前提・入力</th><th>期待結果</th><th>根拠</th><th>自動テスト</th><th>結果</th></tr>
       <tr><td class="id">LOG-01</td><td><span class="badge p2">P2</span></td><td>状態遷移</td><td>名簿の作成中</td><td>collection_logs に status running の行が1つあり、patch・region（JP）・rank_tier（例 "PLATINUM"）・started_at が入っている。completed_at は NULL</td><td>02 3.1 ステップ2、04 collection_logs</td><td><span class="badge manual">手動</span>（ST-01）</td><td></td></tr>
       <tr><td class="id">LOG-02</td><td><span class="badge p2">P2</span></td><td>状態遷移</td><td>正常終了</td><td>同じ行が completed になり、matches_collected・completed_at が入る</td><td>02 3.1 ステップ7</td><td><span class="badge manual">手動</span>（ST-01）</td><td></td></tr>
-      <tr><td class="id">LOG-03</td><td><span class="badge p2">P2</span></td><td>状態遷移</td><td>開始ログの後でエラー（名簿の取得失敗が21回・書き込み失敗など）</td><td>同じ行が failed になり、error_message・completed_at が入る。終了コード 1</td><td>02 3.1 ステップ7、04 completed_at（v1.6.0）</td><td><span class="badge manual">手動</span>（ST-06）</td><td></td></tr>
+      <tr><td class="id">LOG-03</td><td><span class="badge p2">P2</span></td><td>状態遷移</td><td>開始ログの後でエラー（名簿の取得失敗が21回・書き込み失敗など）</td><td>同じ行が failed になり、error_message・completed_at が入る。終了コード 1</td><td>02 3.1 ステップ7、04 completed_at（v1.6.0）</td><td><span class="badge manual">手動</span></td><td></td></tr>
       <tr><td class="id">LOG-04</td><td><span class="badge p2">P2</span></td><td>状態遷移</td><td>開始ログより前でエラー（APIキーの失効など）</td><td>collection_logs に行はできない。終了コード 1</td><td>02 3.1 ステップ1・2 の順序（8章 Q-1）</td><td><span class="badge manual">手動</span>（ST-05）</td><td></td></tr>
       <tr><td class="id">LOG-05</td><td><span class="badge p3">P3</span></td><td>エラー推測</td><td>開始ログの書き込みだけ失敗する</td><td>処理は続け、集計は書き込む（ログ行はない）</td><td>設計書に記載なし（8章 Q-5）</td><td><span class="badge manual">手動</span></td><td></td></tr>
       <tr><td class="id">LOG-06</td><td><span class="badge p3">P3</span></td><td>同値</td><td>終了時の標準出力</td><td>終了理由・処理した試合数・ランク帯ごとの加算試合数・書き込んだ行数が出る</td><td>01 FR-22</td><td><span class="badge manual">手動</span>（ST-01）</td><td></td></tr>
@@ -363,9 +364,10 @@ npx supabase db reset</pre>
       <tr><td class="id">ST-05</td><td><span class="badge p2">P2</span></td><td>失効した（または誤った）<code>RIOT_API_KEY</code> で実行</td><td>
         ・数秒以内に、キーの失効を示すメッセージでエラー終了（終了コード 1）<br>
         ・名簿の作成に入らない。collection_logs に行は増えない</td><td>INIT-02、LOG-04</td><td></td></tr>
-      <tr><td class="id">ST-06</td><td><span class="badge p2">P2</span></td><td><code>MAX_MATCHES=5</code> で実行し、名簿の作成中に <code>npx supabase stop</code> で DB を止め、試合の収集中に <code>npx supabase start</code> で戻す。戻す前に書き込みに入った場合は失敗の確認になる</td><td>
-        ・DB に届かない間に書き込もうとした場合: エラー終了（終了コード 1）。集計テーブルは変わらない<br>
-        ・DB が戻った後なら failed の記録が残る（LOG-03）</td><td>LOG-03、DB-06</td><td></td></tr>
+      <tr><td class="id">ST-06</td><td><span class="badge p2">P2</span></td><td>実行前に集計3テーブル・<code>processed_matches</code> の行数と games_played の合計を控える。<code>MAX_MATCHES=5</code> で実行し、標準出力に「既処理済み試合」が出たら（試合の収集に入ったら）<code>npx supabase stop</code> で DB を止め、バッチが終わるまで戻さない。終了後に <code>npx supabase start</code> で戻して確認する（v1.0.1 で手順を変更）</td><td>
+        ・書き込みでエラー終了（終了コード 1）<br>
+        ・集計3テーブル・processed_matches の行数と games_played の合計が実行前と同じ<br>
+        ・collection_logs の行は running のまま（failed への更新も DB に届かないため。8章 Q-5）</td><td>Q-5</td><td></td></tr>
       <tr><td class="id">ST-07</td><td><span class="badge p3">P3</span></td><td>ST-01〜04 の所要時間を記録</td><td>名簿の作成が約14分、1試合あたりの時間を記録し、330分で何試合集まるかの見込みを出す</td><td>02 バッチスケジュール</td><td></td></tr>
     </table></div>
 
@@ -387,7 +389,7 @@ npx supabase db reset</pre>
     <div class="section-header"><div class="section-num">7</div><h2>不変条件の確認 SQL</h2></div>
     <p>1試合ごとの正解を用意しにくい ST・OT では、「設計どおりなら必ず成り立つ関係」を確認する。SQL-2〜6 は、該当する行が <b>0件</b> なら合格。<code>:patch</code> は対象パッチに置き換える。</p>
 <pre>-- SQL-1: ランク帯ごとの試合数（標準出力の「ランク帯別の加算試合数」と比べる）
--- 1試合で、両チームがそろったレーン（最大5つ）ごとに勝者が1人いるので、wins の合計 ÷ 5 ≒ 試合数
+-- champion_stats はレーンがある参加者全員を加算する（相手の有無は問わない）。勝ったチームでレーンがある人は通常5人なので、wins の合計 ÷ 5 ≒ 試合数
 SELECT rank_tier, SUM(wins) / 5.0 AS approx_matches, SUM(games_played) AS player_games
 FROM champion_stats WHERE patch = :patch GROUP BY rank_tier ORDER BY rank_tier;
 
@@ -408,6 +410,13 @@ WHERE a.patch = :patch
   AND ((a.rank_tier, b.rank_tier) IN (('master_plus','diamond_plus'), ('diamond_plus','platinum_plus'), ('platinum_plus','all')))
   AND a.games_played > b.games_played;
 -- 上のランク帯にだけ行があり、下のランク帯に行がない場合も不合格（LEFT JOIN で確認）
+SELECT a.champion_id, a.lane, a.rank_tier, a.games_played, t.lower_tier
+FROM champion_stats a
+JOIN (VALUES ('master_plus','diamond_plus'), ('diamond_plus','platinum_plus'), ('platinum_plus','all')) AS t(upper_tier, lower_tier)
+  ON a.rank_tier = t.upper_tier
+LEFT JOIN champion_stats b
+  ON b.champion_id = a.champion_id AND b.lane = a.lane AND b.patch = a.patch AND b.region = a.region AND b.rank_tier = t.lower_tier
+WHERE a.patch = :patch AND b.id IS NULL;
 
 -- SQL-5: counter_stats の対称性が崩れている組（A 対 B と B 対 A は同じ試合数で、勝ち数の合計は試合数）
 SELECT a.champion_id, a.enemy_champion_id, a.lane, a.rank_tier
@@ -421,7 +430,7 @@ WHERE a.patch = :patch
 -- SQL-6: 対象パッチ以外のデータが混ざっている（今回の実行で別パッチの行が増えていないか）
 SELECT patch, COUNT(*) FROM champion_stats GROUP BY patch;
 SELECT patch, COUNT(*) FROM processed_matches GROUP BY patch;</pre>
-    <div class="note">SQL-1 の「≒」: 両チームがそろわないレーン（teamPosition が空の参加者がいる試合）があると、5 で割った値は実際の試合数より少し小さくなる。差が大きい場合は原因を調べる。</div>
+    <div class="note">SQL-1 の「≒」: 勝ったチームに teamPosition が空の参加者がいる試合があると、5 で割った値は実際の試合数より少し小さくなる（v1.0.1 で理由の説明を修正）。差が大きい場合は原因を調べる。</div>
   </div>
 
   <!-- 8. 未決事項 -->
@@ -434,7 +443,7 @@ SELECT patch, COUNT(*) FROM processed_matches GROUP BY patch;</pre>
       <tr><td>Q-2</td><td>時間上限と試合数上限に同時に達したときの終了理由</td><td>時間上限を優先する</td><td>LOOP-13</td></tr>
       <tr><td>Q-3</td><td>LP が負の値のとき</td><td>0LP として扱う</td><td>RANK-07</td></tr>
       <tr><td>Q-4</td><td>試合ID一覧・試合詳細の取得に（429 の再試行の後も）失敗したとき</td><td>警告を出して飛ばし、収集を続ける</td><td>LOOP-11・12</td></tr>
-      <tr><td>Q-5</td><td>開始ログの書き込み・更新だけに失敗したとき</td><td>警告を出して続ける</td><td>LOG-05</td></tr>
+      <tr><td>Q-5</td><td>開始ログの書き込み・更新だけに失敗したとき</td><td>警告を出して続ける。DB に届かないまま失敗したときは failed への更新もできず、行が running のまま残る（running は同時実行防止に使っていないので、次回の実行は止まらない）</td><td>LOG-05、ST-06</td></tr>
       <tr><td>Q-6</td><td>集めた試合数が同じランクが複数あるとき、どれを先に進めるか</td><td>低いランクを先にする</td><td>LOOP-06</td></tr>
       <tr><td>Q-7</td><td>リメイクの試合を processed_matches に記録しないため、次回以降に同じプレイヤーから同じ試合IDが返ると、もう一度試合詳細を取りに行く（1リクエスト分のむだ）</td><td>記録しない（v1.6.0 の判断）</td><td>LOOP-04</td></tr>
       <tr><td>Q-8</td><td>GitHub Actions の手動実行に <code>MAX_MATCHES</code> の入力欄がないため、OT は毎回 330分まで動く</td><td>入力欄なし</td><td>OT-02</td></tr>

@@ -81,9 +81,10 @@
   <h1>システム構成図</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.6.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.6.1</div></div>
     <div class="meta-item"><div class="label">月額コスト見込み</div><div class="value">$0（全て無料枠）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.5.0)</div><div class="value">Riot API・Data Dragon の使い方・名簿と収集対象ランク（TARGET_TIERS）・API のキャッシュ・API設計書（05）への参照</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.6.1)</div><div class="value">2026-11-06 matches_collected は完了時のみ記録することを明記（実装・04 に合わせる）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.6.0)</div><div class="value">2026-11-04 リメイクの試合のスキップ・書き込み条件と失敗時の completed_at の記載を実装に合わせて明確化</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.4.0)</div><div class="value">集計の上書きを加算に変更・apply_batch_result関数・同時実行防止の詳細化</div></div>
   </div>
@@ -379,7 +380,7 @@
       <div class="step-num">7</div>
       <div class="step-content">
         <h4>collection_logs をジョブ完了で UPDATE</h4>
-        <p>ループ終了時・エラー発生時に、ステップ2で保持した id で UPDATE。<code>status</code> を 'completed' または 'failed' に、<code>matches_collected</code> を試合数に、<code>completed_at</code> を現在時刻に（失敗時も記録し、失敗までの所要時間がわかるようにする）、エラー時は <code>error_message</code> を記録。</p>
+        <p>ループ終了時・エラー発生時に、ステップ2で保持した id で UPDATE。<code>status</code> を 'completed' または 'failed' に、<code>matches_collected</code> を試合数に（完了時のみ。失敗時は NULL のまま。v1.6.1 で明記）、<code>completed_at</code> を現在時刻に（失敗時も記録し、失敗までの所要時間がわかるようにする）、エラー時は <code>error_message</code> を記録。</p>
       </div>
     </div>
 
