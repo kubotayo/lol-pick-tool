@@ -11,7 +11,7 @@
 
 ## 次にやること
 
-- [ ] `test/db-integration` の PR を development へマージする
+- [ ] PR #15（`test/db-integration`）と PR #16（`chore/review-rule`、CLAUDE.md のレビューのルール）を development へマージする
 - [ ] ST-01〜07 を実施（当日に Riot の Development Key を発行。DB-12 も ST で確認）
 - [ ] 06 の未決事項 Q-1〜Q-8 をユーザーと決める（特に Q-1: 開始ログ前のエラーが DB に残らない、Q-8: 手動実行に MAX_MATCHES の入力欄がない）
 - [ ] P1・P2 が合格したら development → main へマージし、OT（Secrets 確認・手動実行）→ 定期実行を始める。Riot の Development Key は24時間で失効するので運用方法も決める
