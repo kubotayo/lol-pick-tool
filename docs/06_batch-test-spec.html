@@ -70,7 +70,7 @@
     <div class="meta-item"><div class="label">バージョン</div><div class="value">1.2.0</div></div>
     <div class="meta-item"><div class="label">対象</div><div class="value">データ収集バッチ（scripts/・DB関数 apply_batch_result・collect-daily.yml）</div></div>
     <div class="meta-item"><div class="label">根拠とする設計書</div><div class="value">01 v1.6.0 / 02 v1.6.0 / 04 v1.6.0</div></div>
-    <div class="meta-item"><div class="label">更新内容 (1.2.0)</div><div class="value">2026-11-07 結合テスト DB-01〜11 をローカルの Supabase で実施し、結果を記入（すべて合格）。DB-12 は ST で確認する</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.2.0)</div><div class="value">2026-11-07 結合テスト DB-01〜11 をローカルの Supabase で実施し、結果を記入（すべて合格）。DB-12 は ST で確認する。確認用のスクリプト <code>scripts/it/db.ts</code>（<code>npm run it:db</code>）を追加し、やり直せるようにした</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.1.0)</div><div class="value">2026-11-06 「追加」の自動テスト33項目を実装し「既存」に変更。API-05 に URL に "429" を含む場合を追加（429 の判定をステータスコードで行うよう修正したため）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.0.1)</div><div class="value">2026-11-06 レビューの指摘を反映。境界値の自動テストの有無（ENV-09・RANK-17〜19）、SQL-1 の説明、SQL-4 の LEFT JOIN の SQL、ST-06 の手順</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.0.0)</div><div class="value">新規作成。定期実行を始める前のバッチのテスト</div></div>
@@ -156,7 +156,9 @@ TARGET_TIERS=PLATINUM MAX_MATCHES=10 \
 npm run collect
 
 # DB を初期状態に戻す（migration を適用し直す）
-npx supabase db reset</pre>
+npx supabase db reset
+# 結合テスト DB-01〜11 を実行する（初期状態に戻してから実行し、項目ごとに OK／NG を出す）
+npm run it:db</pre>
     <div class="note">ST はどれも名簿の作成に約14分かかる（02 ステップ3）。1回の ST は 15〜20分程度を見込む。</div>
   </div>
 
@@ -296,7 +298,7 @@ npx supabase db reset</pre>
     </table></div>
 
     <h3>5.7 DB 書き込み・権限（DB）— 結合テスト</h3>
-    <p>ローカルの Supabase で、<code>apply_batch_result</code> を SQL エディター（<code>npx supabase status</code> の Studio URL）または <code>supabase-js</code> から直接呼ぶ。</p>
+    <p>ローカルの Supabase で、<code>apply_batch_result</code> を SQL エディター（<code>npx supabase status</code> の Studio URL）または <code>supabase-js</code> から直接呼ぶ。DB-01〜11 は <code>npm run it:db</code>（<code>scripts/it/db.ts</code>）でまとめて実行できる。スクリプトは接続先がローカルでない場合と、DB が初期状態でない場合は実行せずに止まる。</p>
     <div class="table-wrap"><table>
       <tr><th>ID</th><th>優先</th><th>技法</th><th>前提・入力</th><th>期待結果</th><th>根拠</th><th>自動テスト</th><th>結果</th></tr>
       <tr><td class="id">DB-01</td><td><span class="badge p1">P1</span></td><td>同値</td><td>集計行がない状態で、champion_stats 1行（10試合・6勝）を渡す</td><td>新しい行ができ、games_played 10・wins 6・win_rate 0.6000</td><td>04 apply_batch_result ③</td><td><span class="badge manual">手動</span></td><td>合格（2026-11-07）</td></tr>

@@ -10,7 +10,8 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "collect": "tsx scripts/collect.ts"
+    "collect": "tsx scripts/collect.ts",
+    "it:db": "npx supabase db reset && tsx scripts/it/db.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",

@@ -5,7 +5,7 @@
 ## 進行中のタスク
 
 - **バッチのテスト**（PR #12・#13 は development にマージ済み。PR #14 もマージ済み。DB の結合テストの結果を記録した PR をブランチ `test/db-integration` から作成。マージ待ち）
-  - テスト仕様書 `docs/06_batch-test-spec.html` v1.2.0。単体の自動テストはすべて実装済み（全163件成功）。結合テスト DB-01〜11 はローカルの Supabase で全項目合格。ST・OT はまだ
+  - テスト仕様書 `docs/06_batch-test-spec.html` v1.2.0。単体の自動テストはすべて実装済み（全163件成功）。結合テスト DB-01〜11 はローカルの Supabase で全項目合格（`npm run it:db` でやり直せる）。ST・OT はまだ
   - ローカルの Supabase は `supabase/config.toml` を作成済み。Docker Desktop を起動して `npx supabase start` で使える
 - DB（本番）には手元で確認した35試合分（正しいデータ）が入っている。migration 005 まで適用済み
 
