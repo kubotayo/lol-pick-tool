@@ -35,7 +35,6 @@ export interface ParticipantDto {
   item4:        number;
   item5:        number;
   item6:        number; // トリンケット
-  gameEndedInEarlySurrender: boolean; // リメイク（開始直後の降参）で終わった試合なら true（参加者全員で同じ値）
 }
 
 // -------------------------------------------------------

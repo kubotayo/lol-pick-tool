@@ -11,7 +11,6 @@
 | `docs/03_screen-design.html` | 画面設計・画面遷移図 |
 | `docs/04_db-design.html` | DB設計図（テーブル定義・DDL・ER図） |
 | `docs/05_api-design.html` | API設計書（API Routes のパラメーター・応答・キャッシュ） |
-| `docs/06_batch-test-spec.html` | バッチテスト仕様書（テスト項目・不変条件の確認 SQL・未決事項） |
 
 ---
 

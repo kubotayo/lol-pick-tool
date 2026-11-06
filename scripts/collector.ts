@@ -117,13 +117,8 @@ export async function collectMatches(source: MatchSource, options: CollectOption
         continue;
       }
 
-      const participants = match.info.participants;
-
-      // リメイク（開始直後の降参）の試合は集計しない。数分で終わった試合はチャンピオンの強さと関係がなく、勝率を歪めるため
-      // 処理済みにも記録せず、参加者を次のシードにも使わない。同じプレイヤーの残りの試合は通常どおり続ける
-      if (participants.some(p => p.gameEndedInEarlySurrender)) continue;
-
       // 10人の平均ランクで、この試合を加算するランク帯を決める（名簿にいない人は Gold 相当）
+      const participants = match.info.participants;
       const average = averageMatchPoints(participants.map(p => roster.get(p.puuid)?.points ?? null));
       const rankTiers = rankTiersForPoints(average);
 
