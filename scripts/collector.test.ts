@@ -215,14 +215,31 @@ describe('collectMatches', () => {
   it('キューが空のランクには名簿から5人ずつ補充し、残りが5人未満なら残り全員を入れる', async () => {
     // シードは末尾から使うので、s7〜s3 の5人が先に入り、s2・s1 は次の補充で入る
     const seeds = ['s1', 's2', 's3', 's4', 's5', 's6', 's7'];
-    const roster = makeRoster([...seeds, 'snow'].map(p => [p, 'PLATINUM', 1700] as [string, CollectTier, number]));
-    // s7 の試合に名簿の snow が出ている。snow はスノーボールで、最初の5人の後ろに並ぶ
-    const source = makeSource({ s7: ['m1'] }, { m1: makeMatch(['s7', 'snow', ...others('m1').slice(0, 8)]) });
+    const roster = makeRoster([...seeds, 'snow', 'snow2'].map(p => [p, 'PLATINUM', 1700] as [string, CollectTier, number]));
+    // s7 の試合に snow、s2 の試合に snow2 が出ている。スノーボールで追加された人は、その時点のキューの後ろに並ぶ
+    const source = makeSource(
+      { s7: ['m1'], s2: ['m2'] },
+      {
+        m1: makeMatch(['s7', 'snow', ...others('m1').slice(0, 8)]),
+        m2: makeMatch(['s2', 'snow2', ...others('m2').slice(0, 8)]),
+      },
+    );
 
     await collectMatches(source, options({ roster, seedPools: { PLATINUM: seeds, EMERALD: [], DIAMOND: [], MASTER: [] } }));
 
-    // 補充が1人ずつなら snow が s6 より前に、7人まとめてなら s1 より後ろに来る
-    expect(source.getMatchIds.mock.calls.map(c => c[0])).toEqual(['s7', 's6', 's5', 's4', 's3', 'snow', 's2', 's1']);
+    // 最初の補充が1人ずつなら snow が s6 より前に、7人まとめてなら s1 より後ろに来る
+    // 2回目の補充が1人ずつなら snow2 が s1 より前に来る
+    expect(source.getMatchIds.mock.calls.map(c => c[0])).toEqual(['s7', 's6', 's5', 's4', 's3', 'snow', 's2', 's1', 'snow2']);
+  });
+
+  // API-07（バッチの 20件は collect.ts の MATCHES_PER_PLAYER から matchesPerPlayer で渡る）
+  it('1人から取る試合数（matchesPerPlayer）を、試合ID一覧の取得に渡す', async () => {
+    const roster = makeRoster([['p1', 'PLATINUM', 1700]]);
+    const source = makeSource({}, {});
+
+    await collectMatches(source, options({ roster, matchesPerPlayer: 20, seedPools: { PLATINUM: ['p1'], EMERALD: [], DIAMOND: [], MASTER: [] } }));
+
+    expect(source.getMatchIds).toHaveBeenCalledWith('p1', 20);
   });
 
   // LOOP-10

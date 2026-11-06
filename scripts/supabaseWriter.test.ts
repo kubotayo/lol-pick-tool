@@ -5,6 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 const db = vi.hoisted(() => ({
   rows:        [] as Array<{ match_id: string; patch: string }>,
   rangeCalls:  0,
+  eqColumns:   [] as string[],
 }));
 vi.mock('./supabase', () => ({
   supabase: {
@@ -12,7 +13,7 @@ vi.mock('./supabase', () => ({
       let patch: string | undefined;
       const query = {
         select: () => query,
-        eq:     (_column: string, value: string) => { patch = value; return query; },
+        eq:     (column: string, value: string) => { db.eqColumns.push(column); patch = value; return query; },
         order:  () => query,
         range:  async (from: number, to: number) => {
           db.rangeCalls++;
@@ -97,11 +98,13 @@ describe('getProcessedMatchIds', () => {
       ...Array.from({ length: 5 },     (_, i) => ({ match_id: `JP1_old${i}`, patch: '16.20' })),
     ];
     db.rangeCalls = 0;
+    db.eqColumns = [];
 
     const ids = await getProcessedMatchIds('16.21');
 
     expect(ids.size).toBe(count);
     expect([...ids].some(id => id.startsWith('JP1_old'))).toBe(false);
     expect(db.rangeCalls).toBe(pages);
+    expect(db.eqColumns.every(c => c === 'patch')).toBe(true);
   });
 });

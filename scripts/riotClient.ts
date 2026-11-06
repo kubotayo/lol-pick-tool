@@ -42,7 +42,7 @@ export class RiotClient {
       );
       console.log('[RiotClient] APIキー検証OK');
     } catch (err) {
-      if (err instanceof Error && err.message.includes('403')) {
+      if (err instanceof HttpError && err.status === 403) {
         throw new Error('Riot APIキーが無効または失効しています。GitHub Secrets を更新してください。');
       }
       throw err;

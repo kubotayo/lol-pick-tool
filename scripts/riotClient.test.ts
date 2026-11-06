@@ -42,6 +42,16 @@ describe('RiotClient', () => {
     expect(() => new RiotClient('xx1')).toThrow('不明なプラットフォーム');
   });
 
+  it('APIキーの確認で 403 が返ったら、キーの失効を示すエラーにする', async () => {
+    stubFetch([403]);
+    const client = new RiotClient('jp1');
+
+    const done = client.validateApiKey();
+    const assertion = expect(done).rejects.toThrow('APIキーが無効または失効');
+    await vi.runAllTimersAsync();
+    await assertion;
+  });
+
   // API-01
   it('リクエストの前に 1.2秒待ち、続けて呼んでも間隔が 1.2秒以上あく', async () => {
     const { calls } = stubFetch();
@@ -152,18 +162,16 @@ describe('RiotClient', () => {
   });
 
   // API-07
-  it('試合ID一覧はソロランク（queue=420）を20件指定して取る', async () => {
+  it('試合ID一覧はソロランク（queue=420）を指定し、渡した件数を count に入れる', async () => {
     const { calls } = stubFetch();
     const client = new RiotClient('jp1');
 
-    const done = Promise.all([client.getMatchIds('puuid-1'), client.getMatchIds('puuid-2', 20)]);
+    const done = client.getMatchIds('puuid-1', 7);
     await vi.runAllTimersAsync();
     await done;
 
-    for (const call of calls) {
-      const params = new URL(call.url).searchParams;
-      expect(params.get('queue')).toBe('420');
-      expect(params.get('count')).toBe('20');
-    }
+    const params = new URL(calls[0].url).searchParams;
+    expect(params.get('queue')).toBe('420');
+    expect(params.get('count')).toBe('7');
   });
 });

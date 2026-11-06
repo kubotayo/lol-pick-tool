@@ -70,7 +70,7 @@
     <div class="meta-item"><div class="label">バージョン</div><div class="value">1.1.0</div></div>
     <div class="meta-item"><div class="label">対象</div><div class="value">データ収集バッチ（scripts/・DB関数 apply_batch_result・collect-daily.yml）</div></div>
     <div class="meta-item"><div class="label">根拠とする設計書</div><div class="value">01 v1.6.0 / 02 v1.6.0 / 04 v1.6.0</div></div>
-    <div class="meta-item"><div class="label">更新内容 (1.1.0)</div><div class="value">2026-11-06 「追加」の自動テスト34項目を実装し「既存」に変更。API-05 に URL に "429" を含む場合を追加（429 の判定をステータスコードで行うよう修正したため）</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.1.0)</div><div class="value">2026-11-06 「追加」の自動テスト33項目を実装し「既存」に変更。API-05 に URL に "429" を含む場合を追加（429 の判定をステータスコードで行うよう修正したため）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.0.1)</div><div class="value">2026-11-06 レビューの指摘を反映。境界値の自動テストの有無（ENV-09・RANK-17〜19）、SQL-1 の説明、SQL-4 の LEFT JOIN の SQL、ST-06 の手順</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.0.0)</div><div class="value">新規作成。定期実行を始める前のバッチのテスト</div></div>
   </div>
@@ -330,9 +330,9 @@ npx supabase db reset</pre>
       <tr><td class="id">API-02</td><td><span class="badge p2">P2</span></td><td>境界値</td><td>429 が1回、その後成功</td><td>1秒待って再試行し、成功する</td><td>02「429 は指数バックオフ」</td><td><span class="badge auto">既存</span> riotClient › 429 が1回なら、1秒待って再試行し、成功する</td><td></td></tr>
       <tr><td class="id">API-03</td><td><span class="badge p2">P2</span></td><td>境界値</td><td>429 が4回、その後成功</td><td>1・2・4・8秒待って再試行し、成功する</td><td>02「1s → 2s → 4s → 8s」</td><td><span class="badge auto">既存</span> riotClient › 429 が4回なら、1・2・4・8秒待って再試行し、成功する</td><td></td></tr>
       <tr><td class="id">API-04</td><td><span class="badge p2">P2</span></td><td>境界値</td><td>429 が5回続く</td><td>再試行をやめてエラーにする</td><td>同上（8秒の後は再試行しない）</td><td><span class="badge auto">既存</span> riotClient › 429 が5回続いたら、再試行をやめてエラーにする</td><td></td></tr>
-      <tr><td class="id">API-05</td><td><span class="badge p2">P2</span></td><td>同値</td><td>404・500 などの 429 以外（試合IDなど URL に "429" を含む場合も）</td><td>再試行せずにエラーにする</td><td>02（再試行は 429 のみ）</td><td><span class="badge auto">既存</span> riotClient › 404・500 など 429 以外のエラーは再試行しない／試合IDに "429" を含む試合の 404 も再試行しない</td><td></td></tr>
+      <tr><td class="id">API-05</td><td><span class="badge p2">P2</span></td><td>同値</td><td>404・500 などの 429 以外（試合IDなど URL に "429" を含む場合も）</td><td>再試行せずにエラーにする</td><td>02（再試行は 429 のみ）</td><td><span class="badge auto">既存</span> riotClient › %i（404・500）など 429 以外のエラーは再試行しない／試合IDに "429" を含む試合の 404 も再試行しない</td><td></td></tr>
       <tr><td class="id">API-06</td><td><span class="badge p2">P2</span></td><td>同値</td><td>platform <code>jp1</code></td><td>LEAGUE-V4 は <code>jp1.api.riotgames.com</code>、MATCH-V5 は <code>asia.api.riotgames.com</code> に送る</td><td>02 Riot API「ホスト」</td><td><span class="badge auto">既存</span> riotClient › jp1 では LEAGUE-V4 を jp1、MATCH-V5 を asia のホストに送る</td><td></td></tr>
-      <tr><td class="id">API-07</td><td><span class="badge p1">P1</span></td><td>同値</td><td>試合ID一覧の取得</td><td>ソロランク（queue=420）・20件を指定している</td><td>02 MATCH-V5</td><td><span class="badge auto">既存</span> riotClient › 試合ID一覧はソロランク（queue=420）を20件指定して取る</td><td></td></tr>
+      <tr><td class="id">API-07</td><td><span class="badge p1">P1</span></td><td>同値</td><td>試合ID一覧の取得</td><td>ソロランク（queue=420）・20件を指定している</td><td>02 MATCH-V5</td><td><span class="badge auto">既存</span> riotClient › 試合ID一覧はソロランク（queue=420）を指定し、渡した件数を count に入れる／collector › 1人から取る試合数（matchesPerPlayer）を、試合ID一覧の取得に渡す。20件そのものは <code>collect.ts</code> の定数 <code>MATCHES_PER_PLAYER</code> で、自動テストの対象外</td><td></td></tr>
     </table></div>
   </div>
 
