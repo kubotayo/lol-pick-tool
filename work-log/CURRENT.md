@@ -4,14 +4,13 @@
 
 ## 進行中のタスク
 
-- **バッチのテスト**（ブランチ `test/batch-test-spec`、コミット済み・development 向けの PR を作成済み。レビュー・マージ待ち）
-  - テスト仕様書 `docs/06_batch-test-spec.html` v1.0.0 を作成済み。まだ実施していない
-  - リメイク除外のコード変更と、設計書 01・02・04 の v1.6.0 更新も同じブランチにある
+- **バッチのテスト**（PR #12 は development にマージ済み。レビューの指摘を直す PR をブランチ `docs/review-fixes-pr12` から作成済み。マージ待ち）
+  - テスト仕様書 `docs/06_batch-test-spec.html` v1.0.1。まだ実施していない
 - DB（本番）には手元で確認した35試合分（正しいデータ）が入っている。migration 005 まで適用済み
 
 ## 次にやること
 
-- [ ] `test/batch-test-spec` の PR をレビューし、development へマージする
+- [ ] `docs/review-fixes-pr12` の PR を development へマージする
 - [ ] 06 の「追加」の自動テストを書く（境界値・429 のリトライ・ページングなど）
 - [ ] ローカルの Supabase を準備（`npx supabase init` → `start`）し、IT（DB-01〜12）と ST-01〜07 を実施
 - [ ] 06 の未決事項 Q-1〜Q-8 をユーザーと決める（特に Q-1: 開始ログ前のエラーが DB に残らない、Q-8: 手動実行に MAX_MATCHES の入力欄がない）
@@ -20,6 +19,8 @@
 - [ ] master_plus・diamond_plus の試合数を確認する（ST-03 で記録）
 
 ## 未解決の課題 / 保留中の確認事項
+
+- 06 の LOG-03（開始ログの後のエラーで failed が記録される）を確かめる ST がない（ST-06 は DB を止めるので failed が書けない）。DB に届く状態で失敗させる方法を決める
 
 - `/api/patches` がビルド時に静的生成される。Supabase 接続時に動的にする
 - 画面の lint エラー3件（もともとあったもの）
