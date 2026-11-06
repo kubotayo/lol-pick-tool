@@ -51,14 +51,20 @@ export function normalizeItemIds(items: number[]): string {
     .join(',');
 }
 
+/** HTTP のエラー応答。判定をメッセージの文字列ではなくステータスコードで行うために使う */
+export class HttpError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = 'HttpError';
+  }
+}
+
 /**
- * レスポンスが Riot API の 429（レート制限）エラーかを判定する
+ * Riot API の 429（レート制限）エラーかを判定する
+ * ステータスコードで判定する。メッセージには URL が入り、試合ID などに "429" を含むことがあるため、文字列では判定しない
  */
 export function is429Error(err: unknown): boolean {
-  if (err instanceof Error) {
-    return err.message.includes('429') || err.message.includes('Rate limit');
-  }
-  return false;
+  return err instanceof HttpError && err.status === 429;
 }
 
 /**
