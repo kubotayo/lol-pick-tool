@@ -4,14 +4,14 @@
 
 ## 進行中のタスク
 
-- **バッチのテスト**（PR #12〜#17 は development にマージ済み。PR #17 で、テスト仕様書の作り込みの対策と、開始前のエラーが表示されない不具合の修正を行った。テスト仕様書のレビューを reviewer にまとめる PR #18（ブランチ `chore/unify-reviewer`）がマージ待ち）
+- **バッチのテスト**（PR #12〜#18 は development にマージ済み。PR #17 で、テスト仕様書の作り込みの対策と、開始前のエラーが表示されない不具合の修正を行った。PR #18 でテスト仕様書のレビューを reviewer にまとめた（マージ済み）。PR #18 の指摘の反映がマージに間に合わなかったので、PR #19（ブランチ `chore/reviewer-review-fixes`）で出し直し。マージ待ち）
   - テスト仕様書 `docs/06_batch-test-spec.html` v1.3.0（2.5「期待結果と判定の書き方」を追加）。単体の自動テストはすべて実装済み（全168件成功）。結合テスト DB-01〜11 はローカルの Supabase で全項目合格（`npm run it:db` でやり直せる）。ST・OT はまだ
   - ローカルの Supabase は `supabase/config.toml` を作成済み。Docker Desktop を起動して `npx supabase start` で使える
 - DB（本番）には手元で確認した35試合分（正しいデータ）が入っている。migration 005 まで適用済み
 
 ## 次にやること
 
-- [ ] PR #18（`chore/unify-reviewer`）を development へマージする
+- [ ] PR #19（`chore/reviewer-review-fixes`）を development へマージする
 - [ ] ST-01〜09 を実施（当日に Riot の Development Key を発行。ST-08 で DB-12、ST-09 で LOG-03 を確認）
 - [ ] 06 の未決事項 Q-1〜Q-8 をユーザーと決める（特に Q-1: 開始ログ前のエラーが DB に残らない、Q-8: 手動実行に MAX_MATCHES の入力欄がない）
 - [ ] P1・P2 が合格したら development → main へマージし、OT（Secrets 確認・手動実行）→ 定期実行を始める。Riot の Development Key は24時間で失効するので運用方法も決める
