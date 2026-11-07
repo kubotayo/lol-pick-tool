@@ -47,9 +47,17 @@ describe('RiotClient', () => {
     const client = new RiotClient('jp1');
 
     const done = client.validateApiKey();
-    const assertion = expect(done).rejects.toThrow('APIキーが無効または失効');
+    const assertion = expect(done).rejects.toThrow('Riot APIキーが無効または失効しています');
     await vi.runAllTimersAsync();
     await assertion;
+  });
+
+  // ENV-13
+  it('RIOT_API_KEY が未設定ならエラーにし、Riot API を呼ばない', () => {
+    const { fetchMock } = stubFetch();
+    vi.stubEnv('RIOT_API_KEY', '');
+    expect(() => new RiotClient('jp1')).toThrow('RIOT_API_KEY が設定されていません');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   // API-01
@@ -105,7 +113,7 @@ describe('RiotClient', () => {
     const client = new RiotClient('jp1');
 
     const done = client.getMatch('JP1_1');
-    const assertion = expect(done).rejects.toThrow('429');
+    const assertion = expect(done).rejects.toMatchObject({ status: 429 });
     await vi.runAllTimersAsync();
     await assertion;
 
@@ -118,7 +126,7 @@ describe('RiotClient', () => {
     const client = new RiotClient('jp1');
 
     const done = client.getMatch('JP1_1');
-    const assertion = expect(done).rejects.toThrow(String(status));
+    const assertion = expect(done).rejects.toMatchObject({ status });
     await vi.runAllTimersAsync();
     await assertion;
 
@@ -131,7 +139,7 @@ describe('RiotClient', () => {
     const client = new RiotClient('jp1');
 
     const done = client.getMatch('JP1_4290000');
-    const assertion = expect(done).rejects.toThrow('404');
+    const assertion = expect(done).rejects.toMatchObject({ status: 404 });
     await vi.runAllTimersAsync();
     await assertion;
 

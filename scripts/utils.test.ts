@@ -148,7 +148,7 @@ describe('parseTargetRegion', () => {
   });
 
   it('複数指定はエラーにする', () => {
-    expect(() => parseTargetRegion('jp1,kr')).toThrow('複数のリージョン');
+    expect(() => parseTargetRegion('jp1,kr')).toThrow('TARGET_REGIONS に複数のリージョンが指定されています');
   });
 });
 
@@ -161,9 +161,10 @@ describe('parsePositiveInt', () => {
     expect(parsePositiveInt('MAX_MATCHES', '50', null)).toBe(50);
   });
 
-  // ENV-09
+  // ENV-09・ENV-12
   it('最小の正の整数 1 は受け付ける', () => {
     expect(parsePositiveInt('MAX_DURATION_MINUTES', '1', 330)).toBe(1);
+    expect(parsePositiveInt('MAX_MATCHES', '1', null)).toBe(1);
   });
 
   it('未指定・空文字ならデフォルト値を返す', () => {
@@ -173,7 +174,11 @@ describe('parsePositiveInt', () => {
 
   it('0・負数・小数・数値以外はエラーにする', () => {
     for (const v of ['0', '-5', '1.5', 'abc']) {
-      expect(() => parsePositiveInt('MAX_MATCHES', v, null)).toThrow('MAX_MATCHES');
+      expect(() => parsePositiveInt('MAX_MATCHES', v, null)).toThrow('MAX_MATCHES は正の整数で指定してください');
+    }
+    // ENV-09・10: 変数名がメッセージに入る（どの環境変数の誤りかがわかる）
+    for (const v of ['0', '-1', '1.5', 'abc']) {
+      expect(() => parsePositiveInt('MAX_DURATION_MINUTES', v, 330)).toThrow('MAX_DURATION_MINUTES は正の整数で指定してください');
     }
   });
 });

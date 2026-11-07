@@ -81,9 +81,10 @@
   <h1>システム構成図</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.6.1</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.7.0</div></div>
     <div class="meta-item"><div class="label">月額コスト見込み</div><div class="value">$0（全て無料枠）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.5.0)</div><div class="value">Riot API・Data Dragon の使い方・名簿と収集対象ランク（TARGET_TIERS）・API のキャッシュ・API設計書（05）への参照</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.7.0)</div><div class="value">2026-11-07 バッチの「エラー時の動き」（条件・メッセージ・collection_logs）と、Riot API のエラーの判定（ステータスコードで判定）を明記。開始ログより前のエラーもメッセージを表示して終わるように修正したため</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.6.1)</div><div class="value">2026-11-06 matches_collected は完了時のみ記録することを明記（実装・04 に合わせる）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.6.0)</div><div class="value">2026-11-04 リメイクの試合のスキップ・書き込み条件と失敗時の completed_at の記載を実装に合わせて明確化</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.4.0)</div><div class="value">集計の上書きを加算に変更・apply_batch_result関数・同時実行防止の詳細化</div></div>
@@ -267,6 +268,7 @@
           <li>MATCH-V5 <code>/lol/match/v5/matches/{matchId}</code>: 試合詳細（参加者のチャンピオン・teamPosition・勝敗・アイテム・gameVersion）</li>
           <li>ホスト: LEAGUE-V4 はプラットフォーム（<code>jp1.api.riotgames.com</code>）、MATCH-V5 はルーティング（<code>asia.api.riotgames.com</code>）。対応: jp1・kr → asia／na1 → americas／euw1・eune1 → europe</li>
           <li>レート: 20 req / 秒・100 req / 2分 → リクエスト間隔 1.2秒。429 は指数バックオフ（1s → 2s → 4s → 8s）</li>
+          <li>エラーの判定（v1.7.0 で明記）: 429 かどうかは HTTP のステータスコードで判定する（エラーメッセージには URL が入り、試合IDに "429" を含むことがあるため、文字列では判定しない）。429 は最大4回再試行し、5回続いたらステータスコード 429 のエラーにする。429 以外（404・500 など）は再試行せず、そのステータスコードのエラーにする</li>
           <li>APIキー有効期限: 24時間（手動更新）</li>
         </ul>
       </div>
@@ -383,6 +385,24 @@
         <p>ループ終了時・エラー発生時に、ステップ2で保持した id で UPDATE。<code>status</code> を 'completed' または 'failed' に、<code>matches_collected</code> を試合数に（完了時のみ。失敗時は NULL のまま。v1.6.1 で明記）、<code>completed_at</code> を現在時刻に（失敗時も記録し、失敗までの所要時間がわかるようにする）、エラー時は <code>error_message</code> を記録。</p>
       </div>
     </div>
+
+    <h4 style="font-size:13px; margin: 20px 0 8px; color:#555;">エラー時の動き（v1.7.0 で追加。実装の動きを明記）</h4>
+    <p style="font-size:13px; color:#555; margin-bottom:8px;">バッチを止めるエラーは、どれも標準エラー出力（stderr。<code>console.error</code>）に <code>[collect] 致命的なエラー: &lt;メッセージ&gt;</code> を出し、終了コード 1 で終わる。開始ログ（ステップ2）より前のエラーは collection_logs に残らないため、メッセージで原因がわかるようにする。下の「メッセージに含む語」はテストで確かめる値。</p>
+    <table>
+      <tr><th style="width:220px">条件</th><th style="width:110px">起きる時点</th><th>メッセージに含む語</th><th style="width:200px">collection_logs</th></tr>
+      <tr><td><code>TARGET_REGIONS</code> に複数指定</td><td>起動直後</td><td>TARGET_REGIONS に複数のリージョンが指定されています</td><td rowspan="8">行はできない（開始ログより前）</td></tr>
+      <tr><td><code>TARGET_REGIONS</code> が対応表にない値（例: xx1）</td><td>起動直後</td><td>不明なプラットフォーム: xx1</td></tr>
+      <tr><td><code>TARGET_TIERS</code> に許可値以外</td><td>起動直後</td><td>TARGET_TIERS に不正な値があります（不正な値）</td></tr>
+      <tr><td><code>MAX_DURATION_MINUTES</code>・<code>MAX_MATCHES</code> が正の整数でない</td><td>起動直後</td><td>&lt;変数名&gt; は正の整数で指定してください</td></tr>
+      <tr><td><code>RIOT_API_KEY</code> 未設定</td><td>起動直後（Riot API を呼ぶ前）</td><td>RIOT_API_KEY が設定されていません</td></tr>
+      <tr><td><code>SUPABASE_URL</code>・<code>SUPABASE_SERVICE_ROLE_KEY</code> 未設定</td><td>起動直後（読み込み時）</td><td>SUPABASE_URL が設定されていません／SUPABASE_SERVICE_ROLE_KEY が設定されていません（この2つだけは読み込み時の例外として表示され、先頭に <code>[collect] 致命的なエラー:</code> は付かない）</td></tr>
+      <tr><td>APIキーの失効（403）</td><td>ステップ1①</td><td>Riot APIキーが無効または失効しています</td></tr>
+      <tr><td>champions の同期失敗</td><td>ステップ1②</td><td>[champions] 同期失敗</td></tr>
+      <tr><td>名簿の取得失敗が20回を超えた</td><td>ステップ3</td><td>名簿の取得失敗が20回を超えたため中止します</td><td rowspan="3">status を failed にし、error_message に同じメッセージを記録（ステップ7）</td></tr>
+      <tr><td>処理済み試合の取得失敗</td><td>ステップ4</td><td>[processed_matches] 取得失敗</td></tr>
+      <tr><td>DB への書き込み失敗（apply_batch_result のエラー）</td><td>ステップ6</td><td>[apply_batch_result] 書き込み失敗: &lt;DB のエラー&gt;（DB のエラーの種類は 04「apply_batch_result のエラー」）</td></tr>
+    </table>
+    <p style="font-size:13px; color:#555; margin-top:8px;">試合ID一覧・試合詳細の取得失敗はバッチを止めない（警告を出してそのプレイヤー・試合を飛ばす。06 の未決事項 Q-4）。名簿の1ページの取得失敗も止めない（20回まで）。</p>
 
     <h3 style="font-size:14px; margin: 24px 0 16px; color:#555;">3.2 フロントエンド参照フロー（ユーザー操作時）</h3>
     <div class="flow-step">
