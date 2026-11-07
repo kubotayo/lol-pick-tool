@@ -28,6 +28,8 @@ const anon  = createClient(local.url, local.anonKey,        { auth: { persistSes
 
 const PATCH = '16.21';
 const REGION = 'JP';
+// DB-11 で anon が processed_matches の patch を書き換えようとする値。snapshot はこの値の件数も見て、書き換えに気づく
+const TAMPER_PATCH = '99.99';
 const results: Array<{ id: string; ok: boolean; detail: string }> = [];
 const record = (id: string, ok: boolean, detail: string) => { results.push({ id, ok, detail }); console.log(`${ok ? 'OK  ' : 'NG  '} ${id}: ${detail}`); };
 
@@ -58,9 +60,17 @@ async function snapshot() {
     if (error) throw error;
     out[t] = { rows: data.length, games: data.reduce((a, r) => a + r.games_played, 0), wins: data.reduce((a, r) => a + r.wins, 0) };
   }
-  const { count, error } = await admin.from('processed_matches').select('*', { count: 'exact', head: true });
-  if (error) throw error;
-  out.processed_matches = count;
+  // processed_matches は件数に加えて、対象パッチの件数と、DB-11 の UPDATE で書き換える値（TAMPER_PATCH）の件数も見る
+  // （UPDATE は件数を変えないので、件数だけでは書き換えに気づけないため）
+  const counts: Record<string, number | null> = {};
+  for (const [label, patch] of [['all', null], [PATCH, PATCH], [TAMPER_PATCH, TAMPER_PATCH]] as const) {
+    let q = admin.from('processed_matches').select('*', { count: 'exact', head: true });
+    if (patch) q = q.eq('patch', patch);
+    const { count, error } = await q;
+    if (error) throw error;
+    counts[label] = count;
+  }
+  out.processed_matches = counts;
   return JSON.stringify(out);
 }
 
@@ -133,8 +143,8 @@ async function main() {
     const after = await snapshot();
     const { count } = await admin.from('processed_matches').select('*', { count: 'exact', head: true }).eq('match_id', 'IT_06_new');
     // 関数は重複を見つけると書き込む前に止まる。書き込んだ後の取り消しは DB-07 で確かめる
-    record('DB-06', !!error && /処理済みの試合/.test(error.message) && before === after && count === 0,
-      `error=${error?.message ?? 'なし'} 変化なし=${before === after} IT_06_new=${count}件`);
+    record('DB-06', error?.code === 'P0001' && /処理済みの試合が 1 件含まれています/.test(error.message) && before === after && count === 0,
+      `error=${error?.code} ${error?.message ?? 'なし'} 変化なし=${before === after} IT_06_new=${count}件`);
   }
 
   // DB-07
@@ -175,7 +185,9 @@ async function main() {
   {
     const { error } = await apply(anon, { champion: [champ(3, 'all', 1, 1)], matchIds: ['IT_09'] });
     const rows = await championRow(3, 'all');
-    record('DB-09', error?.code === '42501' && rows.length === 0, `error=${error?.code} ${error?.message ?? 'なし'} 書き込まれた行=${rows.length}`);
+    // 42501 は RLS の拒否でも出るので、メッセージで「関数の実行権限がない」ことまで確かめる
+    // （実行権限の設定漏れがあると、関数の中の INSERT が RLS で拒否され、同じ 42501 になるため）
+    record('DB-09', error?.code === '42501' && /permission denied for function apply_batch_result/.test(error.message) && rows.length === 0, `error=${error?.code} ${error?.message ?? 'なし'} 書き込まれた行=${rows.length}`);
   }
 
   // DB-10
@@ -206,7 +218,11 @@ async function main() {
       const after = await snapshot() + JSON.stringify((await admin.from('champions').select('*').order('champion_id')).data);
       const selOk = !sel.error && (sel.data?.length ?? 0) > 0;
       const unchanged = before === after;
-      ok &&= selOk && !!ins.error && unchanged;
+      // INSERT は RLS の拒否（42501）、UPDATE・DELETE はエラーにならず 0行（04「anon キーで操作したときの結果」）
+      const insOk = ins.error?.code === '42501' && /row-level security policy/.test(ins.error.message);
+      const updOk = !upd.error && upd.data?.length === 0;
+      const delOk = !del.error && del.data?.length === 0;
+      ok &&= selOk && insOk && updOk && delOk && unchanged;
       detail.push(`${table}: SELECT ${sel.data?.length ?? 'エラー'}行 / INSERT ${ins.error ? `拒否(${ins.error.code})` : '成功'} / UPDATE ${upd.error ? `拒否(${upd.error.code})` : `${upd.data?.length}行`} / DELETE ${del.error ? `拒否(${del.error.code})` : `${del.data?.length}行`} / データ変化なし=${unchanged}`);
     }
     record('DB-10', ok, '\n    ' + detail.join('\n    '));
@@ -218,11 +234,26 @@ async function main() {
     if (logError) throw logError;
     const detail: string[] = [];
     let ok = true;
+    const insertRows: Record<string, Row> = {
+      collection_logs:   { patch: PATCH, region: REGION, rank_tier: 'PLATINUM', status: 'running', started_at: new Date().toISOString() },
+      processed_matches: { match_id: 'IT_11', patch: PATCH },
+    };
     for (const table of ['collection_logs', 'processed_matches']) {
+      const before = await snapshot() + JSON.stringify((await admin.from('collection_logs').select('*').order('id')).data);
       const { count: adminCount } = await admin.from(table).select('*', { count: 'exact', head: true });
-      const { data, error } = await anon.from(table).select('*');
-      ok &&= (adminCount ?? 0) > 0 && (!!error || data?.length === 0);
-      detail.push(`${table}: 実際 ${adminCount}行 / anon ${error ? `エラー(${error.code})` : `${data?.length}行`}`);
+      const sel = await anon.from(table).select('*');
+      const ins = await anon.from(table).insert(insertRows[table]);
+      const upd = await anon.from(table).update({ patch: TAMPER_PATCH }).neq('patch', '').select();
+      const del = await anon.from(table).delete().neq('patch', '').select();
+      const after = await snapshot() + JSON.stringify((await admin.from('collection_logs').select('*').order('id')).data);
+      // SELECT はエラーにならず 0行（service_role では行があることも確かめる）。INSERT は RLS の拒否（42501）。
+      // UPDATE・DELETE はエラーにならず 0行。どの操作でもデータは変わらない（04「anon キーで操作したときの結果」）
+      const selOk = (adminCount ?? 0) > 0 && !sel.error && sel.data?.length === 0;
+      const insOk = ins.error?.code === '42501' && /row-level security policy/.test(ins.error.message);
+      const updOk = !upd.error && upd.data?.length === 0;
+      const delOk = !del.error && del.data?.length === 0;
+      ok &&= selOk && insOk && updOk && delOk && before === after;
+      detail.push(`${table}: 実際 ${adminCount}行 / anon SELECT ${sel.error ? `エラー(${sel.error.code})` : `${sel.data?.length}行`} / INSERT ${ins.error ? `拒否(${ins.error.code})` : '成功'} / UPDATE ${upd.error ? `エラー(${upd.error.code})` : `${upd.data?.length}行`} / DELETE ${del.error ? `エラー(${del.error.code})` : `${del.data?.length}行`} / データ変化なし=${before === after}`);
     }
     record('DB-11', ok, detail.join(' / '));
   }

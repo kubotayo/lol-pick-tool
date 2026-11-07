@@ -121,7 +121,7 @@ describe('parseTargetTiers', () => {
   });
 
   it('不正な値はエラー', () => {
-    expect(() => parseTargetTiers('PLATINUM,GOLD')).toThrow('GOLD');
+    expect(() => parseTargetTiers('PLATINUM,GOLD')).toThrow('TARGET_TIERS に不正な値があります（GOLD）');
   });
 });
 

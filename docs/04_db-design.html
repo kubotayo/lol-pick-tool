@@ -97,10 +97,11 @@
   <h1>DB設計図</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.6.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.7.0</div></div>
     <div class="meta-item"><div class="label">DB</div><div class="value">PostgreSQL (Supabase)</div></div>
     <div class="meta-item"><div class="label">テーブル数</div><div class="value">6テーブル + 関数1個</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.5.0)</div><div class="value">Riot API の値からの変換ルール（lane・region・patch）・平均ランクによる rank_tier 判定・apply_batch_result の rank_tier を行ごとに変更・collection_logs.rank_tier を TEXT に</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.7.0)</div><div class="value">2026-11-07 RLS 方針に「anon キーで操作したときの結果」と「apply_batch_result のエラー」（SQLSTATE）を追記。テスト仕様書の期待結果の根拠にするため</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.6.0)</div><div class="value">2026-11-04 collection_logs.completed_at を失敗時も記録する仕様に変更・リメイクの試合は集計しないことを追記</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.4.0)</div><div class="value">apply_batch_result() 関数で集計値の加算・1トランザクション書き込みを実装</div></div>
     <div class="meta-item"><div class="label">RLS</div><div class="value">有効（表示用4テーブルのみ anon SELECT 許可）</div></div>
@@ -625,6 +626,24 @@
       <tr>
         <td>service_role キーについて</td>
         <td>service_role キーは Supabase セキュリティモデルで RLS をバイパスする。バッチ専用2テーブルへの書き込みは service_role キーでのみ可能</td>
+      </tr>
+      <tr>
+        <td>anon キーで操作したときの結果<br>（v1.7.0 で明記）</td>
+        <td>
+          画面表示用4テーブル: SELECT はできる。INSERT は RLS の拒否（SQLSTATE <code>42501</code>、メッセージ「new row violates row-level security policy」）。UPDATE・DELETE はエラーにならず対象 0行（UPDATE・DELETE のポリシーがないため）。どの場合もデータは変わらない<br>
+          バッチ専用2テーブル: SELECT はエラーにならず 0行（ポリシーがないため行が見えない）。INSERT は RLS の拒否（<code>42501</code>）。UPDATE・DELETE はエラーにならず 0行。データは変わらない<br>
+          <code>apply_batch_result</code> の呼び出し: 権限エラー（<code>42501</code>、メッセージ「permission denied for function apply_batch_result」。実行権限を service_role に限っているため）。同じ <code>42501</code> は RLS の拒否でも出る（実行権限の設定が漏れていると、関数の中の INSERT が RLS で拒否されて 42501 になる）ので、テストではメッセージで見分ける<br>
+          いずれも 2026-11-07 の結合テスト（06 の DB-09〜11）で確認した動き（実行権限の設定漏れのときの動きも、ローカルの DB で anon に実行権限を与えて確認した）
+        </td>
+      </tr>
+      <tr>
+        <td>apply_batch_result のエラー<br>（v1.7.0 で明記）</td>
+        <td>
+          処理済みの試合を含む: <code>RAISE EXCEPTION</code>（SQLSTATE <code>P0001</code>）。メッセージは「処理済みの試合が N 件含まれています（バッチの同時実行の可能性）。例: …」。書き込む前に止まる<br>
+          champions にない champion_id を含む: 外部キー違反（<code>23503</code>）。processed_matches などを書いた後に起きるが、1トランザクションなので全体が取り消される<br>
+          同時実行で同じ試合IDが後から入った: processed_matches の主キー違反（<code>23505</code>）で全体が取り消される<br>
+          バッチはどのエラーも「[apply_batch_result] 書き込み失敗: &lt;メッセージ&gt;」としてエラー終了する（02「エラー時の動き」）
+        </td>
       </tr>
     </table>
   </div>
