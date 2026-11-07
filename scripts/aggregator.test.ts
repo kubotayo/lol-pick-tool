@@ -47,6 +47,16 @@ describe('aggregateMatch', () => {
     ]));
   });
 
+  // AGG-02
+  it('teamPosition が空・未知の値の参加者は集計せず、ほかの参加者は集計する', () => {
+    const agg = createAggregationResult();
+    aggregateMatch(makeMatch([blue(1, 'MIDDLE', true), red(2, '', false), red(3, 'UNKNOWN', false)]), '16.21', 'JP', ['all'], agg);
+
+    expect(buildChampionRows(agg.championStats)).toEqual([
+      { champion_id: 1, lane: 'MID', rank_tier: 'all', games_played: 1, wins: 1 },
+    ]);
+  });
+
   // AGG-10
   it('同じチャンピオン・レーンが複数の試合に出たら、1行にまとめて試合数と勝ち数を足し合わせる', () => {
     const agg = createAggregationResult();

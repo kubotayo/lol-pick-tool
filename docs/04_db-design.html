@@ -630,10 +630,10 @@
       <tr>
         <td>anon キーで操作したときの結果<br>（v1.7.0 で明記）</td>
         <td>
-          画面表示用4テーブル: SELECT はできる。INSERT は権限エラー（SQLSTATE <code>42501</code>）。UPDATE・DELETE はエラーにならず対象 0行（UPDATE・DELETE のポリシーがないため）。どの場合もデータは変わらない<br>
-          バッチ専用2テーブル: SELECT はエラーにならず 0行（ポリシーがないため行が見えない）<br>
-          <code>apply_batch_result</code> の呼び出し: 権限エラー（<code>42501</code> permission denied for function。実行権限を service_role に限っているため）<br>
-          いずれも 2026-11-07 の結合テスト（06 の DB-09〜11）で確認した動き
+          画面表示用4テーブル: SELECT はできる。INSERT は RLS の拒否（SQLSTATE <code>42501</code>、メッセージ「new row violates row-level security policy」）。UPDATE・DELETE はエラーにならず対象 0行（UPDATE・DELETE のポリシーがないため）。どの場合もデータは変わらない<br>
+          バッチ専用2テーブル: SELECT はエラーにならず 0行（ポリシーがないため行が見えない）。INSERT は RLS の拒否（<code>42501</code>）。UPDATE・DELETE はエラーにならず 0行。データは変わらない<br>
+          <code>apply_batch_result</code> の呼び出し: 権限エラー（<code>42501</code>、メッセージ「permission denied for function apply_batch_result」。実行権限を service_role に限っているため）。同じ <code>42501</code> は RLS の拒否でも出る（実行権限の設定が漏れていると、関数の中の INSERT が RLS で拒否されて 42501 になる）ので、テストではメッセージで見分ける<br>
+          いずれも 2026-11-07 の結合テスト（06 の DB-09〜11）で確認した動き（実行権限の設定漏れのときの動きも、ローカルの DB で anon に実行権限を与えて確認した）
         </td>
       </tr>
       <tr>

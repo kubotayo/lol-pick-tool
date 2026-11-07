@@ -175,7 +175,9 @@ async function main() {
   {
     const { error } = await apply(anon, { champion: [champ(3, 'all', 1, 1)], matchIds: ['IT_09'] });
     const rows = await championRow(3, 'all');
-    record('DB-09', error?.code === '42501' && rows.length === 0, `error=${error?.code} ${error?.message ?? 'なし'} 書き込まれた行=${rows.length}`);
+    // 42501 は RLS の拒否でも出るので、メッセージで「関数の実行権限がない」ことまで確かめる
+    // （実行権限の設定漏れがあると、関数の中の INSERT が RLS で拒否され、同じ 42501 になるため）
+    record('DB-09', error?.code === '42501' && /permission denied for function apply_batch_result/.test(error.message) && rows.length === 0, `error=${error?.code} ${error?.message ?? 'なし'} 書き込まれた行=${rows.length}`);
   }
 
   // DB-10
@@ -206,8 +208,8 @@ async function main() {
       const after = await snapshot() + JSON.stringify((await admin.from('champions').select('*').order('champion_id')).data);
       const selOk = !sel.error && (sel.data?.length ?? 0) > 0;
       const unchanged = before === after;
-      // INSERT は権限エラー、UPDATE・DELETE はエラーにならず 0行（04「anon キーで操作したときの結果」）
-      const insOk = ins.error?.code === '42501';
+      // INSERT は RLS の拒否（42501）、UPDATE・DELETE はエラーにならず 0行（04「anon キーで操作したときの結果」）
+      const insOk = ins.error?.code === '42501' && /row-level security policy/.test(ins.error.message);
       const updOk = !upd.error && upd.data?.length === 0;
       const delOk = !del.error && del.data?.length === 0;
       ok &&= selOk && insOk && updOk && delOk && unchanged;
@@ -222,12 +224,26 @@ async function main() {
     if (logError) throw logError;
     const detail: string[] = [];
     let ok = true;
+    const insertRows: Record<string, Row> = {
+      collection_logs:   { patch: PATCH, region: REGION, rank_tier: 'PLATINUM', status: 'running', started_at: new Date().toISOString() },
+      processed_matches: { match_id: 'IT_11', patch: PATCH },
+    };
     for (const table of ['collection_logs', 'processed_matches']) {
+      const before = await snapshot() + JSON.stringify((await admin.from('collection_logs').select('*').order('id')).data);
       const { count: adminCount } = await admin.from(table).select('*', { count: 'exact', head: true });
-      const { data, error } = await anon.from(table).select('*');
-      // エラーにならず 0行（04「anon キーで操作したときの結果」）。service_role では行があることも確かめる
-      ok &&= (adminCount ?? 0) > 0 && !error && data?.length === 0;
-      detail.push(`${table}: 実際 ${adminCount}行 / anon ${error ? `エラー(${error.code})` : `${data?.length}行`}`);
+      const sel = await anon.from(table).select('*');
+      const ins = await anon.from(table).insert(insertRows[table]);
+      const upd = await anon.from(table).update({ patch: '99.99' }).neq('patch', '').select();
+      const del = await anon.from(table).delete().neq('patch', '').select();
+      const after = await snapshot() + JSON.stringify((await admin.from('collection_logs').select('*').order('id')).data);
+      // SELECT はエラーにならず 0行（service_role では行があることも確かめる）。INSERT は RLS の拒否（42501）。
+      // UPDATE・DELETE はエラーにならず 0行。どの操作でもデータは変わらない（04「anon キーで操作したときの結果」）
+      const selOk = (adminCount ?? 0) > 0 && !sel.error && sel.data?.length === 0;
+      const insOk = ins.error?.code === '42501' && /row-level security policy/.test(ins.error.message);
+      const updOk = !upd.error && upd.data?.length === 0;
+      const delOk = !del.error && del.data?.length === 0;
+      ok &&= selOk && insOk && updOk && delOk && before === after;
+      detail.push(`${table}: 実際 ${adminCount}行 / anon SELECT ${sel.error ? `エラー(${sel.error.code})` : `${sel.data?.length}行`} / INSERT ${ins.error ? `拒否(${ins.error.code})` : '成功'} / UPDATE ${upd.error ? `エラー(${upd.error.code})` : `${upd.data?.length}行`} / DELETE ${del.error ? `エラー(${del.error.code})` : `${del.data?.length}行`} / データ変化なし=${before === after}`);
     }
     record('DB-11', ok, detail.join(' / '));
   }

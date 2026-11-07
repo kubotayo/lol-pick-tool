@@ -387,7 +387,7 @@
     </div>
 
     <h4 style="font-size:13px; margin: 20px 0 8px; color:#555;">エラー時の動き（v1.7.0 で追加。実装の動きを明記）</h4>
-    <p style="font-size:13px; color:#555; margin-bottom:8px;">バッチを止めるエラーは、どれも標準出力に <code>[collect] 致命的なエラー: &lt;メッセージ&gt;</code> を出し、終了コード 1 で終わる。開始ログ（ステップ2）より前のエラーは collection_logs に残らないため、メッセージで原因がわかるようにする。下の「メッセージに含む語」はテストで確かめる値。</p>
+    <p style="font-size:13px; color:#555; margin-bottom:8px;">バッチを止めるエラーは、どれも標準エラー出力（stderr。<code>console.error</code>）に <code>[collect] 致命的なエラー: &lt;メッセージ&gt;</code> を出し、終了コード 1 で終わる。開始ログ（ステップ2）より前のエラーは collection_logs に残らないため、メッセージで原因がわかるようにする。下の「メッセージに含む語」はテストで確かめる値。</p>
     <table>
       <tr><th style="width:220px">条件</th><th style="width:110px">起きる時点</th><th>メッセージに含む語</th><th style="width:200px">collection_logs</th></tr>
       <tr><td><code>TARGET_REGIONS</code> に複数指定</td><td>起動直後</td><td>TARGET_REGIONS に複数のリージョンが指定されています</td><td rowspan="8">行はできない（開始ログより前）</td></tr>
