@@ -58,9 +58,17 @@ async function snapshot() {
     if (error) throw error;
     out[t] = { rows: data.length, games: data.reduce((a, r) => a + r.games_played, 0), wins: data.reduce((a, r) => a + r.wins, 0) };
   }
-  const { count, error } = await admin.from('processed_matches').select('*', { count: 'exact', head: true });
-  if (error) throw error;
-  out.processed_matches = count;
+  // processed_matches は件数に加えて、対象パッチの件数と、DB-11 の UPDATE で書き換える値（99.99）の件数も見る
+  // （UPDATE は件数を変えないので、件数だけでは書き換えに気づけないため）
+  const counts: Record<string, number | null> = {};
+  for (const [label, patch] of [['all', null], [PATCH, PATCH], ['99.99', '99.99']] as const) {
+    let q = admin.from('processed_matches').select('*', { count: 'exact', head: true });
+    if (patch) q = q.eq('patch', patch);
+    const { count, error } = await q;
+    if (error) throw error;
+    counts[label] = count;
+  }
+  out.processed_matches = counts;
   return JSON.stringify(out);
 }
 

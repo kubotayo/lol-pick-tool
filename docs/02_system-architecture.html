@@ -387,22 +387,23 @@
     </div>
 
     <h4 style="font-size:13px; margin: 20px 0 8px; color:#555;">エラー時の動き（v1.7.0 で追加。実装の動きを明記）</h4>
-    <p style="font-size:13px; color:#555; margin-bottom:8px;">バッチを止めるエラーは、どれも標準エラー出力（stderr。<code>console.error</code>）に <code>[collect] 致命的なエラー: &lt;メッセージ&gt;</code> を出し、終了コード 1 で終わる。開始ログ（ステップ2）より前のエラーは collection_logs に残らないため、メッセージで原因がわかるようにする。下の「メッセージに含む語」はテストで確かめる値。</p>
+    <p style="font-size:13px; color:#555; margin-bottom:8px;">バッチを止めるエラーは、どれも標準エラー出力（stderr。<code>console.error</code>）に <code>[collect] 致命的なエラー: &lt;メッセージ&gt;</code> を出し、終了コード 1 で終わる。開始ログ（ステップ2）より前のエラーは collection_logs に残らないため、メッセージで原因がわかるようにする。下の「メッセージに含む語」はテストで確かめる値。表はバッチを止めるエラーの全件（Data Dragon の取得失敗のように、メッセージを定めていないものは表の下に書く）。</p>
     <table>
       <tr><th style="width:220px">条件</th><th style="width:110px">起きる時点</th><th>メッセージに含む語</th><th style="width:200px">collection_logs</th></tr>
-      <tr><td><code>TARGET_REGIONS</code> に複数指定</td><td>起動直後</td><td>TARGET_REGIONS に複数のリージョンが指定されています</td><td rowspan="8">行はできない（開始ログより前）</td></tr>
+      <tr><td><code>TARGET_REGIONS</code> に複数指定</td><td>起動直後</td><td>TARGET_REGIONS に複数のリージョンが指定されています</td><td rowspan="9">行はできない（開始ログより前）</td></tr>
       <tr><td><code>TARGET_REGIONS</code> が対応表にない値（例: xx1）</td><td>起動直後</td><td>不明なプラットフォーム: xx1</td></tr>
       <tr><td><code>TARGET_TIERS</code> に許可値以外</td><td>起動直後</td><td>TARGET_TIERS に不正な値があります（不正な値）</td></tr>
       <tr><td><code>MAX_DURATION_MINUTES</code>・<code>MAX_MATCHES</code> が正の整数でない</td><td>起動直後</td><td>&lt;変数名&gt; は正の整数で指定してください</td></tr>
       <tr><td><code>RIOT_API_KEY</code> 未設定</td><td>起動直後（Riot API を呼ぶ前）</td><td>RIOT_API_KEY が設定されていません</td></tr>
       <tr><td><code>SUPABASE_URL</code>・<code>SUPABASE_SERVICE_ROLE_KEY</code> 未設定</td><td>起動直後（読み込み時）</td><td>SUPABASE_URL が設定されていません／SUPABASE_SERVICE_ROLE_KEY が設定されていません（この2つだけは読み込み時の例外として表示され、先頭に <code>[collect] 致命的なエラー:</code> は付かない）</td></tr>
       <tr><td>APIキーの失効（403）</td><td>ステップ1①</td><td>Riot APIキーが無効または失効しています</td></tr>
-      <tr><td>champions の同期失敗</td><td>ステップ1②</td><td>[champions] 同期失敗</td></tr>
+      <tr><td>APIキーの確認で 403 以外のエラー（401・5xx など）・接続できない</td><td>ステップ1①</td><td>Riot API エラー: &lt;ステータスコード&gt;（接続できないときは fetch のエラーがそのまま出る）</td></tr>
+      <tr><td>champions の同期失敗</td><td>ステップ1③</td><td>[champions] 同期失敗</td></tr>
       <tr><td>名簿の取得失敗が20回を超えた</td><td>ステップ3</td><td>名簿の取得失敗が20回を超えたため中止します</td><td rowspan="3">status を failed にし、error_message に同じメッセージを記録（ステップ7）</td></tr>
       <tr><td>処理済み試合の取得失敗</td><td>ステップ4</td><td>[processed_matches] 取得失敗</td></tr>
       <tr><td>DB への書き込み失敗（apply_batch_result のエラー）</td><td>ステップ6</td><td>[apply_batch_result] 書き込み失敗: &lt;DB のエラー&gt;（DB のエラーの種類は 04「apply_batch_result のエラー」）</td></tr>
     </table>
-    <p style="font-size:13px; color:#555; margin-top:8px;">試合ID一覧・試合詳細の取得失敗はバッチを止めない（警告を出してそのプレイヤー・試合を飛ばす。06 の未決事項 Q-4）。名簿の1ページの取得失敗も止めない（20回まで）。</p>
+    <p style="font-size:13px; color:#555; margin-top:8px;">試合ID一覧・試合詳細の取得失敗はバッチを止めない（警告を出してそのプレイヤー・試合を飛ばす。06 の未決事項 Q-4）。名簿の1ページの取得失敗も止めない（20回まで）。Data Dragon（versions.json・champion.json）の取得失敗はバッチを止めるが、メッセージは定めていない（fetch のエラーがそのまま出る。開始ログより前なので collection_logs に行はできない）。</p>
 
     <h3 style="font-size:14px; margin: 24px 0 16px; color:#555;">3.2 フロントエンド参照フロー（ユーザー操作時）</h3>
     <div class="flow-step">

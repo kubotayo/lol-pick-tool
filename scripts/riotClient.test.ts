@@ -39,7 +39,7 @@ describe('RiotClient', () => {
 
   // ENV-04
   it('存在しないプラットフォームはエラーにする', () => {
-    expect(() => new RiotClient('xx1')).toThrow('不明なプラットフォーム');
+    expect(() => new RiotClient('xx1')).toThrow('不明なプラットフォーム: xx1');
   });
 
   it('APIキーの確認で 403 が返ったら、キーの失効を示すエラーにする', async () => {
