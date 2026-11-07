@@ -133,8 +133,8 @@ async function main() {
     const after = await snapshot();
     const { count } = await admin.from('processed_matches').select('*', { count: 'exact', head: true }).eq('match_id', 'IT_06_new');
     // 関数は重複を見つけると書き込む前に止まる。書き込んだ後の取り消しは DB-07 で確かめる
-    record('DB-06', !!error && /処理済みの試合/.test(error.message) && before === after && count === 0,
-      `error=${error?.message ?? 'なし'} 変化なし=${before === after} IT_06_new=${count}件`);
+    record('DB-06', error?.code === 'P0001' && /処理済みの試合が 1 件含まれています/.test(error.message) && before === after && count === 0,
+      `error=${error?.code} ${error?.message ?? 'なし'} 変化なし=${before === after} IT_06_new=${count}件`);
   }
 
   // DB-07
@@ -206,7 +206,11 @@ async function main() {
       const after = await snapshot() + JSON.stringify((await admin.from('champions').select('*').order('champion_id')).data);
       const selOk = !sel.error && (sel.data?.length ?? 0) > 0;
       const unchanged = before === after;
-      ok &&= selOk && !!ins.error && unchanged;
+      // INSERT は権限エラー、UPDATE・DELETE はエラーにならず 0行（04「anon キーで操作したときの結果」）
+      const insOk = ins.error?.code === '42501';
+      const updOk = !upd.error && upd.data?.length === 0;
+      const delOk = !del.error && del.data?.length === 0;
+      ok &&= selOk && insOk && updOk && delOk && unchanged;
       detail.push(`${table}: SELECT ${sel.data?.length ?? 'エラー'}行 / INSERT ${ins.error ? `拒否(${ins.error.code})` : '成功'} / UPDATE ${upd.error ? `拒否(${upd.error.code})` : `${upd.data?.length}行`} / DELETE ${del.error ? `拒否(${del.error.code})` : `${del.data?.length}行`} / データ変化なし=${unchanged}`);
     }
     record('DB-10', ok, '\n    ' + detail.join('\n    '));
@@ -221,7 +225,8 @@ async function main() {
     for (const table of ['collection_logs', 'processed_matches']) {
       const { count: adminCount } = await admin.from(table).select('*', { count: 'exact', head: true });
       const { data, error } = await anon.from(table).select('*');
-      ok &&= (adminCount ?? 0) > 0 && (!!error || data?.length === 0);
+      // エラーにならず 0行（04「anon キーで操作したときの結果」）。service_role では行があることも確かめる
+      ok &&= (adminCount ?? 0) > 0 && !error && data?.length === 0;
       detail.push(`${table}: 実際 ${adminCount}行 / anon ${error ? `エラー(${error.code})` : `${data?.length}行`}`);
     }
     record('DB-11', ok, detail.join(' / '));

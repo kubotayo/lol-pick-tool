@@ -169,9 +169,8 @@ async function runCollection(): Promise<void> {
     console.log(`[collect] 完了: ${totalMatches}試合を処理しました`);
 
   } catch (err) {
-    // 致命的エラーをログに記録してプロセスを失敗終了させる
+    // 致命的エラーを collection_logs に記録して、呼び出し元（main）に伝える。標準出力への表示は main で行う
     const message = err instanceof Error ? err.message : String(err);
-    console.error('[collect] 致命的なエラー:', message);
     await updateLog(logId, {
       status:        'failed',
       error_message: message,
@@ -186,11 +185,15 @@ function formatCollected(collected: Record<CollectTier, number>, tiers: readonly
 }
 
 // エントリーポイント
+// エラーはここで必ず表示してから終了コード 1 で終わる。開始ログより前のエラー（設定値の誤り・APIキーの失効など）は
+// collection_logs に残らないため、表示しないと GitHub Actions のログでも原因がわからない
 async function main(): Promise<void> {
   try {
     await runCollection();
     process.exit(0);
-  } catch {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[collect] 致命的なエラー:', message);
     process.exit(1);
   }
 }

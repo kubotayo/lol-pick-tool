@@ -40,7 +40,7 @@ describe('buildRoster', () => {
   });
 
   it('取得の失敗が20回を超えたら中止する', async () => {
-    await expect(buildRoster(makeClient({ failPages: 21 }))).rejects.toThrow('20回');
+    await expect(buildRoster(makeClient({ failPages: 21 }))).rejects.toThrow('名簿の取得失敗が20回を超えたため中止します');
   });
 
   // RST-03
