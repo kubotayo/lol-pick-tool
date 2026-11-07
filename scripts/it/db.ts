@@ -28,6 +28,8 @@ const anon  = createClient(local.url, local.anonKey,        { auth: { persistSes
 
 const PATCH = '16.21';
 const REGION = 'JP';
+// DB-11 で anon が processed_matches の patch を書き換えようとする値。snapshot はこの値の件数も見て、書き換えに気づく
+const TAMPER_PATCH = '99.99';
 const results: Array<{ id: string; ok: boolean; detail: string }> = [];
 const record = (id: string, ok: boolean, detail: string) => { results.push({ id, ok, detail }); console.log(`${ok ? 'OK  ' : 'NG  '} ${id}: ${detail}`); };
 
@@ -58,10 +60,10 @@ async function snapshot() {
     if (error) throw error;
     out[t] = { rows: data.length, games: data.reduce((a, r) => a + r.games_played, 0), wins: data.reduce((a, r) => a + r.wins, 0) };
   }
-  // processed_matches は件数に加えて、対象パッチの件数と、DB-11 の UPDATE で書き換える値（99.99）の件数も見る
+  // processed_matches は件数に加えて、対象パッチの件数と、DB-11 の UPDATE で書き換える値（TAMPER_PATCH）の件数も見る
   // （UPDATE は件数を変えないので、件数だけでは書き換えに気づけないため）
   const counts: Record<string, number | null> = {};
-  for (const [label, patch] of [['all', null], [PATCH, PATCH], ['99.99', '99.99']] as const) {
+  for (const [label, patch] of [['all', null], [PATCH, PATCH], [TAMPER_PATCH, TAMPER_PATCH]] as const) {
     let q = admin.from('processed_matches').select('*', { count: 'exact', head: true });
     if (patch) q = q.eq('patch', patch);
     const { count, error } = await q;
@@ -241,7 +243,7 @@ async function main() {
       const { count: adminCount } = await admin.from(table).select('*', { count: 'exact', head: true });
       const sel = await anon.from(table).select('*');
       const ins = await anon.from(table).insert(insertRows[table]);
-      const upd = await anon.from(table).update({ patch: '99.99' }).neq('patch', '').select();
+      const upd = await anon.from(table).update({ patch: TAMPER_PATCH }).neq('patch', '').select();
       const del = await anon.from(table).delete().neq('patch', '').select();
       const after = await snapshot() + JSON.stringify((await admin.from('collection_logs').select('*').order('id')).data);
       // SELECT はエラーにならず 0行（service_role では行があることも確かめる）。INSERT は RLS の拒否（42501）。

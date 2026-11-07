@@ -403,7 +403,7 @@
       <tr><td>処理済み試合の取得失敗</td><td>ステップ4</td><td>[processed_matches] 取得失敗</td></tr>
       <tr><td>DB への書き込み失敗（apply_batch_result のエラー）</td><td>ステップ6</td><td>[apply_batch_result] 書き込み失敗: &lt;DB のエラー&gt;（DB のエラーの種類は 04「apply_batch_result のエラー」）</td></tr>
     </table>
-    <p style="font-size:13px; color:#555; margin-top:8px;">試合ID一覧・試合詳細の取得失敗はバッチを止めない（警告を出してそのプレイヤー・試合を飛ばす。06 の未決事項 Q-4）。名簿の1ページの取得失敗も止めない（20回まで）。Data Dragon（versions.json・champion.json）の取得失敗はバッチを止めるが、メッセージは定めていない（fetch のエラーがそのまま出る。開始ログより前なので collection_logs に行はできない）。</p>
+    <p style="font-size:13px; color:#555; margin-top:8px;">試合ID一覧・試合詳細の取得失敗はバッチを止めない（警告を出してそのプレイヤー・試合を飛ばす。06 の未決事項 Q-4）。名簿の1ページの取得失敗も止めない（20回まで）。Data Dragon（versions.json・champion.json）の取得失敗はバッチを止めるが、メッセージは定めていない（接続できないときは fetch のエラー、HTTP エラーや想定外の応答のときは応答の解析エラー（SyntaxError・TypeError）がそのまま出る。応答のステータスを確かめていないため。開始ログより前なので collection_logs に行はできない）。</p>
 
     <h3 style="font-size:14px; margin: 24px 0 16px; color:#555;">3.2 フロントエンド参照フロー（ユーザー操作時）</h3>
     <div class="flow-step">
