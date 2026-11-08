@@ -319,7 +319,7 @@
       <tr><td>データ更新頻度</td><td>パッチ更新（約2週間ごと）のタイミングでバッチ再実行を手動トリガーまたはCronで対応</td></tr>
       <tr><td>収集対象リージョン</td><td>JPのみ（スノーボール方式のレート制限内での収集効率を最大化するため単一リージョンに絞る）</td></tr>
     </table>
-    <div class="note">Riot Games Development APIキーは申請から最大2営業日で発行される。Production Keyへの移行は今回の目的外。</div>
+    <div class="note">Riot API キーは Developer Portal で製品を登録し、承認されて Personal Key が発行された（v1.7.0 で変更。以前の注記は「Development APIキーは申請から最大2営業日で発行される」）。Production Key への移行は今回の目的外（一般公開するときに申請する）。</div>
   </div>
 
   <!-- 6. スコープ外 -->
@@ -329,7 +329,7 @@
       <h2>スコープ外</h2>
     </div>
     <ul class="out-of-scope" style="margin-top:4px;">
-      <li>ユーザー認証・ログイン機能</li>
+      <li>ユーザー認証・ログイン機能（アプリとしての機能。Vercel Authentication によるサイト全体の保護は除く。v1.7.0 で明記）</li>
       <li>マネタイズ・広告機能</li>
       <li>スキル上げ順の統計表示</li>
       <li>ルーン・サモナースペルの推奨表示</li>
