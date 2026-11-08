@@ -90,13 +90,14 @@
   <h1>要件定義書</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.6.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.7.0</div></div>
     <div class="meta-item"><div class="label">ステータス</div><div class="value">Draft</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.1.0)</div><div class="value">FR-06 Tier閾値を明記</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.2.0)</div><div class="value">FR-03パッチ必須化・FR-20スノーボール方式・FR-24追加・リージョンJPのみ</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.3.0)</div><div class="value">FR-20に終了条件・環境変数名・デフォルト値を補足</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.4.0)</div><div class="value">FR-21の集計値を上書きから加算に変更</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.5.0)</div><div class="value">FR-04 ランク帯の意味・FR-20 名簿と収集対象ランク・FR-21 平均ランクによるランク帯判定</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.7.0)</div><div class="value">2026-11-08 Riot API キーを Personal Key に変更（Development Key は24時間で失効するため）。Personal Key では一般公開できないので、Web サイトを非公開にしたことを制約事項に追記</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.6.0)</div><div class="value">2026-11-04 FR-21 リメイクの試合を集計から除外</div></div>
     <div class="meta-item"><div class="label">対象者</div><div class="value">個人利用 / AI学習目的</div></div>
   </div>
@@ -312,8 +313,8 @@
     </div>
     <table>
       <tr><th style="width:160px">項目</th><th>内容</th></tr>
-      <tr><td>Riot API キー</td><td>Development Keyを使用。有効期限24時間のため手動更新が必要。レート上限: 100 req/2分</td></tr>
-      <tr><td>Riot API 利用規約</td><td>個人・非商用・学習目的での利用のため許容範囲内だが、公開・商用利用は不可</td></tr>
+      <tr><td>Riot API キー</td><td>Personal API Key（Riot Developer Portal で製品登録し、承認済み）を使用。有効期限なし。レート上限: 20 req/秒・100 req/2分（v1.7.0 で変更。以前は Development Key を使用していたが、24時間で失効し毎日の定期実行に使えないため）</td></tr>
+      <tr><td>Riot API 利用規約</td><td>個人・非商用・学習目的での利用のため許容範囲内だが、公開・商用利用は不可。Personal Key は「開発者本人か少人数の非公開コミュニティ向け」で、一般公開（公開のアルファ版・ベータ版を含む）には使えない（Riot の開発者ポリシー）。そのため Web サイトは Vercel のログインが必要な非公開の状態にしている（v1.7.0。02「Webアプリ」）。一般公開する場合は Production Key の申請が必要（動くサイト・認証済みドメイン・利用規約とプライバシーポリシー。Riot 指定の免責文の表示も必要）</td></tr>
       <tr><td>スキル上げ順</td><td>Riot APIでは取得不可のため本ツールの対象外</td></tr>
       <tr><td>データ更新頻度</td><td>パッチ更新（約2週間ごと）のタイミングでバッチ再実行を手動トリガーまたはCronで対応</td></tr>
       <tr><td>収集対象リージョン</td><td>JPのみ（スノーボール方式のレート制限内での収集効率を最大化するため単一リージョンに絞る）</td></tr>
