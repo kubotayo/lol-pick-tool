@@ -61,8 +61,9 @@
   <h1>API設計書</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-11-02</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.0.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.0.1</div></div>
     <div class="meta-item"><div class="label">対象</div><div class="value">Next.js API Routes（app/api/）</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.0.1)</div><div class="value">2026-11-08 共通仕様の「認証」に、デプロイ全体を Vercel Authentication で保護していることを追記（サイトを非公開にしたため）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.0.0)</div><div class="value">新規作成。API の仕様を 02 から分離して記載</div></div>
   </div>
 </div>
@@ -75,7 +76,7 @@
     <table>
       <tr><th style="width:180px">項目</th><th>内容</th></tr>
       <tr><td>エンドポイント</td><td><code>/api/champions</code>・<code>/api/counter</code>・<code>/api/patches</code> の3つ。すべて <code>GET</code>・JSON を返す</td></tr>
-      <tr><td>認証</td><td>なし（個人利用ツール）。API Routes はサーバー側で Supabase の anon キーを使い、RLS で SELECT のみ許可されたテーブルを参照する</td></tr>
+      <tr><td>認証</td><td>アプリでの認証はなし（個人利用ツール）。ただしデプロイ全体を Vercel Authentication（All Deployments）で保護しているため、Vercel にログインしていないリクエストはアプリに届かず、Vercel のログイン画面に飛ばされる（v1.0.1 で追記。02「Webアプリ」）。API Routes はサーバー側で Supabase の anon キーを使い、RLS で SELECT のみ許可されたテーブルを参照する</td></tr>
       <tr><td>入力チェック</td><td>クエリパラメーターは許可値リスト（2章）で検証し、許可値以外は <code>400</code> を返す</td></tr>
       <tr><td>エラー応答</td><td><code>{ "error": "メッセージ" }</code> の形で返す。<code>400</code>: パラメーター不正（どのパラメーターが不正かを書く）／<code>500</code>: DB エラーなど。<code>500</code> では Supabase のエラー内容をそのまま返さず、<code>"Internal Server Error"</code> とする（内部情報を出さないため）。詳細はサーバーのログに出す</td></tr>
       <tr><td>キャッシュ</td><td>成功（<code>200</code>）の応答に <code>Cache-Control: s-maxage=3600, stale-while-revalidate=86400</code> を付け、Vercel の CDN でクエリ文字列ごとにキャッシュする。エラー応答には <code>Cache-Control: no-store</code> を付けてキャッシュしない</td></tr>

@@ -81,9 +81,10 @@
   <h1>システム構成図</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.7.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.7.1</div></div>
     <div class="meta-item"><div class="label">月額コスト見込み</div><div class="value">$0（全て無料枠）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.5.0)</div><div class="value">Riot API・Data Dragon の使い方・名簿と収集対象ランク（TARGET_TIERS）・API のキャッシュ・API設計書（05）への参照</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.7.1)</div><div class="value">2026-11-08 Riot API キーを Personal Key に変更。Web サイトを Vercel Authentication（All Deployments）で非公開にした</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.7.0)</div><div class="value">2026-11-07 バッチの「エラー時の動き」（条件・メッセージ・collection_logs）と、Riot API のエラーの判定（ステータスコードで判定）を明記。開始ログより前のエラーもメッセージを表示して終わるように修正したため</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.6.1)</div><div class="value">2026-11-06 matches_collected は完了時のみ記録することを明記（実装・04 に合わせる）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.6.0)</div><div class="value">2026-11-04 リメイクの試合のスキップ・書き込み条件と失敗時の completed_at の記載を実装に合わせて明確化</div></div>
@@ -259,7 +260,7 @@
       </div>
       <div class="comp-card api">
         <h3>Riot Games 公式API</h3>
-        <div class="service"><span class="service-badge">External</span> 無料（Development Key）</div>
+        <div class="service"><span class="service-badge">External</span> 無料（Personal API Key。v1.7.1 で Development Key から変更）</div>
         <ul>
           <li>LEAGUE-V4 <code>/lol/league/v4/entries/RANKED_SOLO_5x5/{tier}/{division}?page={n}</code>: Platinum〜Diamond の段階ごとのプレイヤー一覧（1ページ約205人）。名簿の作成に使う</li>
           <li>LEAGUE-V4 <code>/lol/league/v4/{challenger|grandmaster|master}leagues/by-queue/RANKED_SOLO_5x5</code>: Master 以上のリーグ全員（上の entries は Master 以上に対応していないため）</li>
@@ -269,7 +270,7 @@
           <li>ホスト: LEAGUE-V4 はプラットフォーム（<code>jp1.api.riotgames.com</code>）、MATCH-V5 はルーティング（<code>asia.api.riotgames.com</code>）。対応: jp1・kr → asia／na1 → americas／euw1・eune1 → europe</li>
           <li>レート: 20 req / 秒・100 req / 2分 → リクエスト間隔 1.2秒。429 は指数バックオフ（1s → 2s → 4s → 8s）</li>
           <li>エラーの判定（v1.7.0 で明記）: 429 かどうかは HTTP のステータスコードで判定する（エラーメッセージには URL が入り、試合IDに "429" を含むことがあるため、文字列では判定しない）。429 は最大4回再試行し、5回続いたらステータスコード 429 のエラーにする。429 以外（404・500 など）は再試行せず、そのステータスコードのエラーにする</li>
-          <li>APIキー有効期限: 24時間（手動更新）</li>
+          <li>APIキー有効期限: なし（Personal Key。以前の Development Key は24時間で失効し、手動更新が必要だった）。Personal Key は一般公開の製品には使えない（01 制約事項）</li>
         </ul>
       </div>
       <div class="comp-card cdn">
@@ -302,6 +303,7 @@
           <li>TypeScript</li>
           <li>API Routes でSupabase参照</li>
           <li>関数タイムアウト: 60秒（読み取りのみのため十分）</li>
+          <li>非公開（v1.7.1）: Deployment Protection の Vercel Authentication を All Deployments（本番ドメインを含むすべてのデプロイ）に設定。Vercel にログインしたチームのメンバーだけが見られる。Personal Key で集めたデータは一般公開できないため（01 制約事項）。Hobby でも追加料金なし（2026-09 から）</li>
         </ul>
       </div>
       <div class="comp-card" style="border-top-color:#e74c3c;">
@@ -481,7 +483,7 @@
         <td>フロントエンド・API Routes ホスティング</td>
         <td>Hobby</td>
         <td><span class="badge free">$0</span></td>
-        <td>個人利用：問題なし</td>
+        <td>個人利用（非公開）：問題なし。全デプロイの保護も追加料金なし</td>
       </tr>
       <tr>
         <td>Supabase</td>
@@ -500,9 +502,9 @@
       <tr>
         <td>Riot API</td>
         <td>試合データ・ランクデータ取得</td>
-        <td>Development Key</td>
+        <td>Personal Key（v1.7.1 で Development Key から変更）</td>
         <td><span class="badge free">$0</span></td>
-        <td>100 req/2min。レート管理必須</td>
+        <td>20 req/秒・100 req/2min。レート管理必須。有効期限なし</td>
       </tr>
       <tr style="background:#f0faf4; font-weight:700;">
         <td colspan="3">合計</td>
