@@ -254,7 +254,7 @@
           <li>TypeScript で実装（collect.ts）</li>
           <li>Cron スケジュール実行：毎日 JST 02:00（UTC 17:00）</li>
           <li>最大6時間/ジョブ（timeout-minutes: 360）</li>
-          <li>環境変数：TARGET_REGIONS（デフォルト jp1、現在1リージョンのみ対応）/ TARGET_TIERS（試合を集める対象のランク。PLATINUM / EMERALD / DIAMOND / MASTER のカンマ区切り。未指定時は4ランクすべて。Actions の既定値は当面 PLATINUM）/ MAX_DURATION_MINUTES（デフォルト 330分）/ MAX_MATCHES（未指定時は上限なし）。手動実行では入力欄 max_matches・max_duration_minutes で MAX_MATCHES・MAX_DURATION_MINUTES を指定できる（空なら既定値。定期実行は既定値。v1.9.0 で追加。運用テストなどで短く終えるため）</li>
+          <li>環境変数：TARGET_REGIONS（デフォルト jp1、現在1リージョンのみ対応）/ TARGET_TIERS（試合を集める対象のランク。PLATINUM / EMERALD / DIAMOND / MASTER のカンマ区切り。未指定時は4ランクすべて。Actions の既定値は当面 PLATINUM）/ MAX_DURATION_MINUTES（デフォルト 330分）/ MAX_MATCHES（未指定時は上限なし）。手動実行では入力欄 max_matches・max_duration_minutes で MAX_MATCHES・MAX_DURATION_MINUTES を指定できる（空なら既定値。定期実行は既定値。v1.9.0 で追加。運用テストなどで短く終えるため）。max_duration_minutes は 330 以下にする（スクリプトは正の整数かどうかしか見ない。330 を超えると timeout-minutes 360 で書き込む前に打ち切られ、その回に集めた試合はすべて失われ、running の行が残る）</li>
           <li>Riot APIキーは GitHub Secrets で管理</li>
           <li>レート制限ハンドラー内蔵（100 req/2分 → 1200ms sleep制御）</li>
           <li>同時実行防止：Concurrency group「collect-daily」で1ジョブずつ実行（cancel-in-progress: false）。同時実行により同じ試合を二重加算しようとして片方の書き込みが全体取り消しされることを防止</li>

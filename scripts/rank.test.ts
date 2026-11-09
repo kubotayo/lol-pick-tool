@@ -41,7 +41,7 @@ describe('rankToPoints', () => {
     expect(rankToPoints('GRANDMASTER', 'I', 500)).toBe(3200);
   });
 
-  // RANK-07（06 の未決事項 Q-3。今の実装の動きを記録する）
+  // RANK-07（04 平均の出し方。旧 06 Q-3）
   it('LP が負の値なら 0LP として扱う', () => {
     expect(rankToPoints('PLATINUM', 'IV', -10)).toBe(1600);
     expect(rankToPoints('MASTER', 'I', -5)).toBe(2800);

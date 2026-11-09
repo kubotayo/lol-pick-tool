@@ -101,7 +101,7 @@
     <div class="meta-item"><div class="label">DB</div><div class="value">PostgreSQL (Supabase)</div></div>
     <div class="meta-item"><div class="label">テーブル数</div><div class="value">6テーブル + 関数1個</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.5.0)</div><div class="value">Riot API の値からの変換ルール（lane・region・patch）・平均ランクによる rank_tier 判定・apply_batch_result の rank_tier を行ごとに変更・collection_logs.rank_tier を TEXT に</div></div>
-    <div class="meta-item"><div class="label">更新内容 (1.8.0)</div><div class="value">2026-11-09 平均の出し方に「LP が負の値なら 0LP」を明記（テスト仕様書の未決事項 Q-3 の決定）</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.8.0)</div><div class="value">2026-11-09 平均の出し方に「LP が負の値なら 0LP」を明記（テスト仕様書の未決事項 Q-3 の決定）。collection_logs.status に running のまま残る場合の扱いを追記（Q-5 の決定）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.7.0)</div><div class="value">2026-11-07 RLS 方針に「anon キーで操作したときの結果」と「apply_batch_result のエラー」（SQLSTATE）を追記。テスト仕様書の期待結果の根拠にするため</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.6.0)</div><div class="value">2026-11-04 collection_logs.completed_at を失敗時も記録する仕様に変更・リメイクの試合は集計しないことを追記</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.4.0)</div><div class="value">apply_batch_result() 関数で集計値の加算・1トランザクション書き込みを実装</div></div>
@@ -373,7 +373,7 @@
             <tr><td class="col-name">patch</td><td class="col-type">VARCHAR(20)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>収集対象パッチ</td></tr>
             <tr><td class="col-name">region</td><td class="col-type">VARCHAR(10)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>収集対象リージョン</td></tr>
             <tr><td class="col-name">rank_tier</td><td class="col-type">TEXT</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>試合を集めた対象のランク（環境変数 TARGET_TIERS の値。例: "PLATINUM" / "PLATINUM,EMERALD,DIAMOND,MASTER"）。v1.5.0 で VARCHAR(20) から変更</td></tr>
-            <tr><td class="col-name">status</td><td class="col-type">VARCHAR(20)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>running / completed / failed</td></tr>
+            <tr><td class="col-name">status</td><td class="col-type">VARCHAR(20)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>running / completed / failed（DB に届かないまま失敗すると running のまま残る。started_at から6時間を過ぎた running の行は、途中で終わった実行とみなす。02 ステップ7、v1.8.0）</td></tr>
             <tr><td class="col-name">matches_collected</td><td class="col-type">INTEGER</td><td></td><td>収集済み試合数（完了時に記録）</td></tr>
             <tr><td class="col-name">started_at</td><td class="col-type">TIMESTAMPTZ</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>ジョブ開始時刻</td></tr>
             <tr><td class="col-name">completed_at</td><td class="col-type">TIMESTAMPTZ</td><td></td><td>ジョブ終了時刻。完了・失敗のどちらでも記録する（失敗までの所要時間を見るため）。実行中は NULL。<br>（v1.6.0 で変更。旧仕様は「失敗時は NULL」だったが、実装は失敗時も記録しており、所要時間がわかる方が調査に役立つため実装に合わせた）</td></tr>

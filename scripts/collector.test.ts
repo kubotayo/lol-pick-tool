@@ -258,7 +258,7 @@ describe('collectMatches', () => {
     expect(source.getMatchIds.mock.calls.map(c => c[0])).toEqual(['p1', 'p2']);
   });
 
-  // LOOP-11（06 の未決事項 Q-4。今の実装の動きを記録する）
+  // LOOP-11（02 エラー時の動き。旧 06 Q-4）
   it('試合ID一覧の取得に失敗したプレイヤーは飛ばして、次のプレイヤーに進む', async () => {
     const roster = makeRoster([['p1', 'PLATINUM', 1700], ['p2', 'PLATINUM', 1700]]);
     const source = makeSource({ p2: ['m2'] }, { m2: makeMatch(['p2', ...others('m2')]) });
