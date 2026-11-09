@@ -202,6 +202,11 @@ describe('getStopReason', () => {
     expect(getStopReason({ ...base, totalMatches: 50 })).toBe('match_limit');
   });
 
+  // LOOP-13 の4列目（02 ステップ5。旧 06 Q-2）
+  it('時間上限と試合数上限に同時に達したら、時間上限を優先する', () => {
+    expect(getStopReason({ ...base, elapsedMs: 1000, totalMatches: 50 })).toBe('time_limit');
+  });
+
   it('試合数上限がnullなら試合数では止めない', () => {
     expect(getStopReason({ ...base, totalMatches: 100000, maxMatches: null })).toBeNull();
   });

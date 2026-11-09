@@ -132,6 +132,13 @@ describe('pickNextTier', () => {
     expect(pickNextTier(['PLATINUM', 'EMERALD', 'DIAMOND'], counts, () => true)).toBe('EMERALD');
   });
 
+  // LOOP-06（02 ステップ5。旧 06 Q-6）
+  it('集めた試合数が同じなら、低いランクを先に選ぶ', () => {
+    const tie = { PLATINUM: 2, EMERALD: 2, DIAMOND: 2, MASTER: 2 };
+    expect(pickNextTier(['PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER'], tie, () => true)).toBe('PLATINUM');
+    expect(pickNextTier(['EMERALD', 'DIAMOND', 'MASTER'], tie, () => true)).toBe('EMERALD');
+  });
+
   it('作業が残っていないランクは飛ばす', () => {
     expect(pickNextTier(['PLATINUM', 'EMERALD', 'MASTER'], counts, t => t !== 'MASTER')).toBe('EMERALD');
   });
