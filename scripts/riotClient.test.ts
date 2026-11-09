@@ -96,6 +96,23 @@ describe('RiotClient', () => {
     expect(Date.now() - startedAt).toBe(1200 + REQUEST_TIMEOUT_MS);
   });
 
+  // API-08（本文の読み込みで止まる場合）
+  it('ヘッダーの後、本文が10秒で届かないときも時間切れのエラーにする', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init: { signal: AbortSignal }) => ({
+      ok: true, status: 200, statusText: 'OK',
+      // 本文は届かず、中断（signal）されたら失敗する
+      json: () => new Promise((_resolve, reject) => {
+        init.signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+      }),
+    })));
+    const client = new RiotClient('jp1');
+
+    const done = client.getMatch('JP1_1');
+    const assertion = expect(done).rejects.toThrow('Riot API タイムアウト: 10秒以内に応答がありません');
+    await vi.runAllTimersAsync();
+    await assertion;
+  });
+
   // API-01
   it('リクエストの前に 1.2秒待ち、続けて呼んでも間隔が 1.2秒以上あく', async () => {
     const { calls } = stubFetch();
