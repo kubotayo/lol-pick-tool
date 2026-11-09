@@ -16,6 +16,9 @@ const RATE_LIMIT_INTERVAL_MS = 1200;
 // 429 時のエクスポネンシャルバックオフ初期待機時間
 const INITIAL_BACKOFF_MS = 1000;
 const MAX_RETRIES = 4;
+// 1回の呼び出しの時間切れ（ふだんの応答は 0.1秒ほど）。応答が止まると時間上限の確認に進めず、
+// 時間上限を大きく超えるため（システムテスト ST-04 で 17分の上限に対して 31分動いた）
+export const REQUEST_TIMEOUT_MS = 10_000;
 
 export class RiotClient {
   private readonly apiKey: string;
@@ -42,7 +45,8 @@ export class RiotClient {
       );
       console.log('[RiotClient] APIキー検証OK');
     } catch (err) {
-      if (err instanceof HttpError && err.status === 403) {
+      // 失効したキーは 403、誤ったキーは 401 が返る（システムテスト ST-05 で確認）
+      if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
         throw new Error('Riot APIキーが無効または失効しています。GitHub Secrets を更新してください。');
       }
       throw err;
@@ -81,19 +85,32 @@ export class RiotClient {
     return this.fetchWithRetry<MatchDto>(() => this.get(url));
   }
 
-  // 共通 GET メソッド（レート制限の sleep を内包）
+  // 共通 GET メソッド（レート制限の sleep と時間切れを内包）
   private async get<T>(url: string): Promise<T> {
     await sleep(RATE_LIMIT_INTERVAL_MS);
 
-    const res = await fetch(url, {
-      headers: { 'X-Riot-Token': this.apiKey },
-    });
+    // 応答の本文を読み終えるまでを時間切れの対象にする
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const res = await fetch(url, {
+        headers: { 'X-Riot-Token': this.apiKey },
+        signal:  controller.signal,
+      });
 
-    if (!res.ok) {
-      throw new HttpError(`Riot API エラー: ${res.status} ${res.statusText} [${url}]`, res.status);
+      if (!res.ok) {
+        throw new HttpError(`Riot API エラー: ${res.status} ${res.statusText} [${url}]`, res.status);
+      }
+
+      return (await res.json()) as T;
+    } catch (err) {
+      if (controller.signal.aborted) {
+        throw new Error(`Riot API タイムアウト: ${REQUEST_TIMEOUT_MS / 1000}秒以内に応答がありません [${url}]`);
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
     }
-
-    return res.json() as Promise<T>;
   }
 
   // 429 のみ自動リトライ、それ以外は即 throw する
