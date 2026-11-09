@@ -81,9 +81,10 @@
   <h1>システム構成図</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.7.1</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.8.0</div></div>
     <div class="meta-item"><div class="label">月額コスト見込み</div><div class="value">$0（全て無料枠）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.5.0)</div><div class="value">Riot API・Data Dragon の使い方・名簿と収集対象ランク（TARGET_TIERS）・API のキャッシュ・API設計書（05）への参照</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.8.0)</div><div class="value">2026-11-09 システムテストの結果を受けて、Riot API の呼び出しに10秒の時間切れを追加し、APIキーの確認で 401 も「無効または失効」として扱うように変更。時間上限は1ループ分（最大約71秒）超えることがあると明記</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.7.1)</div><div class="value">2026-11-08 Riot API キーを Personal Key に変更。Web サイトを Vercel Authentication（All Deployments）で非公開にした</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.7.0)</div><div class="value">2026-11-07 バッチの「エラー時の動き」（条件・メッセージ・collection_logs）と、Riot API のエラーの判定（ステータスコードで判定）を明記。開始ログより前のエラーもメッセージを表示して終わるように修正したため</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.6.1)</div><div class="value">2026-11-06 matches_collected は完了時のみ記録することを明記（実装・04 に合わせる）</div></div>
@@ -269,7 +270,7 @@
           <li>MATCH-V5 <code>/lol/match/v5/matches/{matchId}</code>: 試合詳細（参加者のチャンピオン・teamPosition・勝敗・アイテム・gameVersion）</li>
           <li>ホスト: LEAGUE-V4 はプラットフォーム（<code>jp1.api.riotgames.com</code>）、MATCH-V5 はルーティング（<code>asia.api.riotgames.com</code>）。対応: jp1・kr → asia／na1 → americas／euw1・eune1 → europe</li>
           <li>レート: 20 req / 秒・100 req / 2分 → リクエスト間隔 1.2秒。429 は指数バックオフ（1s → 2s → 4s → 8s）</li>
-          <li>エラーの判定（v1.7.0 で明記）: 429 かどうかは HTTP のステータスコードで判定する（エラーメッセージには URL が入り、試合IDに "429" を含むことがあるため、文字列では判定しない）。429 は最大4回再試行し、5回続いたらステータスコード 429 のエラーにする。429 以外（404・500 など）は再試行せず、そのステータスコードのエラーにする</li>
+          <li>エラーの判定（v1.7.0 で明記）: 429 かどうかは HTTP のステータスコードで判定する（エラーメッセージには URL が入り、試合IDに "429" を含むことがあるため、文字列では判定しない）。429 は最大4回再試行し、5回続いたらステータスコード 429 のエラーにする。429 以外（404・500 など）は再試行せず、そのステータスコードのエラーにする。1回の呼び出しは10秒で時間切れにし（応答の本文を読み終えるまで）、時間切れも再試行せずエラーにする（v1.8.0 で追加。応答が止まると時間上限の確認に進めず、システムテスト ST-04 で 17分の上限に対して 31分動いたため）</li>
           <li>APIキー有効期限: なし（Personal Key。以前の Development Key は24時間で失効し、手動更新が必要だった）。Personal Key は一般公開の製品には使えない（01 制約事項）</li>
         </ul>
       </div>
@@ -362,7 +363,7 @@
       <div class="step-content">
         <h4>スノーボールメインループ</h4>
         <p>各イテレーション先頭で終了条件を判定。以下のうち先に達した方で終了：<br>
-        ① 時間上限（MAX_DURATION_MINUTES、デフォルト330分）<br>
+        ① 時間上限（MAX_DURATION_MINUTES、デフォルト330分。起動からの経過で、ループの1回ごとの始めに判定する。名簿の作成など、ループに入る前の処理の間は判定しない（上限が名簿の作成より短くても、名簿の作成は最後まで行う）。ループに入った後は1回分だけ超えることがある。1回の Riot API の呼び出しは10秒で時間切れになり、429 の再試行を含めても1回は最大約71秒。v1.8.0 で明記）<br>
         ② 試合数上限（MAX_MATCHES、未指定なら上限なし）<br>
         ③ キュー枯渇（収集対象のすべてのランクで、キューも名簿の未使用プレイヤーも尽きた）<br>
         キューは収集対象のランク（TARGET_TIERS）ごとに持つ。空になったランクには、名簿からまだ使っていないプレイヤーを5人ずつ補充する。<br>
@@ -398,14 +399,14 @@
       <tr><td><code>MAX_DURATION_MINUTES</code>・<code>MAX_MATCHES</code> が正の整数でない</td><td>起動直後</td><td>&lt;変数名&gt; は正の整数で指定してください</td></tr>
       <tr><td><code>RIOT_API_KEY</code> 未設定</td><td>起動直後（Riot API を呼ぶ前）</td><td>RIOT_API_KEY が設定されていません</td></tr>
       <tr><td><code>SUPABASE_URL</code>・<code>SUPABASE_SERVICE_ROLE_KEY</code> 未設定</td><td>起動直後（読み込み時）</td><td>SUPABASE_URL が設定されていません／SUPABASE_SERVICE_ROLE_KEY が設定されていません（この2つだけは読み込み時の例外として表示され、先頭に <code>[collect] 致命的なエラー:</code> は付かない）</td></tr>
-      <tr><td>APIキーの失効（403）</td><td>ステップ1①</td><td>Riot APIキーが無効または失効しています</td></tr>
-      <tr><td>APIキーの確認で 403 以外のエラー（401・5xx など）・接続できない</td><td>ステップ1①</td><td>Riot API エラー: &lt;ステータスコード&gt;（接続できないときは fetch のエラーがそのまま出る）</td></tr>
+      <tr><td>APIキーの失効・誤り（403・401）</td><td>ステップ1①</td><td>Riot APIキーが無効または失効しています（v1.8.0 で 401 を追加。誤ったキーでは 401 が返ることをシステムテスト ST-05 で確認したため）</td></tr>
+      <tr><td>APIキーの確認で 401・403 以外のエラー（5xx など）・接続できない・時間切れ</td><td>ステップ1①</td><td>Riot API エラー: &lt;ステータスコード&gt;（接続できないときは fetch のエラー、時間切れは「Riot API タイムアウト」）</td></tr>
       <tr><td>champions の同期失敗</td><td>ステップ1③</td><td>[champions] 同期失敗</td></tr>
       <tr><td>名簿の取得失敗が20回を超えた</td><td>ステップ3</td><td>名簿の取得失敗が20回を超えたため中止します</td><td rowspan="3">status を failed にし、error_message に同じメッセージを記録（ステップ7）</td></tr>
       <tr><td>処理済み試合の取得失敗</td><td>ステップ4</td><td>[processed_matches] 取得失敗</td></tr>
       <tr><td>DB への書き込み失敗（apply_batch_result のエラー）</td><td>ステップ6</td><td>[apply_batch_result] 書き込み失敗: &lt;DB のエラー&gt;（DB のエラーの種類は 04「apply_batch_result のエラー」）</td></tr>
     </table>
-    <p style="font-size:13px; color:#555; margin-top:8px;">試合ID一覧・試合詳細の取得失敗はバッチを止めない（警告を出してそのプレイヤー・試合を飛ばす。06 の未決事項 Q-4）。名簿の1ページの取得失敗も止めない（20回まで）。Data Dragon（versions.json・champion.json）の取得失敗はバッチを止めるが、メッセージは定めていない（接続できないときは fetch のエラー、HTTP エラーや想定外の応答のときは応答の解析エラー（SyntaxError・TypeError）がそのまま出る。応答のステータスを確かめていないため。開始ログより前なので collection_logs に行はできない）。</p>
+    <p style="font-size:13px; color:#555; margin-top:8px;">試合ID一覧・試合詳細の取得失敗（時間切れを含む）はバッチを止めない（警告を出してそのプレイヤー・試合を飛ばす。06 の未決事項 Q-4）。名簿の1ページの取得失敗（時間切れを含む）も止めない（20回まで）。Data Dragon（versions.json・champion.json）の取得失敗はバッチを止めるが、メッセージは定めていない（接続できないときは fetch のエラー、HTTP エラーや想定外の応答のときは応答の解析エラー（SyntaxError・TypeError）がそのまま出る。応答のステータスを確かめていないため。開始ログより前なので collection_logs に行はできない）。</p>
 
     <h3 style="font-size:14px; margin: 24px 0 16px; color:#555;">3.2 フロントエンド参照フロー（ユーザー操作時）</h3>
     <div class="flow-step">

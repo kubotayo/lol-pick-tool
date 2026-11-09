@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { RiotClient } from './riotClient';
+import { RiotClient, REQUEST_TIMEOUT_MS } from './riotClient';
 
 // fetch を偽物に差し替え、呼ばれた時刻（偽のタイマーの時刻）と URL を記録する
 // statuses の順に応答し、使い切ったら 200 を返す
@@ -58,6 +58,67 @@ describe('RiotClient', () => {
     vi.stubEnv('RIOT_API_KEY', '');
     expect(() => new RiotClient('jp1')).toThrow('RIOT_API_KEY が設定されていません');
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  // INIT-02（誤ったキー）
+  it('APIキーの確認で 401 が返っても、キーの失効を示すエラーにする', async () => {
+    stubFetch([401]);
+    const client = new RiotClient('jp1');
+
+    const done = client.validateApiKey();
+    const assertion = expect(done).rejects.toThrow('Riot APIキーが無効または失効しています');
+    await vi.runAllTimersAsync();
+    await assertion;
+  });
+
+  // API-08
+  it('応答が10秒ないときは時間切れのエラーにし、再試行しない', async () => {
+    const calls: number[] = [];
+    // 応答を返さず、中断（signal）されたら失敗する fetch
+    vi.stubGlobal('fetch', vi.fn((_url: string, init: { signal: AbortSignal }) => {
+      calls.push(Date.now());
+      return new Promise((_resolve, reject) => {
+        init.signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+      });
+    }));
+    const client = new RiotClient('jp1');
+    const startedAt = Date.now();
+
+    const done = client.getMatch('JP1_1');
+    const assertion = expect(done).rejects.toThrow('Riot API タイムアウト: 10秒以内に応答がありません');
+    await vi.advanceTimersByTimeAsync(1200 + REQUEST_TIMEOUT_MS - 1);
+    expect(calls).toHaveLength(1);
+    await vi.runAllTimersAsync();
+    await assertion;
+
+    expect(calls).toHaveLength(1);
+    expect(REQUEST_TIMEOUT_MS).toBe(10_000);
+    expect(Date.now() - startedAt).toBe(1200 + REQUEST_TIMEOUT_MS);
+  });
+
+  // API-08（本文の読み込みで止まる場合）
+  it('ヘッダーの後、本文が10秒で届かないときも時間切れのエラーにする', async () => {
+    const calls: number[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init: { signal: AbortSignal }) => {
+      calls.push(Date.now());
+      return {
+        ok: true, status: 200, statusText: 'OK',
+        // 本文は届かず、中断（signal）されたら失敗する
+        json: () => new Promise((_resolve, reject) => {
+          init.signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+        }),
+      };
+    }));
+    const client = new RiotClient('jp1');
+    const startedAt = Date.now();
+
+    const done = client.getMatch('JP1_1');
+    const assertion = expect(done).rejects.toThrow('Riot API タイムアウト: 10秒以内に応答がありません');
+    await vi.runAllTimersAsync();
+    await assertion;
+
+    expect(calls).toHaveLength(1);
+    expect(Date.now() - startedAt).toBe(1200 + REQUEST_TIMEOUT_MS);
   });
 
   // API-01
