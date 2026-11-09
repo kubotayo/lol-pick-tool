@@ -272,6 +272,44 @@ describe('collectMatches', () => {
     expect(result.matchIds).toEqual(['m2']);
   });
 
+  // LOOP-16
+  it('writeEvery 試合ごとと最後の残りを書き込み、書き込んだ分の集計はメモリから消す', async () => {
+    const roster = makeRoster([['p1', 'PLATINUM', 1700]]);
+    const ids = ['m1', 'm2', 'm3', 'm4', 'm5'];
+    const source = makeSource({ p1: ids }, Object.fromEntries(ids.map(id => [id, makeMatch(['p1', ...others(id)])])));
+    const writes: Array<{ matchIds: string[]; championRows: number }> = [];
+
+    const result = await collectMatches(source, options({
+      roster, seedPools: { PLATINUM: ['p1'], EMERALD: [], DIAMOND: [], MASTER: [] },
+      writeEvery: 2,
+      onWrite: async (aggregation, matchIds) => {
+        // 1試合あたり 10人 × all の1ランク帯 = 10行。前の書き込みの分が残っていれば行の試合数が増える
+        const rows = buildChampionRows(aggregation.championStats);
+        writes.push({ matchIds: [...matchIds], championRows: rows.reduce((a, r) => a + r.games_played, 0) });
+      },
+    }));
+
+    expect(writes.map(w => w.matchIds)).toEqual([['m1', 'm2'], ['m3', 'm4'], ['m5']]);
+    expect(writes.map(w => w.championRows)).toEqual([20, 20, 10]);
+    expect(result.matchIds).toEqual(ids);
+    expect(result.aggregation.championStats.size).toBe(0);
+  });
+
+  // LOOP-17
+  it('書き込みが失敗したら、そこで止めてエラーにする（その後の試合は取りに行かない）', async () => {
+    const roster = makeRoster([['p1', 'PLATINUM', 1700]]);
+    const ids = ['m1', 'm2', 'm3', 'm4'];
+    const source = makeSource({ p1: ids }, Object.fromEntries(ids.map(id => [id, makeMatch(['p1', ...others(id)])])));
+
+    await expect(collectMatches(source, options({
+      roster, seedPools: { PLATINUM: ['p1'], EMERALD: [], DIAMOND: [], MASTER: [] },
+      writeEvery: 2,
+      onWrite: async () => { throw new Error('[apply_batch_result] 書き込み失敗: test'); },
+    }))).rejects.toThrow('[apply_batch_result] 書き込み失敗: test');
+
+    expect(source.getMatch.mock.calls.map(c => c[0])).toEqual(['m1', 'm2']);
+  });
+
   it('名簿のプレイヤーを使い切ったら queue_empty で終わる', async () => {
     const result = await collectMatches(makeSource({}, {}), options({}));
     expect(result.stopReason).toBe('queue_empty');

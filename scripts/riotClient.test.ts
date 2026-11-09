@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { RiotClient, REQUEST_TIMEOUT_MS } from './riotClient';
+import { RiotClient, REQUEST_TIMEOUT_MS, maskUrl } from './riotClient';
 
 // fetch を偽物に差し替え、呼ばれた時刻（偽のタイマーの時刻）と URL を記録する
 // statuses の順に応答し、使い切ったら 200 を返す
@@ -119,6 +119,20 @@ describe('RiotClient', () => {
 
     expect(calls).toHaveLength(1);
     expect(Date.now() - startedAt).toBe(1200 + REQUEST_TIMEOUT_MS);
+  });
+
+  // API-09
+  it('エラー文の URL の PUUID は先頭8文字だけにする', async () => {
+    const puuid = 'abcdefgh' + 'X'.repeat(70);
+    stubFetch([404]);
+    const client = new RiotClient('jp1');
+
+    const done = client.getMatchIds(puuid);
+    const assertion = expect(done).rejects.toThrow('/by-puuid/abcdefgh.../ids?queue=420&count=20');
+    await vi.runAllTimersAsync();
+    await assertion;
+    await expect(done).rejects.not.toThrow(puuid);
+    expect(maskUrl('https://asia.api.riotgames.com/lol/match/v5/matches/JP1_1')).toBe('https://asia.api.riotgames.com/lol/match/v5/matches/JP1_1');
   });
 
   // API-01

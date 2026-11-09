@@ -6,9 +6,16 @@ const db = vi.hoisted(() => ({
   rows:        [] as Array<{ match_id: string; patch: string }>,
   rangeCalls:  0,
   eqColumns:   [] as string[],
+  rpcCalls:    [] as Array<{ fn: string; args: Record<string, unknown> }>,
+  archiveResults: [] as number[],
 }));
 vi.mock('./supabase', () => ({
   supabase: {
+    // archive_old_patches は、db.archiveResults の値を順に返す
+    rpc: async (fn: string, args: Record<string, unknown>) => {
+      db.rpcCalls.push({ fn, args });
+      return { data: db.archiveResults.shift() ?? 0, error: null };
+    },
     from: () => {
       let patch: string | undefined;
       const query = {
@@ -26,7 +33,7 @@ vi.mock('./supabase', () => ({
   },
 }));
 
-import { buildChampionRows, buildCounterRows, buildItemRows, getProcessedMatchIds } from './supabaseWriter';
+import { buildChampionRows, buildCounterRows, buildItemRows, getProcessedMatchIds, archiveOldPatches } from './supabaseWriter';
 import { createAggregationResult, aggregateMatch } from './aggregator';
 import type { MatchDto } from './types';
 
@@ -106,5 +113,19 @@ describe('getProcessedMatchIds', () => {
     expect([...ids].some(id => id.startsWith('JP1_old'))).toBe(false);
     expect(db.rangeCalls).toBe(pages);
     expect(db.eqColumns.every(c => c === 'patch')).toBe(true);
+  });
+});
+
+// DB-13（バッチ側）
+describe('archiveOldPatches', () => {
+  it('0 が返るまで繰り返し呼び、消した行の合計を返す', async () => {
+    db.rpcCalls = [];
+    db.archiveResults = [20000, 20000, 5, 0];
+
+    const total = await archiveOldPatches('16.22');
+
+    expect(total).toBe(40005);
+    expect(db.rpcCalls).toHaveLength(4);
+    expect(db.rpcCalls.every(c => c.fn === 'archive_old_patches' && c.args.p_current_patch === '16.22' && c.args.p_limit === 20000)).toBe(true);
   });
 });

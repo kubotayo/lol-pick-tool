@@ -83,6 +83,28 @@ export async function applyBatchResult(
   };
 }
 
+// 古いパッチを消すときの1回の上限（DB 関数 archive_old_patches、006 マイグレーション）。API の時間の上限（8秒）に収めるため
+const ARCHIVE_ROWS_PER_CALL = 20000;
+
+/**
+ * 今のパッチと直前のパッチより古いパッチの item_build_stats と processed_matches を消す（要件 FR-23、02 ステップ1④）
+ * champion_stats・counter_stats は残す。1回で消すのは最大 ARCHIVE_ROWS_PER_CALL 行で、0 が返るまで繰り返す
+ * 戻り値は消した行の合計
+ */
+export async function archiveOldPatches(currentPatch: string): Promise<number> {
+  let total = 0;
+  for (;;) {
+    const { data, error } = await supabase.rpc('archive_old_patches', {
+      p_current_patch: currentPatch,
+      p_limit:         ARCHIVE_ROWS_PER_CALL,
+    });
+    if (error) throw new Error(`[archive_old_patches] 古いパッチの削除に失敗: ${error.message}`);
+    const deleted = Number(data ?? 0);
+    total += deleted;
+    if (deleted === 0) return total;
+  }
+}
+
 /**
  * processed_matches から処理済み試合IDのセットを取得する
  * BFS キュー追加前の重複チェックに使用する
