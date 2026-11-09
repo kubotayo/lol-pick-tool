@@ -81,9 +81,10 @@
   <h1>システム構成図</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.8.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.9.0</div></div>
     <div class="meta-item"><div class="label">月額コスト見込み</div><div class="value">$0（全て無料枠）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.5.0)</div><div class="value">Riot API・Data Dragon の使い方・名簿と収集対象ランク（TARGET_TIERS）・API のキャッシュ・API設計書（05）への参照</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.9.0)</div><div class="value">2026-11-09 テスト仕様書の未決事項 Q-1〜Q-8 の決定を反映（手動実行の入力欄 max_matches・max_duration_minutes の追加、終了理由・ランクの順・取得失敗・running の行・リメイクの扱いを仕様として明記）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.8.0)</div><div class="value">2026-11-09 システムテストの結果を受けて、Riot API の呼び出しに10秒の時間切れを追加し、APIキーの確認で 401 も「無効または失効」として扱うように変更。時間上限は1ループ分（最大約71秒）超えることがあると明記</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.7.1)</div><div class="value">2026-11-08 Riot API キーを Personal Key に変更。Web サイトを Vercel Authentication（All Deployments）で非公開にした</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.7.0)</div><div class="value">2026-11-07 バッチの「エラー時の動き」（条件・メッセージ・collection_logs）と、Riot API のエラーの判定（ステータスコードで判定）を明記。開始ログより前のエラーもメッセージを表示して終わるように修正したため</div></div>
@@ -253,7 +254,7 @@
           <li>TypeScript で実装（collect.ts）</li>
           <li>Cron スケジュール実行：毎日 JST 02:00（UTC 17:00）</li>
           <li>最大6時間/ジョブ（timeout-minutes: 360）</li>
-          <li>環境変数：TARGET_REGIONS（デフォルト jp1、現在1リージョンのみ対応）/ TARGET_TIERS（試合を集める対象のランク。PLATINUM / EMERALD / DIAMOND / MASTER のカンマ区切り。未指定時は4ランクすべて。Actions の既定値は当面 PLATINUM）/ MAX_DURATION_MINUTES（デフォルト 330分）/ MAX_MATCHES（未指定時は上限なし）</li>
+          <li>環境変数：TARGET_REGIONS（デフォルト jp1、現在1リージョンのみ対応）/ TARGET_TIERS（試合を集める対象のランク。PLATINUM / EMERALD / DIAMOND / MASTER のカンマ区切り。未指定時は4ランクすべて。Actions の既定値は当面 PLATINUM）/ MAX_DURATION_MINUTES（デフォルト 330分）/ MAX_MATCHES（未指定時は上限なし）。手動実行では入力欄 max_matches・max_duration_minutes で MAX_MATCHES・MAX_DURATION_MINUTES を指定できる（空なら既定値。定期実行は既定値。v1.9.0 で追加。運用テストなどで短く終えるため）。max_duration_minutes は 330 以下にする（スクリプトは正の整数かどうかしか見ない。時間上限は起動から測るので、330 を超えると、書き込みを終える前に timeout-minutes 360 で打ち切られるおそれがある。360 以上なら必ず打ち切られる。打ち切られると、その回に集めた試合はすべて失われ、running の行が残る）</li>
           <li>Riot APIキーは GitHub Secrets で管理</li>
           <li>レート制限ハンドラー内蔵（100 req/2分 → 1200ms sleep制御）</li>
           <li>同時実行防止：Concurrency group「collect-daily」で1ジョブずつ実行（cancel-in-progress: false）。同時実行により同じ試合を二重加算しようとして片方の書き込みが全体取り消しされることを防止</li>
@@ -341,7 +342,7 @@
       <div class="step-num">2</div>
       <div class="step-content">
         <h4>collection_logs にジョブ開始を記録</h4>
-        <p>collection_logs テーブルに <code>status: 'running'</code> で行を INSERT し、採番された id（BIGSERIAL）を保持。その後のループ終了時・エラー発生時にこの id で UPDATE する。</p>
+        <p>collection_logs テーブルに <code>status: 'running'</code> で行を INSERT し、採番された id（BIGSERIAL）を保持。その後のループ終了時・エラー発生時にこの id で UPDATE する。開始ログの INSERT・UPDATE に失敗しても、警告を出してバッチは続ける（v1.9.0 で明記。未決事項 Q-5 の決定。ログのためにその日の収集を止めないため）。</p>
       </div>
     </div>
     <div class="flow-step">
@@ -367,7 +368,7 @@
         ② 試合数上限（MAX_MATCHES、未指定なら上限なし）<br>
         ③ キュー枯渇（収集対象のすべてのランクで、キューも名簿の未使用プレイヤーも尽きた）<br>
         キューは収集対象のランク（TARGET_TIERS）ごとに持つ。空になったランクには、名簿からまだ使っていないプレイヤーを5人ずつ補充する。<br>
-        ループ内の処理：集めた試合数が最も少ないランクを選ぶ → そのランクの試合IDキューが空ならプレイヤーの直近20試合のIDを取得し、<code>processed_matches</code> と <code>queuedMatchIds</code> で重複除外して追加 → 試合詳細を取得 → パッチが不一致ならスキップし、そのプレイヤーの残りの試合も取りに行かない（試合IDは新しい順のため残りも古い。休止中のプレイヤーでリクエストを無駄にしないため） → リメイクの試合（参加者の <code>gameEndedInEarlySurrender</code> が true）はスキップする。集計せず、processed_matches にも記録せず、参加者を次のシードにも使わない。同じプレイヤーの残りの試合は続ける（v1.6.0 で追加。FR-21） → 参加者10人の平均ランクからランク帯を決め、当てはまるランク帯すべてにメモリ上で集計 → 参加者のうち名簿にいて収集対象ランクの人を、未訪問ならそのランクのキューに追加。</p>
+        時間上限と試合数上限に同時に達したときの終了理由は時間上限とする。集めた試合数が同じランクが複数あるときは、低いランクを先に進める（v1.9.0 で明記。テスト仕様書の未決事項 Q-2・Q-6 の決定）。ループ内の処理：集めた試合数が最も少ないランクを選ぶ → そのランクの試合IDキューが空ならプレイヤーの直近20試合のIDを取得し、<code>processed_matches</code> と <code>queuedMatchIds</code> で重複除外して追加 → 試合詳細を取得 → パッチが不一致ならスキップし、そのプレイヤーの残りの試合も取りに行かない（試合IDは新しい順のため残りも古い。休止中のプレイヤーでリクエストを無駄にしないため） → リメイクの試合（参加者の <code>gameEndedInEarlySurrender</code> が true）はスキップする。集計せず、processed_matches にも記録せず、参加者を次のシードにも使わない。記録しないため、後の実行で同じ試合IDが返ると試合詳細をもう一度取りに行く。むだは1回の実行につき1回の呼び出し（同じ実行の中では二度取りしない。その試合が誰かの直近20試合に入っている間は、実行のたびに1回ずつ起きる）なので許容する（v1.9.0 で明記。未決事項 Q-7 の決定）。同じプレイヤーの残りの試合は続ける（v1.6.0 で追加。FR-21） → 参加者10人の平均ランクからランク帯を決め、当てはまるランク帯すべてにメモリ上で集計 → 参加者のうち名簿にいて収集対象ランクの人を、未訪問ならそのランクのキューに追加。</p>
       </div>
     </div>
     <div class="flow-step">
@@ -385,12 +386,12 @@
       <div class="step-num">7</div>
       <div class="step-content">
         <h4>collection_logs をジョブ完了で UPDATE</h4>
-        <p>ループ終了時・エラー発生時に、ステップ2で保持した id で UPDATE。<code>status</code> を 'completed' または 'failed' に、<code>matches_collected</code> を試合数に（完了時のみ。失敗時は NULL のまま。v1.6.1 で明記）、<code>completed_at</code> を現在時刻に（失敗時も記録し、失敗までの所要時間がわかるようにする）、エラー時は <code>error_message</code> を記録。</p>
+        <p>ループ終了時・エラー発生時に、ステップ2で保持した id で UPDATE。<code>status</code> を 'completed' または 'failed' に、<code>matches_collected</code> を試合数に（完了時のみ。失敗時は NULL のまま。v1.6.1 で明記）、<code>completed_at</code> を現在時刻に（失敗時も記録し、失敗までの所要時間がわかるようにする）、エラー時は <code>error_message</code> を記録。DB に届かないまま失敗したときは failed への更新もできず、行は running のまま残る（次回の実行は止まらない）。started_at から6時間（timeout-minutes）を過ぎた running の行は、途中で終わった実行とみなす（v1.9.0 で明記。未決事項 Q-5 の決定。めったに起きないため、自動で直す処理は作らない）</p>
       </div>
     </div>
 
     <h4 style="font-size:13px; margin: 20px 0 8px; color:#555;">エラー時の動き（v1.7.0 で追加。実装の動きを明記）</h4>
-    <p style="font-size:13px; color:#555; margin-bottom:8px;">バッチを止めるエラーは、どれも標準エラー出力（stderr。<code>console.error</code>）に <code>[collect] 致命的なエラー: &lt;メッセージ&gt;</code> を出し、終了コード 1 で終わる。開始ログ（ステップ2）より前のエラーは collection_logs に残らないため、メッセージで原因がわかるようにする。下の「メッセージに含む語」はテストで確かめる値。表はバッチを止めるエラーの全件（Data Dragon の取得失敗のように、メッセージを定めていないものは表の下に書く）。</p>
+    <p style="font-size:13px; color:#555; margin-bottom:8px;">バッチを止めるエラーは、どれも標準エラー出力（stderr。<code>console.error</code>）に <code>[collect] 致命的なエラー: &lt;メッセージ&gt;</code> を出し、終了コード 1 で終わる。開始ログ（ステップ2）より前のエラーは collection_logs に残らないため、メッセージで原因がわかるようにする（DB に残さないことを仕様とする。01 FR-22。未決事項 Q-1 の決定）。下の「メッセージに含む語」はテストで確かめる値。表はバッチを止めるエラーの全件（Data Dragon の取得失敗のように、メッセージを定めていないものは表の下に書く）。</p>
     <table>
       <tr><th style="width:220px">条件</th><th style="width:110px">起きる時点</th><th>メッセージに含む語</th><th style="width:200px">collection_logs</th></tr>
       <tr><td><code>TARGET_REGIONS</code> に複数指定</td><td>起動直後</td><td>TARGET_REGIONS に複数のリージョンが指定されています</td><td rowspan="9">行はできない（開始ログより前）</td></tr>
@@ -406,7 +407,7 @@
       <tr><td>処理済み試合の取得失敗</td><td>ステップ4</td><td>[processed_matches] 取得失敗</td></tr>
       <tr><td>DB への書き込み失敗（apply_batch_result のエラー）</td><td>ステップ6</td><td>[apply_batch_result] 書き込み失敗: &lt;DB のエラー&gt;（DB のエラーの種類は 04「apply_batch_result のエラー」）</td></tr>
     </table>
-    <p style="font-size:13px; color:#555; margin-top:8px;">試合ID一覧・試合詳細の取得失敗（時間切れを含む）はバッチを止めない（警告を出してそのプレイヤー・試合を飛ばす。06 の未決事項 Q-4）。名簿の1ページの取得失敗（時間切れを含む）も止めない（20回まで）。Data Dragon（versions.json・champion.json）の取得失敗はバッチを止めるが、メッセージは定めていない（接続できないときは fetch のエラー、HTTP エラーや想定外の応答のときは応答の解析エラー（SyntaxError・TypeError）がそのまま出る。応答のステータスを確かめていないため。開始ログより前なので collection_logs に行はできない）。</p>
+    <p style="font-size:13px; color:#555; margin-top:8px;">試合ID一覧・試合詳細の取得失敗（時間切れを含む）はバッチを止めない（警告を出してそのプレイヤー・試合を飛ばす。飛ばした試合は処理済みに記録しないので、後の実行で取り直せる。v1.9.0 で仕様として明記。未決事項 Q-4 の決定）。名簿の1ページの取得失敗（時間切れを含む）も止めない（20回まで）。Data Dragon（versions.json・champion.json）の取得失敗はバッチを止めるが、メッセージは定めていない（接続できないときは fetch のエラー、HTTP エラーや想定外の応答のときは応答の解析エラー（SyntaxError・TypeError）がそのまま出る。応答のステータスを確かめていないため。開始ログより前なので collection_logs に行はできない）。</p>
 
     <h3 style="font-size:14px; margin: 24px 0 16px; color:#555;">3.2 フロントエンド参照フロー（ユーザー操作時）</h3>
     <div class="flow-step">

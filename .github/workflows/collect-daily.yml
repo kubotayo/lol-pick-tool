@@ -15,6 +15,14 @@ on:
         description: '試合を集める対象のランク（カンマ区切り。PLATINUM / EMERALD / DIAMOND / MASTER）。空なら当面の既定値 PLATINUM。4ランクで集めるときは PLATINUM,EMERALD,DIAMOND,MASTER と指定する'
         required: false
         default: 'PLATINUM'
+      max_matches:
+        description: '試合数の上限（正の整数）。空なら上限なし。動作の確認で短く終えたいときに指定する（例: 20）'
+        required: false
+        default: ''
+      max_duration_minutes:
+        description: '時間上限（分、正の整数）。空なら 330。timeout-minutes（360）までに書き込みを終えるため、330 以下にする'
+        required: false
+        default: ''
 
 # バッチを同時に1つしか動かさない（同時実行すると同じ試合を二重に加算しようとして、片方の書き込みが全部取り消されるため）
 concurrency:
@@ -49,4 +57,7 @@ jobs:
           # 当面は Platinum のプレイヤーからのみ集める（4ランクに戻すときはこの既定値を空にする）
           TARGET_TIERS:              ${{ github.event.inputs.tiers || 'PLATINUM' }}
           # 時間上限（分）。timeout-minutes: 360 に達する前に止めて DB に書き込むため、30分の余裕を残す
-          MAX_DURATION_MINUTES:      '330'
+          # 手動実行では入力欄で変えられる（定期実行と、空のときは 330）
+          MAX_DURATION_MINUTES:      ${{ github.event.inputs.max_duration_minutes || '330' }}
+          # 試合数の上限。手動実行の入力欄だけで指定する（定期実行と、空のときは上限なし）
+          MAX_MATCHES:               ${{ github.event.inputs.max_matches }}

@@ -1,11 +1,11 @@
 # 現在の状況
 
-最終更新: 2026-11-09（システムテスト後）
+最終更新: 2026-11-09（未決事項の決定）
 
 ## 進行中のタスク
 
-- **バッチのテスト**（PR #12〜#20 は development にマージ済み。システムテストの結果と修正を、ブランチ `test/system-test` の PR で作成。マージ待ち）
-  - テスト仕様書 `docs/06_batch-test-spec.html` v1.4.0。自動テスト 171件成功。結合テスト DB-01〜11 合格（`npm run it:db`）。**システムテスト ST-01〜09 はすべて合格**（ST-04・05 は修正後にやり直し）。OT（本番）はまだ
+- **バッチのテスト**（PR #12〜#21 は development にマージ済み。未決事項 Q-1〜Q-8 の決定を、ブランチ `feat/resolve-open-questions` の PR で作成。マージ待ち）
+  - テスト仕様書 `docs/06_batch-test-spec.html` v1.5.0（未決事項はすべて決定）。自動テスト 173件成功。結合テスト DB-01〜11 合格（`npm run it:db`）。**システムテスト ST-01〜09 はすべて合格**（ST-04・05 は修正後にやり直し）。OT（本番）はまだ
   - システムテストで見つかった2点を修正: Riot API の呼び出しに10秒の時間切れ、APIキーの確認で 401 も「無効または失効」
   - ローカルの Supabase は `supabase/config.toml` を作成済み。Docker Desktop を起動して `npx supabase start` で使える
 - **Web サイトは非公開**（2026-11-08。Vercel Authentication を All Deployments に設定。Personal Key のデータは一般公開できないため）。設計書にも反映済み（PR #20）
@@ -14,12 +14,15 @@
 
 ## 次にやること
 
-- [ ] `test/system-test` の PR を development へマージする
-- [ ] 06 の未決事項 Q-1〜Q-8 をユーザーと決める（特に Q-1: 開始ログ前のエラーが DB に残らない、Q-8: 手動実行に MAX_MATCHES の入力欄がない）
-- [ ] P1・P2 が合格したら development → main へマージし、OT（Secrets 確認・手動実行）→ 定期実行を始める。GitHub Secrets の RIOT_API_KEY を Personal Key にする
+- [ ] `feat/resolve-open-questions` の PR を development へマージする
+- [ ] development → main へマージし、OT（Secrets 確認・手動実行は max_matches 20）→ 定期実行を始める。GitHub Secrets の RIOT_API_KEY を Personal Key にする
 - [ ] API を Supabase に接続する（今はモックデータ。05 の「実装状況」参照）
 
 ## 未解決の課題 / 保留中の確認事項
+
+- OT-02 の判定は PR #22 の最後のコミットで強めたので、OT の結果を記入する前に、その部分を reviewer で再レビューする（CLAUDE.md「テスト仕様書」4）
+
+- 手動実行の max_duration_minutes に 330 を超える値を入れても、スクリプトは受け付ける（説明文と 02 に「330 以下」と書いただけ）。入れ間違いを防ぐなら、スクリプトで止める処理を足すかユーザーと決める
 
 - 330分の本番実行で集まる試合数は、計算上約6,000試合（ST-07: 名簿の作成まで約13分、1試合約2〜3秒。3秒は ST-01・03、2秒はやり直した ST-04 の 112試合・約227秒から）。master_plus・diamond_plus は20試合中 7・10試合（ST-03）、112試合中 24・44試合（ST-04）
 

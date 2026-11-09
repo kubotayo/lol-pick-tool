@@ -41,7 +41,7 @@ describe('rankToPoints', () => {
     expect(rankToPoints('GRANDMASTER', 'I', 500)).toBe(3200);
   });
 
-  // RANK-07（06 の未決事項 Q-3。今の実装の動きを記録する）
+  // RANK-07（04 平均の出し方。旧 06 Q-3）
   it('LP が負の値なら 0LP として扱う', () => {
     expect(rankToPoints('PLATINUM', 'IV', -10)).toBe(1600);
     expect(rankToPoints('MASTER', 'I', -5)).toBe(2800);
@@ -130,6 +130,13 @@ describe('pickNextTier', () => {
 
   it('集めた試合数が最も少ないランクを選ぶ', () => {
     expect(pickNextTier(['PLATINUM', 'EMERALD', 'DIAMOND'], counts, () => true)).toBe('EMERALD');
+  });
+
+  // LOOP-06（02 ステップ5。旧 06 Q-6）
+  it('集めた試合数が同じなら、低いランクを先に選ぶ', () => {
+    const tie = { PLATINUM: 2, EMERALD: 2, DIAMOND: 2, MASTER: 2 };
+    expect(pickNextTier(['PLATINUM', 'EMERALD', 'DIAMOND', 'MASTER'], tie, () => true)).toBe('PLATINUM');
+    expect(pickNextTier(['EMERALD', 'DIAMOND', 'MASTER'], tie, () => true)).toBe('EMERALD');
   });
 
   it('作業が残っていないランクは飛ばす', () => {
