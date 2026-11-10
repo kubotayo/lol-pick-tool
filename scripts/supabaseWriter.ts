@@ -103,7 +103,7 @@ export function createChunkWriter(patch: string, region: string) {
 const ARCHIVE_ROWS_PER_CALL = 20000;
 
 /**
- * 今のパッチと直前のパッチより古いパッチの item_build_stats と processed_matches を消す（要件 FR-23、02 ステップ2）
+ * 今のパッチより古いパッチ（直前のパッチも含む）の item_build_stats と processed_matches を消す（要件 FR-23、02 ステップ2）
  * champion_stats・counter_stats は残す。1回で消すのは最大 ARCHIVE_ROWS_PER_CALL 行で、0 が返るまで繰り返す
  * 戻り値は消した行の合計
  */

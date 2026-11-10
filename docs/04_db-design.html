@@ -101,7 +101,7 @@
     <div class="meta-item"><div class="label">DB</div><div class="value">PostgreSQL (Supabase)</div></div>
     <div class="meta-item"><div class="label">テーブル数</div><div class="value">6テーブル + 関数2個（apply_batch_result・archive_old_patches）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.5.0)</div><div class="value">Riot API の値からの変換ルール（lane・region・patch）・平均ランクによる rank_tier 判定・apply_batch_result の rank_tier を行ごとに変更・collection_logs.rank_tier を TEXT に</div></div>
-    <div class="meta-item"><div class="label">更新内容 (1.9.0)</div><div class="value">2026-11-10 archive_old_patches 関数と idx_item_build_patch を追加（006 マイグレーション）。collection_logs.matches_collected は失敗時も書き込み済みの数を記録。apply_batch_result は500試合ごとに呼ぶ</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.9.0)</div><div class="value">2026-11-10 archive_old_patches 関数と idx_item_build_patch を追加（006 マイグレーション）。collection_logs.matches_collected は失敗時も書き込み済みの数を記録。apply_batch_result は500試合ごとに呼ぶ。勝者が1チームでない試合を対象外に追加。archive_old_patches は今のパッチより古いものをすべて消す（直前のパッチも含む）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.8.0)</div><div class="value">2026-11-09 平均の出し方に「LP が負の値なら 0LP」を明記（テスト仕様書の未決事項 Q-3 の決定）。collection_logs.status に running のまま残る場合の扱いを追記（Q-5 の決定）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.7.0)</div><div class="value">2026-11-07 RLS 方針に「anon キーで操作したときの結果」と「apply_batch_result のエラー」（SQLSTATE）を追記。テスト仕様書の期待結果の根拠にするため</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.6.0)</div><div class="value">2026-11-04 collection_logs.completed_at を失敗時も記録する仕様に変更・リメイクの試合は集計しないことを追記</div></div>
@@ -473,7 +473,7 @@
       <tr><td>lane</td><td>試合詳細の <code>teamPosition</code> を変換する: TOP → <code>TOP</code>／JUNGLE → <code>JG</code>／MIDDLE → <code>MID</code>／BOTTOM → <code>BOT</code>／UTILITY → <code>SUP</code>。それ以外（空文字など）の参加者は集計しない</td></tr>
       <tr><td>region</td><td>プラットフォーム名から数字を除いて大文字にする（例: <code>jp1</code> → <code>JP</code>、<code>euw1</code> → <code>EUW</code>）</td></tr>
       <tr><td>patch</td><td>gameVersion の先頭2つ（例: <code>14.21.619.9898</code> → <code>14.21</code>）</td></tr>
-      <tr><td>（対象外の試合）</td><td>リメイク（参加者の <code>gameEndedInEarlySurrender</code> が true）の試合と、勝者が1チームでない試合（v1.9.0 で追加）は、どの集計テーブルにも加算せず、processed_matches にも記録しない（v1.6.0 で追加。01 FR-21）</td></tr>
+      <tr><td>（対象外の試合）</td><td>リメイク（参加者の <code>gameEndedInEarlySurrender</code> が true）の試合（v1.6.0 で追加）と、勝者が1チームでない試合（v1.9.0 で追加）は、どの集計テーブルにも加算せず、processed_matches にも記録しない（01 FR-21）</td></tr>
       <tr><td>rank_tier</td><td><code>_plus</code> が付く値はそのランク以上をすべて含む（例: <code>diamond_plus</code> = Diamond・Master・Grandmaster・Challenger）。<code>all</code> は収集したすべての試合。<br>
       試合のランク帯は<b>参加者10人の平均ランク</b>で決め、当てはまるランク帯すべてに加算する（例: 平均 Diamond の試合 → <code>all</code>・<code>platinum_plus</code>・<code>diamond_plus</code> の3行に加算）。<br>
       平均の出し方: ランクをポイントにして平均する。Iron IV 0LP を 0 とし、1段階 100・1ランク 400（Platinum IV = 1600、Emerald IV = 2000、Diamond IV = 2400、Master = 2800）。段階内の LP は 99 まで足す。Master 以上は 2800 + LP（LP は 400 で打ち切る。1人の高い LP が平均を大きく動かさないため）。LP が負の値なら 0LP として扱う（v1.8.0 で明記。テスト仕様書の未決事項 Q-3 の決定）。名簿（Platinum 以上）にいない人は Gold II 50LP 相当（1450）として平均に入れる（外すと実際より高いランクの試合として数えられるため）。<br>
