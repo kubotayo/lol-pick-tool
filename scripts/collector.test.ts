@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { collectMatches, type MatchSource, type CollectOptions } from './collector';
+import { collectMatches, hasSingleWinningTeam, type MatchSource, type CollectOptions } from './collector';
 import { buildChampionRows } from './supabaseWriter';
 import type { Roster } from './roster';
 import type { CollectTier } from './rank';
@@ -270,6 +270,33 @@ describe('collectMatches', () => {
 
     expect(source.getMatchIds.mock.calls.map(c => c[0])).toEqual(['p1', 'p2']);
     expect(result.matchIds).toEqual(['m2']);
+  });
+
+  // LOOP-18
+  it('勝者が1チームでない試合（両チームとも負けなど）は集計せず、参加者も次のシードにしないが、同じプレイヤーの残りの試合は続ける', async () => {
+    const roster = makeRoster([['p1', 'PLATINUM', 1700], ['p2', 'PLATINUM', 1700]]);
+    const aborted = makeMatch(['p1', 'p2', ...others('a1').slice(0, 8)]);
+    aborted.info.participants.forEach(p => { p.win = false; }); // 不正対策による中止（Abort_AntiCheatExit）で両チームとも負け
+    const source = makeSource(
+      { p1: ['a1', 'm2'] },
+      { a1: aborted, m2: makeMatch(['p1', ...others('m2')]) },
+    );
+
+    const result = await collectMatches(source, options({ roster, seedPools: { PLATINUM: ['p1'], EMERALD: [], DIAMOND: [], MASTER: [] } }));
+
+    expect(result.matchIds).toEqual(['m2']);
+    expect(result.collected.PLATINUM).toBe(1);
+    expect(source.getMatchIds).not.toHaveBeenCalledWith('p2', expect.anything());
+  });
+
+  it('hasSingleWinningTeam: 勝った参加者がちょうど5人で同じチームのときだけ true', () => {
+    const match = makeMatch(Array.from({ length: 10 }, (_, i) => `u${i}`));
+    const ps = match.info.participants;
+    expect(hasSingleWinningTeam(ps)).toBe(true);
+    expect(hasSingleWinningTeam(ps.map(p => ({ ...p, win: false })))).toBe(false);               // 両チームとも負け
+    expect(hasSingleWinningTeam(ps.map(p => ({ ...p, win: true })))).toBe(false);                // 両チームとも勝ち
+    expect(hasSingleWinningTeam(ps.map((p, i) => ({ ...p, win: i < 4 })))).toBe(false);           // 勝者が4人
+    expect(hasSingleWinningTeam(ps.map((p, i) => ({ ...p, win: i < 4 || i === 5 })))).toBe(false); // 5人だがチームがまたがる
   });
 
   // LOOP-16

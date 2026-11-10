@@ -260,7 +260,7 @@ async function main() {
 
   // DB-13（古いパッチの削除。ほかの項目の後に行う。DB-01〜11 で入れた 16.21 の行も「古いパッチ」として扱われる）
   {
-    const patches = ['17.9', '17.10', '17.11', '17.12']; // 17.12 が今のパッチ、17.11 が直前のパッチ。17.9 < 17.10（数字で比べる）
+    const patches = ['17.9', '17.10', '17.11', '17.12']; // 17.12 が今のパッチ。それより前はすべて消す対象。17.9 < 17.10（数字で比べる）
     for (const patch of patches) {
       const inserts: Array<[string, Row[]]> = [
         ['champion_stats',   [{ champion_id: 1, lane: 'MID', patch, region: REGION, rank_tier: 'all', games_played: 1, wins: 1, win_rate: 1 }]],
@@ -294,10 +294,11 @@ async function main() {
       };
     }
     const a = after as Record<string, { champion: number; counter: number; item: number; processed: number }>;
-    const deletedOk = ['17.9', '17.10', '16.21'].every(p => a[p].item === 0 && a[p].processed === 0);
-    const keptOk = ['17.11', '17.12'].every(p => a[p].item === 5 && a[p].processed === 3);
+    // 今のパッチより前（直前の 17.11 を含む）の item_build_stats・processed_matches は消え、今のパッチ 17.12 は残る
+    const deletedOk = ['17.9', '17.10', '17.11', '16.21'].every(p => a[p].item === 0 && a[p].processed === 0);
+    const keptOk = a['17.12'].item === 5 && a['17.12'].processed === 3;
     const statsKept = [...patches].every(p => a[p].champion === 1 && a[p].counter === 1) && a['16.21'].champion > 0;
-    const expectedTotal = 2 * (5 + 3) + (before16.item ?? 0) + (before16.processed ?? 0);
+    const expectedTotal = 3 * (5 + 3) + (before16.item ?? 0) + (before16.processed ?? 0);
     const limitOk = returned.slice(0, -1).every(n => n > 0 && n <= 4) && returned.at(-1) === 0 && returned.reduce((x, y) => x + y, 0) === expectedTotal;
     record('DB-13', !firstError && deletedOk && keptOk && statsKept && limitOk,
       `error=${firstError ?? 'なし'} 1回ごとの行数=${JSON.stringify(returned)}（合計 ${returned.reduce((x, y) => x + y, 0)}／期待 ${expectedTotal}） 実行後=${JSON.stringify(after)}`);

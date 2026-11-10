@@ -135,6 +135,11 @@ export async function collectMatches(source: MatchSource, options: CollectOption
       // 処理済みにも記録せず、参加者を次のシードにも使わない。同じプレイヤーの残りの試合は通常どおり続ける
       if (participants.some(p => p.gameEndedInEarlySurrender)) continue;
 
+      // 勝者が1チーム（勝った参加者がちょうど5人で、同じチーム）でない試合も集計しない（リメイクと同じ扱い）
+      // 不正対策による中止（endOfGameResult: Abort_AntiCheatExit）などで両チームとも負けの試合があり、
+      // 集計すると試合数だけが増えて勝率が下がるため（システムテスト ST-10 で 1,100試合中1試合）
+      if (!hasSingleWinningTeam(participants)) continue;
+
       // 10人の平均ランクで、この試合を加算するランク帯を決める（名簿にいない人は Gold 相当）
       const average = averageMatchPoints(participants.map(p => roster.get(p.puuid)?.points ?? null));
       const rankTiers = rankTiersForPoints(average);
@@ -164,4 +169,10 @@ export async function collectMatches(source: MatchSource, options: CollectOption
 
   await write();
   return { aggregation, matchIds, stopReason, collected: collected(), rankTierCounts };
+}
+
+/** 勝った参加者がちょうど5人で、全員が同じチームなら true */
+export function hasSingleWinningTeam(participants: MatchDto['info']['participants']): boolean {
+  const winners = participants.filter(p => p.win);
+  return winners.length === 5 && winners.every(p => p.teamId === winners[0].teamId);
 }
