@@ -99,7 +99,7 @@
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
     <div class="meta-item"><div class="label">バージョン</div><div class="value">1.9.0</div></div>
     <div class="meta-item"><div class="label">DB</div><div class="value">PostgreSQL (Supabase)</div></div>
-    <div class="meta-item"><div class="label">テーブル数</div><div class="value">6テーブル + 関数1個</div></div>
+    <div class="meta-item"><div class="label">テーブル数</div><div class="value">6テーブル + 関数2個（apply_batch_result・archive_old_patches）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.5.0)</div><div class="value">Riot API の値からの変換ルール（lane・region・patch）・平均ランクによる rank_tier 判定・apply_batch_result の rank_tier を行ごとに変更・collection_logs.rank_tier を TEXT に</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.9.0)</div><div class="value">2026-11-10 archive_old_patches 関数と idx_item_build_patch を追加（006 マイグレーション）。collection_logs.matches_collected は失敗時も書き込み済みの数を記録。apply_batch_result は500試合ごとに呼ぶ</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.8.0)</div><div class="value">2026-11-09 平均の出し方に「LP が負の値なら 0LP」を明記（テスト仕様書の未決事項 Q-3 の決定）。collection_logs.status に running のまま残る場合の扱いを追記（Q-5 の決定）</div></div>
@@ -316,7 +316,7 @@
       <div class="table-card">
         <div class="table-card-header" style="background:#e8f0ff; border-bottom: 2px solid #2980b9;">
           <span class="table-name" style="color:#2471a3;">item_build_stats</span>
-          <span class="table-desc">アイテムビルド別統計（バッチ実行ごとに加算）</span>
+          <span class="table-desc">アイテムビルド別統計（バッチ実行ごとに加算。今と直前のパッチより古い行は archive_old_patches で消す。v1.9.0）</span>
         </div>
         <table class="col-table">
           <thead><tr><th>カラム名</th><th>型</th><th>制約</th><th>説明</th></tr></thead>
@@ -346,7 +346,7 @@
       <div class="table-card" style="grid-column: span 2;">
         <div class="table-card-header" style="background:#e8fff0; border-bottom: 2px solid #16a34a;">
           <span class="table-name" style="color:#15803d;">processed_matches</span>
-          <span class="table-desc">処理済み試合ID管理（スノーボール方式の重複除去用）</span>
+          <span class="table-desc">処理済み試合ID管理（スノーボール方式の重複除去用。今と直前のパッチより古い行は archive_old_patches で消す。v1.9.0）</span>
         </div>
         <table class="col-table">
           <thead><tr><th>カラム名</th><th>型</th><th>制約</th><th>説明</th></tr></thead>
