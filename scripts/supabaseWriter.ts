@@ -83,11 +83,27 @@ export async function applyBatchResult(
   };
 }
 
+/**
+ * 試合を少しずつ書き込み、書き込み終えた試合数を数える（02 ステップ6・7）
+ * write が失敗したら、その回の試合は数えない（書き込まれていないため）。written() は失敗した後も、それまでの数を返す
+ */
+export function createChunkWriter(patch: string, region: string) {
+  let written = 0;
+  return {
+    async write(aggregation: AggregationResult, matchIds: string[]) {
+      const counts = await applyBatchResult(aggregation, matchIds, patch, region);
+      written += matchIds.length;
+      return counts;
+    },
+    written: () => written,
+  };
+}
+
 // 古いパッチを消すときの1回の上限（DB 関数 archive_old_patches、006 マイグレーション）。API の時間の上限（8秒）に収めるため
 const ARCHIVE_ROWS_PER_CALL = 20000;
 
 /**
- * 今のパッチと直前のパッチより古いパッチの item_build_stats と processed_matches を消す（要件 FR-23、02 ステップ1④）
+ * 今のパッチと直前のパッチより古いパッチの item_build_stats と processed_matches を消す（要件 FR-23、02 ステップ2）
  * champion_stats・counter_stats は残す。1回で消すのは最大 ARCHIVE_ROWS_PER_CALL 行で、0 が返るまで繰り返す
  * 戻り値は消した行の合計
  */

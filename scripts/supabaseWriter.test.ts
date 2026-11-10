@@ -8,13 +8,16 @@ const db = vi.hoisted(() => ({
   eqColumns:   [] as string[],
   rpcCalls:    [] as Array<{ fn: string; args: Record<string, unknown> }>,
   archiveResults: [] as number[],
+  rpcErrors:   [] as Array<string | null>, // rpc の呼び出しごとのエラー（null なら成功）
 }));
 vi.mock('./supabase', () => ({
   supabase: {
     // archive_old_patches は、db.archiveResults の値を順に返す
     rpc: async (fn: string, args: Record<string, unknown>) => {
       db.rpcCalls.push({ fn, args });
-      return { data: db.archiveResults.shift() ?? 0, error: null };
+      const err = db.rpcErrors.shift();
+      if (err) return { data: null, error: { message: err } };
+      return { data: fn === 'archive_old_patches' ? (db.archiveResults.shift() ?? 0) : null, error: null };
     },
     from: () => {
       let patch: string | undefined;
@@ -33,7 +36,7 @@ vi.mock('./supabase', () => ({
   },
 }));
 
-import { buildChampionRows, buildCounterRows, buildItemRows, getProcessedMatchIds, archiveOldPatches } from './supabaseWriter';
+import { buildChampionRows, buildCounterRows, buildItemRows, getProcessedMatchIds, archiveOldPatches, createChunkWriter } from './supabaseWriter';
 import { createAggregationResult, aggregateMatch } from './aggregator';
 import type { MatchDto } from './types';
 
@@ -120,6 +123,7 @@ describe('getProcessedMatchIds', () => {
 describe('archiveOldPatches', () => {
   it('0 が返るまで繰り返し呼び、消した行の合計を返す', async () => {
     db.rpcCalls = [];
+    db.rpcErrors = [];
     db.archiveResults = [20000, 20000, 5, 0];
 
     const total = await archiveOldPatches('16.22');
@@ -127,5 +131,30 @@ describe('archiveOldPatches', () => {
     expect(total).toBe(40005);
     expect(db.rpcCalls).toHaveLength(4);
     expect(db.rpcCalls.every(c => c.fn === 'archive_old_patches' && c.args.p_current_patch === '16.22' && c.args.p_limit === 20000)).toBe(true);
+  });
+
+  // DB-15
+  it('rpc がエラーを返したら「古いパッチの削除に失敗」のエラーにする', async () => {
+    db.rpcCalls = [];
+    db.rpcErrors = ['canceling statement due to statement timeout'];
+    await expect(archiveOldPatches('16.22')).rejects.toThrow('[archive_old_patches] 古いパッチの削除に失敗: canceling statement due to statement timeout');
+  });
+});
+
+// LOG-07
+describe('createChunkWriter', () => {
+  it('書き込みに成功した試合だけを数え、失敗した後もそれまでの数を返す', async () => {
+    db.rpcCalls = [];
+    db.rpcErrors = [null, null, 'connection refused'];
+    const writer = createChunkWriter('16.22', 'JP');
+    const agg = createAggregationResult();
+
+    await writer.write(agg, ['m1', 'm2', 'm3']);
+    await writer.write(agg, ['m4', 'm5']);
+    await expect(writer.write(agg, ['m6'])).rejects.toThrow('[apply_batch_result] 書き込み失敗: connection refused');
+
+    expect(writer.written()).toBe(5);
+    expect(db.rpcCalls.map(c => c.fn)).toEqual(['apply_batch_result', 'apply_batch_result', 'apply_batch_result']);
+    expect(db.rpcCalls.map(c => (c.args.p_match_ids as string[]).length)).toEqual([3, 2, 1]);
   });
 });
