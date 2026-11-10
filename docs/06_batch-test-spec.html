@@ -424,7 +424,7 @@ npm run it:db</pre>
         ・processed_matches が 1100行（重複なし）。collection_logs は completed・matches_collected 1100<br>
         ・標準出力に「古いパッチの削除: 0行」（db reset の後なので消すものがない）<br>
         ・7章の不変条件 SQL-2〜6 がすべて 0件、SQL-1 は 7章の基準<br>
-        ・ローカルの Supabase の API の時間の上限は本番と同じ 8秒（authenticator の statement_timeout。2026-11-10 に確認）なので、すべての書き込みが成功すれば、上限に収まっている</td><td>標準出力の書き込みの行の回数と試合数／processed_matches の行数と重複／collection_logs の status と matches_collected／7章の SQL／書き込みの後の item_build_stats・counter_stats の行数と大きさ（未決事項 Q-9 の見直しに使う。合否には使わない）</td><td>LOOP-16、02 ステップ6</td><td></td></tr>
+        ・ローカルの Supabase の API の時間の上限は本番と同じ 8秒（authenticator の statement_timeout。2026-11-10 に確認）なので、すべての書き込みが成功すれば、上限に収まっている</td><td>標準出力の書き込みの行の回数と試合数／processed_matches の行数と重複／collection_logs の status と matches_collected／7章の SQL／書き込みの後の item_build_stats・counter_stats の行数と大きさ（<code>SELECT count(*), pg_size_pretty(pg_total_relation_size('item_build_stats'))</code>。索引を含む大きさで、02 のコスト試算と同じ測り方。未決事項 Q-9 の見直しに使い、合否には使わない）</td><td>LOOP-16、02 ステップ6</td><td></td></tr>
     </table></div>
 
     <h3>6.2 運用テスト（OT）— GitHub Actions ＋ 本番の Supabase</h3>
@@ -497,7 +497,7 @@ UNION ALL SELECT 'processed_matches', COUNT(*) FROM processed_matches WHERE patc
     <div class="section-header"><div class="section-num">8</div><h2>未決事項・設計書に記載のない動き</h2></div>
     <p>設計書から期待結果が決まらないもの。テストでは「今の実装の動き」を記録するだけにし、合否の判定には使わない。決まったら設計書に反映し、「決定」の列に日付と反映先を書く（経緯を残すため行は消さない。v1.5.0 で変更。以前は「この表から外す」）。v1.5.0 で Q-1〜Q-8 はすべて決まった。Q-9 は v1.6.0 で追加した未決事項。</p>
     <table>
-      <tr><th style="width:60px">No.</th><th>内容</th><th style="width:260px">決定前の実装の動き</th><th style="width:100px">関連</th><th style="width:260px">決定（v1.5.0、2026-11-09。ユーザーの判断）</th></tr>
+      <tr><th style="width:60px">No.</th><th>内容</th><th style="width:260px">決定前の実装の動き</th><th style="width:100px">関連</th><th style="width:260px">決定（日付・反映先。ユーザーの判断）</th></tr>
       <tr><td>Q-1</td><td>開始ログより前のエラー（APIキーの失効・Data Dragon の取得失敗・champions の同期失敗）が DB に記録されない。01 FR-22「エラー内容を記録」と合っているか</td><td>標準エラー出力（GitHub Actions のログ）と失敗通知でしかわからない</td><td>LOG-04</td><td>今の動きを仕様にする。DB に残すのは開始ログの後のエラー（01 FR-22・02「エラー時の動き」）</td></tr>
       <tr><td>Q-2</td><td>時間上限と試合数上限に同時に達したときの終了理由</td><td>時間上限を優先する</td><td>LOOP-13</td><td>時間上限を優先（02 ステップ5）</td></tr>
       <tr><td>Q-3</td><td>LP が負の値のとき</td><td>0LP として扱う</td><td>RANK-07</td><td>0LP として扱う（04「平均の出し方」）</td></tr>
