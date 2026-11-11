@@ -14,10 +14,12 @@
 
 ## 次にやること
 
+- [x] `fix/release-prep` の PR（#25）を development へマージ
 - [x] `fix/batch-write-chunks` の PR（#24）を development へマージ
 - [x] 本番 DB に migration 006 を適用する
-- [ ] `fix/release-prep` の PR を development へマージ
-- [ ] PR #23（development → main）をマージ
+- [x] PR #25・#23 をマージ（2026-11-11。定期実行が有効）
+- [ ] **GitHub Secrets の RIOT_API_KEY を Personal Key に更新する**（更新日が 2026-10-18 のままで、OT-02・04 が「APIキーが無効または失効」で失敗した。更新するまで定期実行も数秒で失敗する。DB には書き込まない）
+- [ ] キーを直したら OT-02・OT-04 をやり直す（06 v1.6.1 の手順。実行の直前に最大の id・SQL-6・SQL-7 を測る。ブランチ `test/ot-results` で結果を記入して PR）
 - [ ] main へのマージで定期実行（UTC 17:00）が有効になる。マージした後、OT（手動実行は max_matches 20。定期実行が動いていないことを確かめ、UTC 15:30〔JST 0:30〕までに始める。06 OT-02）を行う。GitHub Secrets の RIOT_API_KEY は Personal Key（ユーザー確認済み）
 - [ ] API を Supabase に接続する（今はモックデータ。05 の「実装状況」参照）
 
@@ -27,7 +29,7 @@
 - アイテムビルドを使う機能を作るときは、容量とあわせて設計し直す（`WRITE_ITEM_BUILDS`）
 - 本番の patch に「数字.数字」でない値が入ると archive_old_patches が毎回エラーになる（006 の適用前に確かめた時点では 16.21 だけ）
 
-- OT-02 の判定は PR #22 の最後のコミットで強めたので、OT の結果を記入する前に、その部分を reviewer で再レビューする（CLAUDE.md「テスト仕様書」4）
+- OT-02・04 の判定は 06 v1.6.1 で直し、reviewer の再レビュー済み（2026-11-11。確実な問題なし）。結果はキーを直した後に記入する
 
 - 手動実行の max_duration_minutes に 330 を超える値を入れても、スクリプトは受け付ける（説明文と 02 に「330 以下」と書いただけ）。入れ間違いを防ぐなら、スクリプトで止める処理を足すかユーザーと決める
 
