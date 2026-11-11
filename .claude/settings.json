@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CMD=$(/opt/homebrew/bin/jq -r '.tool_input.command // \"\"' 2>/dev/null); echo \"$CMD\" | grep -q 'git push' || exit 0; sleep 15; for i in $(seq 1 36); do S=$(gh run list --limit 1 --json status -q '.[0].status' 2>/dev/null); [ \"$S\" != \"in_progress\" ] && [ \"$S\" != \"queued\" ] && break; sleep 5; done; C=$(gh run list --limit 1 --json conclusion -q '.[0].conclusion' 2>/dev/null); if [ \"$C\" = \"failure\" ]; then ID=$(gh run list --limit 1 --json databaseId -q '.[0].databaseId' 2>/dev/null); echo \"CI/CDが失敗しました。エラーログを確認してください:\"; gh run view \"$ID\" --log-failed 2>&1 | head -150; exit 2; fi; exit 0",
+            "asyncRewake": true,
+            "timeout": 300,
+            "statusMessage": "CI/CDステータスを監視中..."
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -81,8 +81,17 @@
   <h1>システム構成図</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.0.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.10.0</div></div>
     <div class="meta-item"><div class="label">月額コスト見込み</div><div class="value">$0（全て無料枠）</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.5.0)</div><div class="value">Riot API・Data Dragon の使い方・名簿と収集対象ランク（TARGET_TIERS）・API のキャッシュ・API設計書（05）への参照</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.10.0)</div><div class="value">2026-11-10 main へのマージ前の確認で見つかった問題の対策: 500試合ごとの書き込み（API の時間の上限 8秒）、古いパッチのアイテムビルドの削除（容量 500MB）、失敗時も書き込み済みの試合数を記録、ログの PUUID を伏せる。勝者が1チームでない試合の除外。アイテムビルドは書き込まない（古いパッチの削除の仕組みは残す）</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.9.0)</div><div class="value">2026-11-09 テスト仕様書の未決事項 Q-1〜Q-8 の決定を反映（手動実行の入力欄 max_matches・max_duration_minutes の追加、終了理由・ランクの順・取得失敗・running の行・リメイクの扱いを仕様として明記）</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.8.0)</div><div class="value">2026-11-09 システムテストの結果を受けて、Riot API の呼び出しに10秒の時間切れを追加し、APIキーの確認で 401 も「無効または失効」として扱うように変更。時間上限は1ループ分（最大約71秒）超えることがあると明記</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.7.1)</div><div class="value">2026-11-08 Riot API キーを Personal Key に変更。Web サイトを Vercel Authentication（All Deployments）で非公開にした</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.7.0)</div><div class="value">2026-11-07 バッチの「エラー時の動き」（条件・メッセージ・collection_logs）と、Riot API のエラーの判定（ステータスコードで判定）を明記。開始ログより前のエラーもメッセージを表示して終わるように修正したため</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.6.1)</div><div class="value">2026-11-06 matches_collected は完了時のみ記録することを明記（実装・04 に合わせる）</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.6.0)</div><div class="value">2026-11-04 リメイクの試合のスキップ・書き込み条件と失敗時の completed_at の記載を実装に合わせて明確化</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.4.0)</div><div class="value">集計の上書きを加算に変更・apply_batch_result関数・同時実行防止の詳細化</div></div>
   </div>
 </div>
 
@@ -243,21 +252,28 @@
         <h3>データ収集バッチ</h3>
         <div class="service"><span class="service-badge">GitHub Actions</span> 無料（publicリポジトリ）</div>
         <ul>
-          <li>TypeScript で実装</li>
-          <li>Cron スケジュール実行</li>
-          <li>最大6時間/ジョブ</li>
+          <li>TypeScript で実装（collect.ts）</li>
+          <li>Cron スケジュール実行：毎日 JST 02:00（UTC 17:00）</li>
+          <li>最大6時間/ジョブ（timeout-minutes: 360）</li>
+          <li>環境変数：TARGET_REGIONS（デフォルト jp1、現在1リージョンのみ対応）/ TARGET_TIERS（試合を集める対象のランク。PLATINUM / EMERALD / DIAMOND / MASTER のカンマ区切り。未指定時は4ランクすべて。Actions の既定値は当面 PLATINUM）/ MAX_DURATION_MINUTES（デフォルト 330分）/ MAX_MATCHES（未指定時は上限なし）。手動実行では入力欄 max_matches・max_duration_minutes で MAX_MATCHES・MAX_DURATION_MINUTES を指定できる（空なら既定値。定期実行は既定値。v1.9.0 で追加。運用テストなどで短く終えるため）。max_duration_minutes は 330 以下にする（スクリプトは正の整数かどうかしか見ない。時間上限は起動から測るので、330 を超えると、書き込みを終える前に timeout-minutes 360 で打ち切られるおそれがある。360 以上なら必ず打ち切られる。打ち切られると、その回に集めた試合はすべて失われ、running の行が残る）</li>
           <li>Riot APIキーは GitHub Secrets で管理</li>
-          <li>レート制限ハンドラー内蔵</li>
+          <li>レート制限ハンドラー内蔵（100 req/2分 → 1200ms sleep制御）</li>
+          <li>同時実行防止：Concurrency group「collect-daily」で1ジョブずつ実行（cancel-in-progress: false）。同時実行により同じ試合を二重加算しようとして片方の書き込みが全体取り消しされることを防止</li>
         </ul>
       </div>
       <div class="comp-card api">
         <h3>Riot Games 公式API</h3>
-        <div class="service"><span class="service-badge">External</span> 無料（Development Key）</div>
+        <div class="service"><span class="service-badge">External</span> 無料（Personal API Key。v1.7.1 で Development Key から変更）</div>
         <ul>
-          <li>LEAGUE-V4: ランク帯別プレイヤー取得</li>
-          <li>MATCH-V5: 試合詳細取得</li>
-          <li>レート: 100 req / 2分</li>
-          <li>APIキー有効期限: 24時間（手動更新）</li>
+          <li>LEAGUE-V4 <code>/lol/league/v4/entries/RANKED_SOLO_5x5/{tier}/{division}?page={n}</code>: Platinum〜Diamond の段階ごとのプレイヤー一覧（1ページ約205人）。名簿の作成に使う</li>
+          <li>LEAGUE-V4 <code>/lol/league/v4/{challenger|grandmaster|master}leagues/by-queue/RANKED_SOLO_5x5</code>: Master 以上のリーグ全員（上の entries は Master 以上に対応していないため）</li>
+          <li>名簿（Platinum 以上の全プレイヤーのランク）の作成: JP で約12万人・約600リクエスト・約14分（2026-11-02 計測）</li>
+          <li>MATCH-V5 <code>/lol/match/v5/matches/by-puuid/{puuid}/ids?queue=420&amp;count=20</code>: プレイヤーの直近の試合ID（ソロランクのみ・20件）</li>
+          <li>MATCH-V5 <code>/lol/match/v5/matches/{matchId}</code>: 試合詳細（参加者のチャンピオン・teamPosition・勝敗・アイテム・gameVersion）</li>
+          <li>ホスト: LEAGUE-V4 はプラットフォーム（<code>jp1.api.riotgames.com</code>）、MATCH-V5 はルーティング（<code>asia.api.riotgames.com</code>）。対応: jp1・kr → asia／na1 → americas／euw1・eune1 → europe</li>
+          <li>レート: 20 req / 秒・100 req / 2分 → リクエスト間隔 1.2秒。429 は指数バックオフ（1s → 2s → 4s → 8s）</li>
+          <li>エラーの判定（v1.7.0 で明記）: 429 かどうかは HTTP のステータスコードで判定する（エラーメッセージには URL が入り、試合IDに "429" を含むことがあるため、文字列では判定しない）。429 は最大4回再試行し、5回続いたらステータスコード 429 のエラーにする。429 以外（404・500 など）は再試行せず、そのステータスコードのエラーにする。エラー文に入れる URL のプレイヤーID（PUUID）は先頭8文字だけにする（v1.10.0。公開リポジトリの GitHub Actions のログは誰でも読めるため）。1回の呼び出しは10秒で時間切れにし（応答の本文を読み終えるまで）、時間切れも再試行せずエラーにする（v1.8.0 で追加。応答が止まると時間上限の確認に進めず、システムテスト ST-04 で 17分の上限に対して 31分動いたため）</li>
+          <li>APIキー有効期限: なし（Personal Key。以前の Development Key は24時間で失効し、手動更新が必要だった）。Personal Key は一般公開の製品には使えない（01 制約事項）</li>
         </ul>
       </div>
       <div class="comp-card cdn">
@@ -268,6 +284,7 @@
           <li>チャンピオンアイコン画像</li>
           <li>アイテム情報</li>
           <li>パッチ更新時に同期</li>
+          <li>最新パッチ: <code>/api/versions.json</code> の先頭要素を使い、<code>14.21.1</code> → <code>14.21</code> の形（先頭2つ）にそろえる。試合詳細の gameVersion（例: <code>14.21.619.9898</code>）も同じ形にそろえて比べる</li>
         </ul>
       </div>
       <div class="comp-card db">
@@ -275,7 +292,7 @@
         <div class="service"><span class="service-badge">Supabase</span> Free Tier</div>
         <ul>
           <li>PostgreSQL</li>
-          <li>ストレージ: 500MB（集計データのみで数十MB想定）</li>
+          <li>ストレージ: 500MB。アイテムビルドは書き込まない（v1.10.0。見込みは下のコスト試算）</li>
           <li>月200万行 INSERT</li>
           <li>読み取り無制限</li>
           <li>Vercel公式連携サポート</li>
@@ -289,6 +306,7 @@
           <li>TypeScript</li>
           <li>API Routes でSupabase参照</li>
           <li>関数タイムアウト: 60秒（読み取りのみのため十分）</li>
+          <li>非公開（v1.7.1）: Deployment Protection の Vercel Authentication を All Deployments（本番ドメインを含むすべてのデプロイ）に設定。Vercel にログインしたチームのメンバーだけが見られる。Personal Key で集めたデータは一般公開できないため（01 制約事項）。Hobby でも追加料金なし（2026-09 から）</li>
         </ul>
       </div>
       <div class="comp-card" style="border-top-color:#e74c3c;">
@@ -311,51 +329,91 @@
       <h2>データフロー詳細</h2>
     </div>
 
-    <h3 style="font-size:14px; margin-bottom:16px; color:#555;">3.1 バッチ収集フロー（GitHub Actions）</h3>
+    <h3 style="font-size:14px; margin-bottom:16px; color:#555;">3.1 バッチ収集フロー（スノーボール方式 / GitHub Actions）</h3>
     <div class="flow-step">
       <div class="step-num">1</div>
       <div class="step-content">
-        <h4>最新パッチバージョン取得（Data Dragon）</h4>
-        <p>APIキー不要の Data Dragon CDN から最新パッチを自動取得。<br>
-        <code>GET https://ddragon.leagueoflegends.com/api/versions.json</code><br>
-        先頭要素 "14.21.1" を正規化 → "14.21"（先頭2セグメント）。環境変数 TARGET_PATCH の手動更新は不要。</p>
+        <h4>起動時準備（APIキー検証・パッチ取得・champions同期）</h4>
+        <p>① Riot APIキーの有効性を検証。<br>
+        ② Data Dragon CDN から最新パッチを自動取得（<code>versions.json</code> の先頭要素を正規化）。<br>
+        ③ Data Dragon から最新チャンピオン一覧を取得し champions テーブルへ UPSERT（FR-24）。新チャンピオン追加・パッチ更新時も自動対応。</p>
       </div>
     </div>
     <div class="flow-step">
       <div class="step-num">2</div>
       <div class="step-content">
-        <h4>プレイヤーシード取得</h4>
-        <p>LEAGUE-V4 で Platinum以上のプレイヤーPUUIDを取得（対象リージョン・ランク帯ごと）</p>
+        <h4>collection_logs にジョブ開始を記録</h4>
+        <p>collection_logs テーブルに <code>status: 'running'</code> で行を INSERT し、採番された id（BIGSERIAL）を保持。その後のループ終了時・エラー発生時にこの id で UPDATE する。開始ログの INSERT・UPDATE に失敗しても、警告を出してバッチは続ける（v1.9.0 で明記。未決事項 Q-5 の決定。ログのためにその日の収集を止めないため）。<br>
+        開始ログの後、DB 関数 <code>archive_old_patches()</code> で古いパッチを整理する（v1.10.0 で追加。01 FR-23）。今のパッチより古いパッチ（パッチは数字として比べる）について、item_build_stats と processed_matches を消す（直前のパッチの分も消す。アイテムビルドは1パッチ約550〜840MB の見込みのため。下のコスト試算。テスト仕様書の未決事項 Q-9 の決定。なお v1.10.0 からアイテムビルドは書き込んでいないので、消すのは主に処理済みの試合ID）。champion_stats・counter_stats は残す。1回の呼び出しで消すのは最大2万行で、0行になるまで繰り返す（API の時間の上限 8秒に収めるため。ローカルで30万行を消したとき、1回は最大0.18秒だった。2026-11-10 計測）。失敗したらエラー終了（failed）。</p>
       </div>
     </div>
     <div class="flow-step">
       <div class="step-num">3</div>
       <div class="step-content">
-        <h4>試合IDリスト取得</h4>
-        <p>各PUUIDのMATCH-V5 /matches エンドポイントで直近の試合IDを取得。gameVersion の先頭2セグメントが TARGET_PATCH と一致するもののみフィルタ。</p>
+        <h4>名簿を作成（LEAGUE-V4）</h4>
+        <p>LEAGUE-V4 で JP の Platinum 以上の全プレイヤーのランク（puuid → ランク）を取得し、メモリ上に名簿を作る（約14分）。一部のページの取得に失敗しても続行し、その人たちは名簿にいない扱いになる（失敗が20回を超えたら中止）。名簿は試合の平均ランクの計算と、シードの選択に使う。</p>
       </div>
     </div>
     <div class="flow-step">
       <div class="step-num">4</div>
       <div class="step-content">
-        <h4>試合詳細取得 + リアルタイム集計</h4>
-        <p>試合IDごとに詳細データ取得。生データは保存せず、取得直後にメモリ上で集計処理。レート制限ハンドラーが1200ms sleep を自動制御。</p>
+        <h4>processed_matches から処理済み試合IDを全件取得</h4>
+        <p><code>processed_matches</code> テーブルからパッチに該当する処理済み試合IDをすべて取得（Supabase PostgREST の1回1000件上限に対応するため、ページ単位で繰り返し取得）。このセットはループ内で処理済み判定に使用。</p>
       </div>
     </div>
     <div class="flow-step">
       <div class="step-num">5</div>
       <div class="step-content">
-        <h4>Supabaseへ UPSERT</h4>
-        <p>champion_stats / counter_stats / item_build_stats を集計値で UPSERT（既存行は上書き更新）</p>
+        <h4>スノーボールメインループ</h4>
+        <p>各イテレーション先頭で終了条件を判定。以下のうち先に達した方で終了：<br>
+        ① 時間上限（MAX_DURATION_MINUTES、デフォルト330分。起動からの経過で、ループの1回ごとの始めに判定する。名簿の作成など、ループに入る前の処理の間は判定しない（上限が名簿の作成より短くても、名簿の作成は最後まで行う）。ループに入った後は1回分だけ超えることがある。1回の Riot API の呼び出しは10秒で時間切れになり、429 の再試行を含めても1回は最大約71秒。v1.8.0 で明記）<br>
+        ② 試合数上限（MAX_MATCHES、未指定なら上限なし）<br>
+        ③ キュー枯渇（収集対象のすべてのランクで、キューも名簿の未使用プレイヤーも尽きた）<br>
+        キューは収集対象のランク（TARGET_TIERS）ごとに持つ。空になったランクには、名簿からまだ使っていないプレイヤーを5人ずつ補充する。<br>
+        時間上限と試合数上限に同時に達したときの終了理由は時間上限とする。集めた試合数が同じランクが複数あるときは、低いランクを先に進める（v1.9.0 で明記。テスト仕様書の未決事項 Q-2・Q-6 の決定）。ループ内の処理：集めた試合数が最も少ないランクを選ぶ → そのランクの試合IDキューが空ならプレイヤーの直近20試合のIDを取得し、<code>processed_matches</code> と <code>queuedMatchIds</code> で重複除外して追加 → 試合詳細を取得 → パッチが不一致ならスキップし、そのプレイヤーの残りの試合も取りに行かない（試合IDは新しい順のため残りも古い。休止中のプレイヤーでリクエストを無駄にしないため） → リメイクの試合（参加者の <code>gameEndedInEarlySurrender</code> が true）と、勝者が1チームでない試合（勝った参加者がちょうど5人で同じチームでない。不正対策による中止 <code>endOfGameResult: Abort_AntiCheatExit</code> などで両チームとも負けの試合。v1.10.0 で追加。ST-10 で 1,100試合中1試合）はスキップする。集計せず、processed_matches にも記録せず、参加者を次のシードにも使わない。記録しないため、後の実行で同じ試合IDが返ると試合詳細をもう一度取りに行く。むだは1回の実行につき1回の呼び出し（同じ実行の中では二度取りしない。その試合が誰かの直近20試合に入っている間は、実行のたびに1回ずつ起きる）なので許容する（v1.9.0 で明記。未決事項 Q-7 の決定）。同じプレイヤーの残りの試合は続ける（v1.6.0 で追加。FR-21） → 参加者10人の平均ランクからランク帯を決め、当てはまるランク帯すべてにメモリ上で集計 → 参加者のうち名簿にいて収集対象ランクの人を、未訪問ならそのランクのキューに追加。</p>
       </div>
     </div>
     <div class="flow-step">
       <div class="step-num">6</div>
       <div class="step-content">
-        <h4>ログ記録</h4>
-        <p>collection_logs テーブルに収集件数・実行時間・ステータスを記録</p>
+        <h4>Supabaseへ加算書き込み（DB関数apply_batch_result）</h4>
+        <p>ループの途中で、新しく処理した試合が <b>500試合</b> たまるたびに書き込み、ループ終了後に残りを書き込む（v1.10.0 で変更。以前はループ終了後に1回だけ書き込んでいた）。書き込んだ分の集計はメモリから消す。新しく処理した試合が0件なら書き込まない。理由: API には8秒の時間の上限（authenticator の statement_timeout）があり、330分で集まる試合（ST の計測から1日約9,500〜12,700試合の見込み）をまとめて書き込むと、6,000試合分でもローカルで8.8秒かかった（2026-11-10 計測。1,000試合で約2.0秒、3,000試合で約4.7秒）。また、途中で止まってもそこまでの試合が残る。<br>
+        書き込みが失敗したらそこで止めてエラー終了（failed）する（DB の障害など、続けても失敗し続ける原因が多いため）。それまでに書き込んだ分は DB に残り、失敗した分の試合は処理済みにならないので、次の実行で取り直せる。<br>
+        item_build_stats には書き込まない（DB に送るアイテムビルドの行は空。v1.10.0。アイテムビルドを使う機能がまだなく、今のパッチの分だけでも 500MB を超えるおそれがあるため。06 の未決事項 Q-9。集計の仕組みと表は残し、使う機能を作るときに設計し直す）。<br>
+        集計結果は DB 関数 <code>apply_batch_result()</code> で書き込む。この関数は1回の呼び出しごとに、以下を1トランザクション内で実行：<br>
+        ① <code>processed_matches</code> から処理済み試合をチェック。1件でも含まれていたらエラーで全体を ROLLBACK（同時実行時の二重加算を防止）。<br>
+        ② <code>processed_matches</code> に新規処理試合IDを INSERT。<br>
+        ③ champion_stats / counter_stats / item_build_stats の既存行（行ごとに rank_tier を持つ）に games_played / wins を加算し、win_rate を再計算。新規行は INSERT。<br>
+        実行権限：service_role キーのみ（GitHub Actions 環境から）。</p>
       </div>
     </div>
+    <div class="flow-step">
+      <div class="step-num">7</div>
+      <div class="step-content">
+        <h4>collection_logs をジョブ完了で UPDATE</h4>
+        <p>ループ終了時・エラー発生時に、ステップ2で保持した id で UPDATE。<code>status</code> を 'completed' または 'failed' に、<code>matches_collected</code> を DB に書き込み終えた試合数に（v1.10.0 で変更: 失敗時も、それまでに書き込んだ試合数を記録する。少しずつ書き込むので、失敗しても途中までの試合が残るため。以前は「完了時のみ。失敗時は NULL のまま」。書き込みの応答が届く前に接続が切れた場合は、DB では確定していてもバッチは失敗として数えないので、実際より少なくなることがある）、<code>completed_at</code> を現在時刻に（失敗時も記録し、失敗までの所要時間がわかるようにする）、エラー時は <code>error_message</code> を記録。DB に届かないまま失敗したときは failed への更新もできず、行は running のまま残る（次回の実行は止まらない）。started_at から6時間（timeout-minutes）を過ぎた running の行は、途中で終わった実行とみなす（v1.9.0 で明記。未決事項 Q-5 の決定。めったに起きないため、自動で直す処理は作らない）</p>
+      </div>
+    </div>
+
+    <h4 style="font-size:13px; margin: 20px 0 8px; color:#555;">エラー時の動き（v1.7.0 で追加。実装の動きを明記）</h4>
+    <p style="font-size:13px; color:#555; margin-bottom:8px;">バッチを止めるエラーは、どれも標準エラー出力（stderr。<code>console.error</code>）に <code>[collect] 致命的なエラー: &lt;メッセージ&gt;</code> を出し、終了コード 1 で終わる。開始ログ（ステップ2）より前のエラーは collection_logs に残らないため、メッセージで原因がわかるようにする（DB に残さないことを仕様とする。01 FR-22。未決事項 Q-1 の決定）。下の「メッセージに含む語」はテストで確かめる値。表はバッチを止めるエラーの全件（Data Dragon の取得失敗のように、メッセージを定めていないものは表の下に書く）。</p>
+    <table>
+      <tr><th style="width:220px">条件</th><th style="width:110px">起きる時点</th><th>メッセージに含む語</th><th style="width:200px">collection_logs</th></tr>
+      <tr><td><code>TARGET_REGIONS</code> に複数指定</td><td>起動直後</td><td>TARGET_REGIONS に複数のリージョンが指定されています</td><td rowspan="9">行はできない（開始ログより前）</td></tr>
+      <tr><td><code>TARGET_REGIONS</code> が対応表にない値（例: xx1）</td><td>起動直後</td><td>不明なプラットフォーム: xx1</td></tr>
+      <tr><td><code>TARGET_TIERS</code> に許可値以外</td><td>起動直後</td><td>TARGET_TIERS に不正な値があります（不正な値）</td></tr>
+      <tr><td><code>MAX_DURATION_MINUTES</code>・<code>MAX_MATCHES</code> が正の整数でない</td><td>起動直後</td><td>&lt;変数名&gt; は正の整数で指定してください</td></tr>
+      <tr><td><code>RIOT_API_KEY</code> 未設定</td><td>起動直後（Riot API を呼ぶ前）</td><td>RIOT_API_KEY が設定されていません</td></tr>
+      <tr><td><code>SUPABASE_URL</code>・<code>SUPABASE_SERVICE_ROLE_KEY</code> 未設定</td><td>起動直後（読み込み時）</td><td>SUPABASE_URL が設定されていません／SUPABASE_SERVICE_ROLE_KEY が設定されていません（この2つだけは読み込み時の例外として表示され、先頭に <code>[collect] 致命的なエラー:</code> は付かない）</td></tr>
+      <tr><td>APIキーの失効・誤り（403・401）</td><td>ステップ1①</td><td>Riot APIキーが無効または失効しています（v1.8.0 で 401 を追加。誤ったキーでは 401 が返ることをシステムテスト ST-05 で確認したため）</td></tr>
+      <tr><td>APIキーの確認で 401・403 以外のエラー（5xx など）・接続できない・時間切れ</td><td>ステップ1①</td><td>Riot API エラー: &lt;ステータスコード&gt;（接続できないときは fetch のエラー、時間切れは「Riot API タイムアウト」）</td></tr>
+      <tr><td>champions の同期失敗</td><td>ステップ1③</td><td>[champions] 同期失敗</td></tr>
+      <tr><td>名簿の取得失敗が20回を超えた</td><td>ステップ3</td><td>名簿の取得失敗が20回を超えたため中止します</td><td rowspan="4">status を failed にし、error_message に同じメッセージ、matches_collected に書き込み済みの試合数を記録（ステップ7）</td></tr>
+      <tr><td>古いパッチの削除の失敗（v1.10.0）</td><td>ステップ2の後</td><td>[archive_old_patches] 古いパッチの削除に失敗: &lt;DB のエラー&gt;</td></tr>
+      <tr><td>処理済み試合の取得失敗</td><td>ステップ4</td><td>[processed_matches] 取得失敗</td></tr>
+      <tr><td>DB への書き込み失敗（apply_batch_result のエラー）</td><td>ステップ6</td><td>[apply_batch_result] 書き込み失敗: &lt;DB のエラー&gt;（DB のエラーの種類は 04「apply_batch_result のエラー」）。500試合ごとの書き込みのどこで失敗しても同じ（v1.10.0）</td></tr>
+    </table>
+    <p style="font-size:13px; color:#555; margin-top:8px;">試合ID一覧・試合詳細の取得失敗（時間切れを含む）はバッチを止めない（警告を出してそのプレイヤー・試合を飛ばす。飛ばした試合は処理済みに記録しないので、後の実行で取り直せる。v1.9.0 で仕様として明記。未決事項 Q-4 の決定）。名簿の1ページの取得失敗（時間切れを含む）も止めない（20回まで）。Data Dragon（versions.json・champion.json）の取得失敗はバッチを止めるが、メッセージは定めていない（接続できないときは fetch のエラー、HTTP エラーや想定外の応答のときは応答の解析エラー（SyntaxError・TypeError）がそのまま出る。応答のステータスを確かめていないため。開始ログより前なので collection_logs に行はできない）。</p>
 
     <h3 style="font-size:14px; margin: 24px 0 16px; color:#555;">3.2 フロントエンド参照フロー（ユーザー操作時）</h3>
     <div class="flow-step">
@@ -376,7 +434,7 @@
       <div class="step-num">3</div>
       <div class="step-content">
         <h4>Supabase から集計データ取得</h4>
-        <p>API Route が Supabase SDK でクエリ。集計済みデータを win_rate DESC でソートして返却。</p>
+        <p>API Route が Supabase SDK でクエリ。集計済みデータを win_rate DESC でソートして返却。成功した応答は Vercel の CDN に1時間キャッシュする。API の詳細な仕様は <code>05_api-design.html</code> を参照。</p>
       </div>
     </div>
     <div class="flow-step">
@@ -433,14 +491,16 @@
         <td>フロントエンド・API Routes ホスティング</td>
         <td>Hobby</td>
         <td><span class="badge free">$0</span></td>
-        <td>個人利用：問題なし</td>
+        <td>個人利用（非公開）：問題なし。全デプロイの保護も追加料金なし</td>
       </tr>
       <tr>
         <td>Supabase</td>
         <td>PostgreSQL</td>
         <td>Free</td>
         <td><span class="badge free">$0</span></td>
-        <td>500MB / 200万行INSERT。集計データのみなので余裕あり</td>
+        <td>500MB。アイテムビルドは書き込まない（v1.10.0。06 の未決事項 Q-9 の決定）。理由: ST の計測から、1日の試合数は約9,500〜12,700試合（330分から名簿の作成の約13分を引き、1試合あたり約1.5〜2秒）。アイテムビルドは1試合あたり約16〜18行・1行約260バイト（索引を含む大きさ <code>pg_total_relation_size</code>。ST-10）なので、今のパッチの分だけでも1パッチ（約2週間）約550〜840MB になり、500MB を超えるおそれがある。<br>
+        書き込むのは勝率（champion_stats）と対面勝率（counter_stats）で、過去のパッチも残す。対面勝率は 1,100試合で 10,048行・2.4MB（ST-10。1行約240バイト）。行数はチャンピオンの組み合わせの数で頭打ちになり、上限はおよそ 170×169×5レーン×4ランク帯 ≒ 57.5万行なので、1パッチの<b>上限は約140MB</b>。最悪の場合は約3パッチ（約6週間）で 400MB に届く。実際は出てこない組み合わせが多いので小さくなる見込みだが、1パッチ（約14〜18万試合）での行数は計測していない。勝率は1パッチ数千行で小さい。処理済みの試合ID は今のパッチの分だけ残り（古いパッチは消す）、1パッチ約14〜18万行・1行約160バイト（ST-10: 1,100行で 176KB）で約30MB が上限。<b>本番の DB の使用量が 400MB を超えたら</b>、古いパッチの対面勝率を消すか、有料プランにするかを決める（定期実行を始めた後は、OT と合わせて使用量を確かめ、1パッチ分の対面勝率の実際の大きさを測る）。<br>
+        なお、PostgreSQL は行を消してもファイルの大きさは縮まず、空いた場所を後の書き込みで使い回す（自動の VACUUM）</td>
       </tr>
       <tr>
         <td>GitHub Actions</td>
@@ -452,9 +512,9 @@
       <tr>
         <td>Riot API</td>
         <td>試合データ・ランクデータ取得</td>
-        <td>Development Key</td>
+        <td>Personal Key（v1.7.1 で Development Key から変更）</td>
         <td><span class="badge free">$0</span></td>
-        <td>100 req/2min。レート管理必須</td>
+        <td>20 req/秒・100 req/2min。レート管理必須。有効期限なし</td>
       </tr>
       <tr style="background:#f0faf4; font-weight:700;">
         <td colspan="3">合計</td>

@@ -90,9 +90,17 @@
   <h1>要件定義書</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.1.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.9.0</div></div>
     <div class="meta-item"><div class="label">ステータス</div><div class="value">Draft</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.1.0)</div><div class="value">FR-06 Tier閾値を明記</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.2.0)</div><div class="value">FR-03パッチ必須化・FR-20スノーボール方式・FR-24追加・リージョンJPのみ</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.3.0)</div><div class="value">FR-20に終了条件・環境変数名・デフォルト値を補足</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.4.0)</div><div class="value">FR-21の集計値を上書きから加算に変更</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.5.0)</div><div class="value">FR-04 ランク帯の意味・FR-20 名簿と収集対象ランク・FR-21 平均ランクによるランク帯判定</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.9.0)</div><div class="value">2026-11-10 FR-23 の「アーカイブ」の意味を定義（今のパッチより古いパッチのアイテムビルドを消す）。FR-21 に勝者が1チームでない試合の除外を追加。アイテムビルドは DB に書き込まないことを FR-23 に追記</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.8.0)</div><div class="value">2026-11-09 FR-22 で DB に記録するエラーの範囲を明記（テスト仕様書の未決事項 Q-1 の決定）</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.7.0)</div><div class="value">2026-11-08 Riot API キーを Personal Key に変更（Development Key は24時間で失効するため）。Personal Key では一般公開できないので、Web サイトを非公開にしたことを制約事項に追記</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.6.0)</div><div class="value">2026-11-04 FR-21 リメイクの試合を集計から除外</div></div>
     <div class="meta-item"><div class="label">対象者</div><div class="value">個人利用 / AI学習目的</div></div>
   </div>
 </div>
@@ -178,13 +186,13 @@
           <td><span class="req-id">FR-03</span></td>
           <td><span class="badge badge-must">Must</span></td>
           <td>パッチバージョンフィルター</td>
-          <td>現行パッチをデフォルト選択</td>
+          <td>現行パッチをデフォルト選択。<strong>パッチは必須フィルター</strong>：異なるパッチのデータは絶対に混在させない。DBのすべての集計データはパッチ単位で分離して保存する。</td>
         </tr>
         <tr>
           <td><span class="req-id">FR-04</span></td>
           <td><span class="badge badge-must">Must</span></td>
           <td>ランク帯フィルター（全体 / Platinum+ / Diamond+ / Master+）</td>
-          <td>デフォルト: Platinum+</td>
+          <td>デフォルト: Platinum+。「+」はそのランク以上をすべて含む（Platinum+ = Platinum・Emerald・Diamond・Master・Grandmaster・Challenger）。「全体」は収集したすべての試合。試合のランクは参加者10人の平均ランクで決める（FR-21）。統計の信頼性のための最低試合数は、上のランク帯ほどデータがたまりにくいため低くする（値は 05 API設計書）</td>
         </tr>
         <tr>
           <td><span class="req-id">FR-05</span></td>
@@ -197,6 +205,12 @@
           <td><span class="badge badge-could">Could</span></td>
           <td>Tier分類（S/A/B/C）でグルーピング表示</td>
           <td>勝率に基づく自動分類。閾値：S ≥ 55% / A 53〜55% / B 51〜53% / C &lt; 51%</td>
+        </tr>
+        <tr>
+          <td><span class="req-id">FR-07</span></td>
+          <td><span class="badge badge-could">Could</span></td>
+          <td>【Phase 2】各チャンピオン行の右側に相性の良い他レーンのチャンピオンを表示</td>
+          <td>レイアウト：A案（行内ミニアイコン常時表示 + ホバーで詳細）。常時表示：各レーン（TOP/JG/BOT/SUP）の勝率1位チャンピオンのアイコン1体ずつ。ホバー表示：レーン別上位5体のアイコン + 各勝率。新規 synergy_stats テーブルが必要。</td>
         </tr>
       </table>
     </div>
@@ -245,26 +259,32 @@
         <tr>
           <td><span class="req-id">FR-20</span></td>
           <td><span class="badge badge-must">Must</span></td>
-          <td>Riot MATCH-V5 APIから試合データを収集</td>
-          <td>GitHub Actionsのバッチジョブで定期実行</td>
+          <td>スノーボール方式でRiot MATCH-V5 APIから試合データを収集</td>
+          <td>GitHub Actionsのバッチジョブで定期実行（Cron: 毎日 JST 02:00）。最初に Platinum 以上の全プレイヤーのランク（名簿）を LEAGUE-V4 から取得する。名簿から選んだシードプレイヤーの試合を取得し、各試合の参加者のうち名簿にいる人を次のシードとして芋づる式に試合を広げる。試合を集める対象のランクは環境変数 TARGET_TIERS（PLATINUM / EMERALD / DIAMOND / MASTER のカンマ区切り。未指定時は4ランクすべて。MASTER は Master 以上）で指定し、集めた試合数が最も少ないランクのプレイヤーを優先して、対象ランクの試合数をそろえる。運用当初は PLATINUM のみ（Actions の既定値）。収集対象リージョン：JPのみ（環境変数 TARGET_REGIONS、デフォルト jp1。複数指定時はエラー終了）。終了条件：時間上限 MAX_DURATION_MINUTES（デフォルト330分、Actions timeout-minutes: 360 から書き込み用に30分の余裕）または試合数上限 MAX_MATCHES（未指定時は上限なし）またはキュー枯渇のいずれか先に達した方で終了。</td>
         </tr>
         <tr>
           <td><span class="req-id">FR-21</span></td>
           <td><span class="badge badge-must">Must</span></td>
-          <td>収集データをリージョン・ランク帯・パッチで集計</td>
-          <td>集計済みデータのみDBに保存（生データは保存しない）</td>
+          <td>収集データをリージョン・ランク帯・パッチで集計し既存値に加算</td>
+          <td>試合のランク帯は参加者10人の平均ランクで決める（名簿にいない人は Gold 相当として平均に入れる。計算方法は 04 DB設計書）。1試合を、当てはまるランク帯すべて（all と、平均がそのランク以上の platinum_plus / diamond_plus / master_plus）に加算する。リメイク（開始直後の降参で終わった試合）は集計しない（数分で終わった試合はチャンピオンの強さと関係がなく、勝率を歪めるため。v1.6.0 で追加）。勝者が1チームでない試合（不正対策による中止などで両チームとも負けの試合）も集計しない（試合数だけが増えて勝率が下がるため。v1.9.0 で追加）。集計済みデータのみDBに保存（生データは保存しない）。既存の集計行に games_played / wins を加算し、win_rate を再計算してから更新。処理済み試合IDはprocessed_matchesテーブルに記録し、バッチ実行をまたいだ重複処理を防ぐ。</td>
+        </tr>
+        <tr>
+          <td><span class="req-id">FR-24</span></td>
+          <td><span class="badge badge-must">Must</span></td>
+          <td>バッチ起動時にData Dragonからchampionsテーブルを自動同期</td>
+          <td>collect.ts起動時に毎回Data DragonのAPIキー不要CDNからチャンピオン一覧を取得してUPSERT。新チャンピオン追加やパッチ更新時も自動対応。</td>
         </tr>
         <tr>
           <td><span class="req-id">FR-22</span></td>
           <td><span class="badge badge-must">Must</span></td>
           <td>バッチの実行ログをDBに記録</td>
-          <td>収集件数・ステータス・エラー内容</td>
+          <td>収集件数・ステータス・エラー内容。DB に記録するのは開始ログの後のエラー。開始ログより前のエラー（APIキーの失効・設定値の誤り・Data Dragon の取得失敗・champions の同期失敗）は DB に記録せず、GitHub Actions のログ（原因を必ず表示する）と失敗通知のメールで確認する（v1.8.0 で明記。非公開の個人ツールで、失敗通知で気づけるため）</td>
         </tr>
         <tr>
           <td><span class="req-id">FR-23</span></td>
           <td><span class="badge badge-should">Should</span></td>
           <td>パッチ更新時に自動で前パッチをアーカイブ</td>
-          <td>gameVersionの変化を検知して自動切替</td>
+          <td>gameVersionの変化を検知して自動切替。「アーカイブ」は、今のパッチより古いパッチについて、勝率（champion_stats）・対面勝率（counter_stats）を残し、アイテムビルド（item_build_stats）と処理済みの試合ID を消すこと（v1.9.0 で定義。Supabase Free の容量 500MB を守るため。アイテムビルドが容量の大半を占めるので、直前のパッチの分も残さない（当初は1パッチ約400MB と見込んだが、後に1日の試合数を見直して約550〜840MB とした。02 コスト試算）。アイテムビルドはまだ画面・API で使っていない）。なお、アイテムビルドは v1.9.0 から DB に書き込んでいない（集計の仕組みは残す。使う機能がなく、今のパッチの分だけでも 500MB を超えるおそれがあるため。使う機能を作るときに設計し直す）</td>
         </tr>
       </table>
     </div>
@@ -295,13 +315,13 @@
     </div>
     <table>
       <tr><th style="width:160px">項目</th><th>内容</th></tr>
-      <tr><td>Riot API キー</td><td>Development Keyを使用。有効期限24時間のため手動更新が必要。レート上限: 100 req/2分</td></tr>
-      <tr><td>Riot API 利用規約</td><td>個人・非商用・学習目的での利用のため許容範囲内だが、公開・商用利用は不可</td></tr>
+      <tr><td>Riot API キー</td><td>Personal API Key（Riot Developer Portal で製品登録し、承認済み）を使用。有効期限なし。レート上限: 20 req/秒・100 req/2分（v1.7.0 で変更。以前は Development Key を使用していたが、24時間で失効し毎日の定期実行に使えないため）</td></tr>
+      <tr><td>Riot API 利用規約</td><td>個人・非商用・学習目的での利用のため許容範囲内だが、公開・商用利用は不可。Personal Key は「開発者本人か少人数の非公開コミュニティ向け」で、一般公開（公開のアルファ版・ベータ版を含む）には使えない（Riot の開発者ポリシー）。そのため Web サイトは Vercel のログインが必要な非公開の状態にしている（v1.7.0。02「Webアプリ」）。一般公開する場合は Production Key の申請が必要（動くサイト・認証済みドメイン・利用規約とプライバシーポリシー。Riot 指定の免責文の表示も必要）</td></tr>
       <tr><td>スキル上げ順</td><td>Riot APIでは取得不可のため本ツールの対象外</td></tr>
       <tr><td>データ更新頻度</td><td>パッチ更新（約2週間ごと）のタイミングでバッチ再実行を手動トリガーまたはCronで対応</td></tr>
-      <tr><td>収集対象リージョン</td><td>初期リリースはJP・KRの2リージョン</td></tr>
+      <tr><td>収集対象リージョン</td><td>JPのみ（スノーボール方式のレート制限内での収集効率を最大化するため単一リージョンに絞る）</td></tr>
     </table>
-    <div class="note">Riot Games Development APIキーは申請から最大2営業日で発行される。Production Keyへの移行は今回の目的外。</div>
+    <div class="note">Riot API キーは Developer Portal で製品を登録し、承認されて Personal Key が発行された（v1.7.0 で変更。以前の注記は「Development APIキーは申請から最大2営業日で発行される」）。Production Key への移行は今回の目的外（一般公開するときに申請する）。</div>
   </div>
 
   <!-- 6. スコープ外 -->
@@ -311,7 +331,7 @@
       <h2>スコープ外</h2>
     </div>
     <ul class="out-of-scope" style="margin-top:4px;">
-      <li>ユーザー認証・ログイン機能</li>
+      <li>ユーザー認証・ログイン機能（アプリとしての機能。Vercel Authentication によるサイト全体の保護は除く。v1.7.0 で明記）</li>
       <li>マネタイズ・広告機能</li>
       <li>スキル上げ順の統計表示</li>
       <li>ルーン・サモナースペルの推奨表示</li>

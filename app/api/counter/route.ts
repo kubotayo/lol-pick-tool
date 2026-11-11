@@ -1,27 +1,37 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { LANES, REGIONS, TIERS, type Lane, type Region, type Tier } from '@/lib/types';
+import { NextRequest } from 'next/server';
+import { LANES, REGIONS, TIERS, DEFAULT_MIN_GAMES, type Lane, type Region, type Tier } from '@/lib/constants';
+import { okResponse, badRequest, isValidPatch, parseIntParam } from '@/lib/api';
 import { MOCK_COUNTER_STATS, getMockCounterKey } from '@/lib/mock-data';
 
+const DEFAULT_LIMIT = 15;
+const MAX_LIMIT = 100;
+
+// 仕様: docs/05_api-design.html 4章
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
 
-  const enemyId   = Number(searchParams.get('enemy_champion_id'));
-  const lane      = searchParams.get('lane') as Lane;
-  const region    = (searchParams.get('region') ?? 'JP') as Region;
-  const tier      = (searchParams.get('tier') ?? 'platinum_plus') as Tier;
-  const limit     = Math.min(Number(searchParams.get('limit') ?? 15), 100);
-  const minGames  = Number(searchParams.get('min_games') ?? 200);
+  const enemyId = parseIntParam(searchParams.get('enemy_champion_id'), 0, 1);
+  const lane    = searchParams.get('lane') as Lane;
+  const patch   = searchParams.get('patch');
+  const region  = (searchParams.get('region') ?? 'JP') as Region;
+  const tier    = (searchParams.get('tier') ?? 'platinum_plus') as Tier;
 
-  if (!enemyId || isNaN(enemyId))         return NextResponse.json({ error: 'Invalid enemy_champion_id' }, { status: 400 });
-  if (!lane || !LANES.includes(lane))     return NextResponse.json({ error: 'Invalid lane' },               { status: 400 });
-  if (!REGIONS.includes(region))          return NextResponse.json({ error: 'Invalid region' },             { status: 400 });
-  if (!TIERS.includes(tier))              return NextResponse.json({ error: 'Invalid tier' },               { status: 400 });
+  if (enemyId === null || enemyId === 0) return badRequest('Invalid enemy_champion_id');
+  if (!lane || !LANES.includes(lane))    return badRequest('Invalid lane');
+  if (!isValidPatch(patch))              return badRequest('Invalid patch');
+  if (!REGIONS.includes(region))         return badRequest('Invalid region');
+  if (!TIERS.includes(tier))             return badRequest('Invalid tier');
 
-  // TODO: Supabase接続後はモックデータをSupabaseクエリに差し替え
+  const limit    = parseIntParam(searchParams.get('limit'), DEFAULT_LIMIT, 1);
+  const minGames = parseIntParam(searchParams.get('min_games'), DEFAULT_MIN_GAMES.counter[tier], 0);
+  if (limit === null)    return badRequest('Invalid limit');
+  if (minGames === null) return badRequest('Invalid min_games');
+
+  // TODO: Supabase接続後はモックデータをSupabaseクエリに差し替え（patch・region・tier での絞り込みもそのとき行う）
   const key  = getMockCounterKey(enemyId, lane);
   const data = (MOCK_COUNTER_STATS[key] ?? [])
     .filter(r => r.games_played >= minGames)
-    .slice(0, limit);
+    .slice(0, Math.min(limit, MAX_LIMIT));
 
-  return NextResponse.json(data);
+  return okResponse(data);
 }

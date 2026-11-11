@@ -1,50 +1,26 @@
-export const LANES = ['TOP', 'JG', 'MID', 'BOT', 'SUP'] as const;
-export const REGIONS = ['JP', 'KR', 'NA', 'EUW', 'EUNE'] as const;
-export const TIERS = ['all', 'platinum_plus', 'diamond_plus', 'master_plus'] as const;
-
-export type Lane = typeof LANES[number];
-export type Region = typeof REGIONS[number];
-export type Tier = typeof TIERS[number];
+// フロントエンド・バッチスクリプト両方で共有するインターフェース定義
+// Supabase のテーブル構造に対応させること
 
 export interface Champion {
-  champion_id: number;
+  champion_id:   number;
   champion_name: string;
-  champion_key: string;
-  image_url: string;
+  champion_key:  string;
+  image_url:     string;
 }
 
+// champion_stats テーブルの SELECT 結果（champions テーブルを JOIN）
 export interface ChampionStatRow {
-  win_rate: number;
+  win_rate:     number; // 0〜1 の小数（例: 0.5741 = 57.41%）
   games_played: number;
-  champions: Champion;
+  champions:    Champion;
 }
 
+// counter_stats テーブルの SELECT 結果（champions テーブルを JOIN）
 export interface CounterStatRow {
-  win_rate: number;
+  win_rate:     number;
   games_played: number;
-  champions: Champion;
+  champions:    Champion;
 }
 
-// S>=55%, A:53-55%, B:51-53%, C<51%
+// Tier 分類ラベル（FR-06 に準拠: S/A/B/C）
 export type Tier_Label = 'S' | 'A' | 'B' | 'C';
-
-export function getTierLabel(winRate: number): Tier_Label {
-  if (winRate >= 0.55) return 'S';
-  if (winRate >= 0.53) return 'A';
-  if (winRate >= 0.51) return 'B';
-  return 'C';
-}
-
-export function getWinRateColor(winRate: number): string {
-  if (winRate >= 0.57) return 'text-green-400';
-  if (winRate >= 0.53) return 'text-yellow-400';
-  return 'text-red-400';
-}
-
-export function formatWinRate(winRate: number): string {
-  return `${(winRate * 100).toFixed(1)}%`;
-}
-
-export function formatGames(games: number): string {
-  return games.toLocaleString('ja-JP');
-}

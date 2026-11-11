@@ -1,4 +1,4 @@
-import { ChampionStatRow, CounterStatRow } from './types';
+import type { ChampionStatRow, CounterStatRow } from './types';
 
 const DDV = '14.21.1';
 const img = (key: string) =>

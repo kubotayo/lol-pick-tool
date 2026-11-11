@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API設計書 - LoL チャンピオンピックツール</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', 'Hiragino Sans', sans-serif; background: #f5f6fa; color: #2c3e50; font-size: 14px; }
+
+  .header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    color: white; padding: 32px 48px; border-bottom: 4px solid #c89b3c;
+  }
+  .header h1 { font-size: 26px; font-weight: 700; }
+  .header .subtitle { color: #c89b3c; font-size: 13px; margin-top: 6px; letter-spacing: 2px; text-transform: uppercase; }
+  .meta-grid { display: flex; gap: 24px; margin-top: 20px; flex-wrap: wrap; }
+  .meta-item { background: rgba(255,255,255,0.08); padding: 10px 18px; border-radius: 6px; border-left: 3px solid #c89b3c; }
+  .meta-item .label { font-size: 10px; color: #a0aec0; text-transform: uppercase; }
+  .meta-item .value { font-size: 13px; color: white; margin-top: 2px; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 40px 24px; }
+
+  .section {
+    background: white; border-radius: 10px; padding: 28px 32px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07); margin-bottom: 28px;
+  }
+  .section-header {
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 2px solid #f0f0f0; padding-bottom: 14px; margin-bottom: 24px;
+  }
+  .section-num {
+    background: #1a1a2e; color: #c89b3c; width: 32px; height: 32px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; flex-shrink: 0;
+  }
+  .section h2 { font-size: 18px; color: #1a1a2e; }
+  .section h3 { font-size: 14px; color: #555; margin: 24px 0 12px; }
+  .section h3:first-of-type { margin-top: 0; }
+  .section p { font-size: 13px; line-height: 1.7; margin-bottom: 10px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 8px; }
+  th { background: #1a1a2e; color: #c89b3c; padding: 10px 14px; text-align: left; font-size: 12px; }
+  td { padding: 10px 14px; border-bottom: 1px solid #f0f0f0; vertical-align: top; line-height: 1.6; }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: #fafafa; }
+
+  code { background: #f0f0f5; padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+  pre { background: #1a1a2e; color: #e8e8f0; padding: 14px 18px; border-radius: 8px; font-size: 12px; line-height: 1.6; overflow-x: auto; margin-bottom: 8px; }
+  .method { display: inline-block; background: #27ae60; color: white; padding: 2px 10px; border-radius: 4px; font-size: 12px; font-weight: 700; margin-right: 8px; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .done { background: #d5f5e3; color: #1e8449; }
+  .todo { background: #fdebd0; color: #b9770e; }
+  .note { background: #fffbea; border-left: 3px solid #c89b3c; padding: 10px 14px; font-size: 12px; line-height: 1.7; margin: 8px 0; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="subtitle">LoL Champion Pick Tool</div>
+  <h1>API設計書</h1>
+  <div class="meta-grid">
+    <div class="meta-item"><div class="label">作成日</div><div class="value">2026-11-02</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.0.1</div></div>
+    <div class="meta-item"><div class="label">対象</div><div class="value">Next.js API Routes（app/api/）</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.0.1)</div><div class="value">2026-11-08 共通仕様の「認証」に、デプロイ全体を Vercel Authentication で保護していることを追記（サイトを非公開にしたため）</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.0.0)</div><div class="value">新規作成。API の仕様を 02 から分離して記載</div></div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- 1. 共通仕様 -->
+  <div class="section">
+    <div class="section-header"><div class="section-num">1</div><h2>共通仕様</h2></div>
+    <table>
+      <tr><th style="width:180px">項目</th><th>内容</th></tr>
+      <tr><td>エンドポイント</td><td><code>/api/champions</code>・<code>/api/counter</code>・<code>/api/patches</code> の3つ。すべて <code>GET</code>・JSON を返す</td></tr>
+      <tr><td>認証</td><td>アプリでの認証はなし（個人利用ツール）。ただしデプロイ全体を Vercel Authentication（All Deployments）で保護しているため、Vercel にログインしていないリクエストはアプリに届かず、Vercel のログイン画面に飛ばされる（v1.0.1 で追記。02「Webアプリ」）。API Routes はサーバー側で Supabase の anon キーを使い、RLS で SELECT のみ許可されたテーブルを参照する</td></tr>
+      <tr><td>入力チェック</td><td>クエリパラメーターは許可値リスト（2章）で検証し、許可値以外は <code>400</code> を返す</td></tr>
+      <tr><td>エラー応答</td><td><code>{ "error": "メッセージ" }</code> の形で返す。<code>400</code>: パラメーター不正（どのパラメーターが不正かを書く）／<code>500</code>: DB エラーなど。<code>500</code> では Supabase のエラー内容をそのまま返さず、<code>"Internal Server Error"</code> とする（内部情報を出さないため）。詳細はサーバーのログに出す</td></tr>
+      <tr><td>キャッシュ</td><td>成功（<code>200</code>）の応答に <code>Cache-Control: s-maxage=3600, stale-while-revalidate=86400</code> を付け、Vercel の CDN でクエリ文字列ごとにキャッシュする。エラー応答には <code>Cache-Control: no-store</code> を付けてキャッシュしない</td></tr>
+    </table>
+    <div class="note">
+      <b>キャッシュの方針（Why）</b>: 集計データが変わるのは1日1回のバッチ実行時（JST 02:00）だけなので、1時間キャッシュしてもほぼ影響がない。表示が速くなり、Supabase 無料枠の転送量も減る。キャッシュが切れた後の最初のアクセスは古い応答をすぐ返し、裏で新しい応答を取り直す（stale-while-revalidate）。バッチ直後の最大1時間は前日のデータが表示されることを許容する。<br>
+      検討して採用しなかった案: キャッシュしない（毎回 DB に問い合わせる）／バッチ完了時にキャッシュを消す（バッチから Vercel を呼ぶ仕組みと秘密鍵の管理が増え、個人利用には大げさ）。
+    </div>
+  </div>
+
+  <!-- 2. パラメーターの許可値 -->
+  <div class="section">
+    <div class="section-header"><div class="section-num">2</div><h2>パラメーターの許可値</h2></div>
+    <p>値は <code>lib/constants.ts</code> と DB のカラム値（04 DB設計書「マスター値一覧」）に一致させる。</p>
+    <table>
+      <tr><th style="width:120px">パラメーター</th><th style="width:280px">許可値</th><th>説明</th></tr>
+      <tr><td><code>lane</code></td><td><code>TOP</code> <code>JG</code> <code>MID</code> <code>BOT</code> <code>SUP</code></td><td>レーン</td></tr>
+      <tr><td><code>region</code></td><td><code>JP</code> <code>KR</code> <code>NA</code> <code>EUW</code> <code>EUNE</code></td><td>地域。現在データを収集しているのは <code>JP</code> のみ</td></tr>
+      <tr><td><code>tier</code></td><td><code>all</code> <code>platinum_plus</code> <code>diamond_plus</code> <code>master_plus</code></td><td>ランク帯。<code>_plus</code> が付く値は<b>そのランク以上をすべて含む</b>（例: <code>platinum_plus</code> = Platinum・Emerald・Diamond・Master・Grandmaster・Challenger）。<code>all</code> は収集したすべての試合。試合のランク帯は参加者10人の平均ランクで決まる（計算方法は 04 DB設計書）</td></tr>
+      <tr><td><code>patch</code></td><td><code>14.21</code> の形（<code>数字.数字</code>）</td><td>パッチ番号。<code>/api/patches</code> が返す値のいずれか</td></tr>
+    </table>
+  </div>
+
+  <!-- 2.1 最低試合数 -->
+  <div class="section">
+    <div class="section-header"><div class="section-num">2.1</div><h2>最低試合数の既定値（min_games）</h2></div>
+    <table>
+      <tr><th>エンドポイント</th><th><code>all</code></th><th><code>platinum_plus</code></th><th><code>diamond_plus</code></th><th><code>master_plus</code></th></tr>
+      <tr><td><code>/api/champions</code></td><td>100</td><td>100</td><td>50</td><td>30</td></tr>
+      <tr><td><code>/api/counter</code></td><td>200</td><td>200</td><td>100</td><td>50</td></tr>
+    </table>
+    <p>値は <code>lib/constants.ts</code> の <code>DEFAULT_MIN_GAMES</code>。</p>
+    <div class="note">
+      <b>決め方（Why）</b>: 上のランク帯ほど試合が集まりにくい（4ランクを同じ数ずつ集めると、1日あたり platinum_plus : diamond_plus : master_plus ≒ 1 : 1/2 : 1/4）。どのランク帯でも条件を満たすチャンピオンが出るよう、データのたまり方の比率に合わせて下げる。<br>
+      参考: 勝率 50% 前後での 95% のぶれ幅は、200試合 ±6.9pt／100試合 ±9.8pt／50試合 ±13.9pt／30試合 ±17.9pt。チャンピオン間の勝率差は数ポイントのことが多く、少ない試合数の値はぶれが大きい。画面には試合数を必ず表示し、利用者が判断できるようにする。
+    </div>
+  </div>
+
+  <!-- 3. GET /api/champions -->
+  <div class="section">
+    <div class="section-header"><div class="section-num">3</div><h2><span class="method">GET</span>/api/champions</h2></div>
+    <p>先出しピック画面（SCR-02）用。指定したレーンのチャンピオンを勝率の高い順に返す。対応する要件: FR-01〜FR-07。カウンターピック画面（SCR-03）でも、相手チャンピオンの選択肢を出すために使う。</p>
+    <h3>クエリパラメーター</h3>
+    <table>
+      <tr><th style="width:120px">名前</th><th style="width:80px">必須</th><th style="width:120px">既定値</th><th>説明</th></tr>
+      <tr><td><code>lane</code></td><td>必須</td><td>—</td><td>2章の許可値</td></tr>
+      <tr><td><code>patch</code></td><td>必須</td><td>—</td><td>2章の形式</td></tr>
+      <tr><td><code>region</code></td><td>任意</td><td><code>JP</code></td><td>2章の許可値</td></tr>
+      <tr><td><code>tier</code></td><td>任意</td><td><code>platinum_plus</code></td><td>2章の許可値</td></tr>
+      <tr><td><code>limit</code></td><td>任意</td><td><code>20</code></td><td>返す件数。上限 100（超えた場合は 100 にする）。正の整数でなければ <code>400</code></td></tr>
+      <tr><td><code>min_games</code></td><td>任意</td><td>tier による（下表）</td><td>この試合数未満のチャンピオンは返さない（統計の信頼性のため）。0 以上の整数でなければ <code>400</code>。指定した場合は tier に関係なくその値を使う</td></tr>
+    </table>
+    <h3>処理</h3>
+    <p><code>champion_stats</code> を lane・patch・region・tier で絞り込み、<code>games_played &gt;= min_games</code> のものを <code>win_rate</code> の高い順に <code>limit</code> 件返す。チャンピオン情報は <code>champions</code> を JOIN して付ける。</p>
+    <h3>応答（200）</h3>
+<pre>[
+  {
+    "win_rate": 0.574,          // 0〜1 の小数
+    "games_played": 9821,
+    "champions": {
+      "champion_id": 58,
+      "champion_name": "レネクトン",
+      "champion_key": "Renekton",
+      "image_url": "https://ddragon.leagueoflegends.com/cdn/14.21.1/img/champion/Renekton.png"
+    }
+  }
+]</pre>
+    <p>該当データがない場合は空配列 <code>[]</code> を返す（エラーにしない）。</p>
+  </div>
+
+  <!-- 4. GET /api/counter -->
+  <div class="section">
+    <div class="section-header"><div class="section-num">4</div><h2><span class="method">GET</span>/api/counter</h2></div>
+    <p>カウンターピック画面（SCR-03）用。指定した相手チャンピオンに対して、同じレーンで勝率の高いチャンピオンを返す。対応する要件: FR-10〜FR-14。</p>
+    <h3>クエリパラメーター</h3>
+    <table>
+      <tr><th style="width:150px">名前</th><th style="width:80px">必須</th><th style="width:120px">既定値</th><th>説明</th></tr>
+      <tr><td><code>enemy_champion_id</code></td><td>必須</td><td>—</td><td>相手チャンピオンの ID（正の整数）</td></tr>
+      <tr><td><code>lane</code></td><td>必須</td><td>—</td><td>2章の許可値</td></tr>
+      <tr><td><code>patch</code></td><td>必須</td><td>—</td><td>2章の形式</td></tr>
+      <tr><td><code>region</code></td><td>任意</td><td><code>JP</code></td><td>2章の許可値</td></tr>
+      <tr><td><code>tier</code></td><td>任意</td><td><code>platinum_plus</code></td><td>2章の許可値</td></tr>
+      <tr><td><code>limit</code></td><td>任意</td><td><code>15</code></td><td>返す件数。上限 100。正の整数でなければ <code>400</code></td></tr>
+      <tr><td><code>min_games</code></td><td>任意</td><td>tier による（下表）</td><td>この対戦数未満の組み合わせは返さない。0 以上の整数でなければ <code>400</code>。指定した場合は tier に関係なくその値を使う</td></tr>
+    </table>
+    <h3>処理</h3>
+    <p><code>counter_stats</code> を enemy_champion_id・lane・patch・region・tier で絞り込み、<code>games_played &gt;= min_games</code> のものを <code>win_rate</code> の高い順に返す。<code>counter_stats</code> には <code>champions</code> への外部キーが2本（自分側・相手側）あるため、JOIN では自分側の外部キーを明示する（<code>champions!counter_stats_champion_id_fkey(...)</code>）。</p>
+    <h3>応答（200）</h3>
+    <p><code>/api/champions</code> と同じ形。<code>win_rate</code> は「相手チャンピオンと対面したときの勝率」、<code>games_played</code> はその対戦数。</p>
+  </div>
+
+  <!-- 5. GET /api/patches -->
+  <div class="section">
+    <div class="section-header"><div class="section-num">5</div><h2><span class="method">GET</span>/api/patches</h2></div>
+    <p>パッチ選択のプルダウン用。集計データが存在するパッチを新しい順に返す。パラメーターなし。</p>
+    <h3>応答（200）</h3>
+<pre>["14.21", "14.20", "14.19"]</pre>
+    <div class="note">
+      <b>実装上の注意</b><br>
+      ・並び順は数値として比べる（文字列で比べると <code>14.9</code> が <code>14.10</code> より新しくなってしまう）<br>
+      ・Supabase（PostgREST）の select は1回最大1000行しか返さないため、<code>champion_stats</code> の全行を取ってから重複を除く方法は使わない。重複除去は DB 側で行う
+    </div>
+  </div>
+
+  <!-- 6. 実装状況 -->
+  <div class="section">
+    <div class="section-header"><div class="section-num">6</div><h2>実装状況（2026-11-02 時点）</h2></div>
+    <p>3つの API はモックデータ（<code>lib/mock-data.ts</code>）を返す仮実装で、Supabase にはまだ接続していない。接続時にこの設計書の仕様に合わせる。</p>
+    <table>
+      <tr><th style="width:280px">項目</th><th style="width:100px">状態</th><th>備考</th></tr>
+      <tr><td>lane・region・tier の入力チェック</td><td><span class="badge done">実装済み</span></td><td></td></tr>
+      <tr><td>patch の必須チェック・形式チェック</td><td><span class="badge done">実装済み</span></td><td>モックのため、patch での絞り込みはまだ行っていない</td></tr>
+      <tr><td>limit・min_games・enemy_champion_id の整数チェック</td><td><span class="badge done">実装済み</span></td><td></td></tr>
+      <tr><td>min_games のランク帯別の既定値</td><td><span class="badge done">実装済み</span></td><td></td></tr>
+      <tr><td>キャッシュ（Cache-Control）</td><td><span class="badge done">実装済み</span></td><td>共通処理は <code>lib/api.ts</code></td></tr>
+      <tr><td>パッチの数値順の並べ替え</td><td><span class="badge done">実装済み</span></td><td></td></tr>
+      <tr><td>Supabase からの取得（patch・region・tier での絞り込み、500 エラー応答を含む）</td><td><span class="badge todo">未実装</span></td><td>モックデータを返している</td></tr>
+    </table>
+  </div>
+
+</div>
+</body>
+</html>
