@@ -29,6 +29,10 @@ concurrency:
   group: collect-daily
   cancel-in-progress: false
 
+# GITHUB_TOKEN は使わないので、読み取りだけにする
+permissions:
+  contents: read
+
 jobs:
   collect:
     name: データ収集・集計

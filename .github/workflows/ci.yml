@@ -6,6 +6,10 @@ on:
   push:
     branches: [development]
 
+# GITHUB_TOKEN は使わないので、読み取りだけにする
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Test & Build
