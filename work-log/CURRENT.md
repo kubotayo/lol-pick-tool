@@ -18,9 +18,10 @@
 - [x] `fix/batch-write-chunks` の PR（#24）を development へマージ
 - [x] 本番 DB に migration 006 を適用する
 - [x] PR #25・#23 をマージ（2026-11-11。定期実行が有効）
-- [ ] **GitHub Secrets の RIOT_API_KEY を Personal Key に更新する**（更新日が 2026-10-18 のままで、OT-02・04 が「APIキーが無効または失効」で失敗した。更新するまで定期実行も数秒で失敗する。DB には書き込まない）
-- [ ] キーを直したら OT-02・OT-04 をやり直す（06 v1.6.1 の手順。実行の直前に最大の id・SQL-6・SQL-7 を測る。ブランチ `test/ot-results` で結果を記入して PR）
-- [ ] main へのマージで定期実行（UTC 17:00）が有効になる。マージした後、OT（手動実行は max_matches 20。定期実行が動いていないことを確かめ、UTC 15:30〔JST 0:30〕までに始める。06 OT-02）を行う。GitHub Secrets の RIOT_API_KEY は Personal Key（ユーザー確認済み）
+- [x] GitHub Secrets の RIOT_API_KEY を Personal Key に更新（2026-11-11。古い Development Key が残っていた）
+- [x] OT-01〜04 を実施し合格（06 に記入。ブランチ `test/ot-results` の PR）
+- [ ] OT-05: 今夜の定期実行（UTC 17:00）の後に、開始時刻とログの「終了条件」を確かめる
+- [ ] OT-06: 1回目の試行（古いキー）の失敗通知のメールが届いたかをユーザーに確認して記入する
 - [ ] API を Supabase に接続する（今はモックデータ。05 の「実装状況」参照）
 
 ## 未解決の課題 / 保留中の確認事項
