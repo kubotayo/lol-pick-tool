@@ -36,7 +36,7 @@ vi.mock('./supabase', () => ({
   },
 }));
 
-import { buildChampionRows, buildCounterRows, buildItemRows, getProcessedMatchIds, archiveOldPatches, createChunkWriter } from './supabaseWriter';
+import { buildChampionRows, buildCounterRows, buildItemRows, getProcessedMatchIds, archiveOldPatches, createChunkWriter, applyBatchResult } from './supabaseWriter';
 import { createAggregationResult, aggregateMatch } from './aggregator';
 import type { MatchDto } from './types';
 
@@ -156,5 +156,24 @@ describe('createChunkWriter', () => {
     expect(writer.written()).toBe(5);
     expect(db.rpcCalls.map(c => c.fn)).toEqual(['apply_batch_result', 'apply_batch_result', 'apply_batch_result']);
     expect(db.rpcCalls.map(c => (c.args.p_match_ids as string[]).length)).toEqual([3, 2, 1]);
+  });
+});
+
+// AGG-11
+describe('applyBatchResult', () => {
+  it('item_build_stats には書き込まない（集計はしても、DB に送るアイテムビルドの行は空）', async () => {
+    db.rpcCalls = [];
+    db.rpcErrors = [];
+    const agg = createAggregationResult();
+    aggregateMatch(makeMatch(), '16.21', 'JP', ['all'], agg);
+    expect(buildItemRows(agg.itemBuildStats).length).toBeGreaterThan(0); // 集計にはアイテムビルドがある
+
+    const counts = await applyBatchResult(agg, ['m1'], '16.21', 'JP');
+
+    const args = db.rpcCalls[0].args;
+    expect(args.p_item_rows).toEqual([]);
+    expect((args.p_champion_rows as unknown[]).length).toBeGreaterThan(0);
+    expect((args.p_counter_rows as unknown[]).length).toBeGreaterThan(0);
+    expect(counts.itemRows).toBe(0);
   });
 });

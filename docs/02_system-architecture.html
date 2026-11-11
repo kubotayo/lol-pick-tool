@@ -408,7 +408,7 @@
       <tr><td>APIキーの確認で 401・403 以外のエラー（5xx など）・接続できない・時間切れ</td><td>ステップ1①</td><td>Riot API エラー: &lt;ステータスコード&gt;（接続できないときは fetch のエラー、時間切れは「Riot API タイムアウト」）</td></tr>
       <tr><td>champions の同期失敗</td><td>ステップ1③</td><td>[champions] 同期失敗</td></tr>
       <tr><td>名簿の取得失敗が20回を超えた</td><td>ステップ3</td><td>名簿の取得失敗が20回を超えたため中止します</td><td rowspan="4">status を failed にし、error_message に同じメッセージ、matches_collected に書き込み済みの試合数を記録（ステップ7）</td></tr>
-      <tr><td>古いパッチの削除の失敗（v1.10.0）</td><td>ステップ2の後</td><td>[archive_old_patches] 古いパッチの削除に失敗</td></tr>
+      <tr><td>古いパッチの削除の失敗（v1.10.0）</td><td>ステップ2の後</td><td>[archive_old_patches] 古いパッチの削除に失敗: &lt;DB のエラー&gt;</td></tr>
       <tr><td>処理済み試合の取得失敗</td><td>ステップ4</td><td>[processed_matches] 取得失敗</td></tr>
       <tr><td>DB への書き込み失敗（apply_batch_result のエラー）</td><td>ステップ6</td><td>[apply_batch_result] 書き込み失敗: &lt;DB のエラー&gt;（DB のエラーの種類は 04「apply_batch_result のエラー」）。500試合ごとの書き込みのどこで失敗しても同じ（v1.10.0）</td></tr>
     </table>

@@ -1,6 +1,11 @@
 import { supabase } from './supabase';
 import type { AggregationMap, AggregationResult } from './aggregator';
 
+// item_build_stats には書き込まない（2026-11-11 にユーザーの判断。02 ステップ6）
+// アイテムビルドを使う機能（要件・画面・API）がまだなく、1パッチで 500MB を超えるおそれがあるため（06 の未決事項 Q-9）
+// 使う機能を作るときに、容量とあわせて設計し直す。集計の仕組み（aggregator）と表はそのまま残す
+export const WRITE_ITEM_BUILDS = false;
+
 // Supabase（PostgREST）は1回の SELECT で最大1000件までしか返さないため、ページ単位で取得する
 const SELECT_PAGE_SIZE = 1000;
 
@@ -64,7 +69,7 @@ export async function applyBatchResult(
 ): Promise<{ championRows: number; counterRows: number; itemRows: number }> {
   const championRows = buildChampionRows(aggregation.championStats);
   const counterRows  = buildCounterRows(aggregation.counterStats);
-  const itemRows     = buildItemRows(aggregation.itemBuildStats);
+  const itemRows     = WRITE_ITEM_BUILDS ? buildItemRows(aggregation.itemBuildStats) : [];
 
   const { error } = await supabase.rpc('apply_batch_result', {
     p_patch:         patch,
