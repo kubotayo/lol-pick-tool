@@ -22,11 +22,16 @@ export interface CollectOptions {
   matchesPerPlayer: number;                       // 1人から取る直近の試合数
   shouldStop:       (totalMatches: number) => StopReason | null;
   onProgress?:      (totalMatches: number, collected: Record<CollectTier, number>) => void;
+  // 集めた試合を途中で書き込む（writeEvery 試合ごとと、最後の残り）。書き込んだ分の集計はメモリから消す
+  // 1回の書き込みを小さくして DB の時間の上限に収め、途中で止まってもそこまでの試合を残すため（02 ステップ6）
+  // 書き込みが失敗したら collectMatches も失敗する（そこで止める）
+  writeEvery?:      number;
+  onWrite?:         (aggregation: AggregationResult, matchIds: string[]) => Promise<void>;
 }
 
 export interface CollectResult {
-  aggregation:    AggregationResult;
-  matchIds:       string[];                      // 今回新しく集計した試合ID
+  aggregation:    AggregationResult;             // まだ書き込んでいない分の集計（onWrite を渡したときは空）
+  matchIds:       string[];                      // 今回新しく集計した試合ID（書き込んだ分を含むすべて）
   stopReason:     StopReason | 'queue_empty';
   collected:      Record<CollectTier, number>;   // 収集元のランクごとの試合数
   rankTierCounts: Record<string, number>;        // ランク帯ごとの加算試合数
@@ -50,8 +55,15 @@ export async function collectMatches(source: MatchSource, options: CollectOption
   const seenPuuids = new Set<string>();
   // 一度でもキューに入れた試合ID。同じ試合に出た複数プレイヤーから同じIDが返るため、二重集計を防ぐ
   const queuedMatchIds = new Set<string>();
-  const aggregation = createAggregationResult();
+  let aggregation = createAggregationResult();
   const matchIds: string[] = [];
+  let pendingIds: string[] = []; // まだ書き込んでいない試合ID（aggregation に入っている分）
+  const write = async (): Promise<void> => {
+    if (!options.onWrite || pendingIds.length === 0) return;
+    await options.onWrite(aggregation, pendingIds);
+    aggregation = createAggregationResult();
+    pendingIds = [];
+  };
   const rankTierCounts: Record<string, number> = {};
   const collected = (): Record<CollectTier, number> => {
     const result = { PLATINUM: 0, EMERALD: 0, DIAMOND: 0, MASTER: 0 };
@@ -123,12 +135,18 @@ export async function collectMatches(source: MatchSource, options: CollectOption
       // 処理済みにも記録せず、参加者を次のシードにも使わない。同じプレイヤーの残りの試合は通常どおり続ける
       if (participants.some(p => p.gameEndedInEarlySurrender)) continue;
 
+      // 勝者が1チーム（勝った参加者がちょうど5人で、同じチーム）でない試合も集計しない（リメイクと同じ扱い）
+      // 不正対策による中止（endOfGameResult: Abort_AntiCheatExit）などで両チームとも負けの試合があり、
+      // 集計すると試合数だけが増えて勝率が下がるため（システムテスト ST-10 で 1,100試合中1試合）
+      if (!hasSingleWinningTeam(participants)) continue;
+
       // 10人の平均ランクで、この試合を加算するランク帯を決める（名簿にいない人は Gold 相当）
       const average = averageMatchPoints(participants.map(p => roster.get(p.puuid)?.points ?? null));
       const rankTiers = rankTiersForPoints(average);
 
       aggregateMatch(match, patch, region, rankTiers, aggregation);
       matchIds.push(matchId);
+      pendingIds.push(matchId);
       s.collected++;
       for (const t of rankTiers) rankTierCounts[t] = (rankTierCounts[t] ?? 0) + 1;
 
@@ -144,7 +162,17 @@ export async function collectMatches(source: MatchSource, options: CollectOption
     } catch (err) {
       console.warn(`[collect] 試合詳細取得失敗 ${matchId}:`, err);
     }
+
+    // 書き込みは試合の取得のエラー処理の外で行う（書き込みの失敗を「取得失敗」として飛ばさないため）
+    if (options.writeEvery !== undefined && pendingIds.length >= options.writeEvery) await write();
   }
 
+  await write();
   return { aggregation, matchIds, stopReason, collected: collected(), rankTierCounts };
+}
+
+/** 勝った参加者がちょうど5人で、全員が同じチームなら true */
+export function hasSingleWinningTeam(participants: MatchDto['info']['participants']): boolean {
+  const winners = participants.filter(p => p.win);
+  return winners.length === 5 && winners.every(p => p.teamId === winners[0].teamId);
 }

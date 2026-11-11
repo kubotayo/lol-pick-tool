@@ -97,10 +97,11 @@
   <h1>DB設計図</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.8.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.9.0</div></div>
     <div class="meta-item"><div class="label">DB</div><div class="value">PostgreSQL (Supabase)</div></div>
-    <div class="meta-item"><div class="label">テーブル数</div><div class="value">6テーブル + 関数1個</div></div>
+    <div class="meta-item"><div class="label">テーブル数</div><div class="value">6テーブル + 関数2個（apply_batch_result・archive_old_patches）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.5.0)</div><div class="value">Riot API の値からの変換ルール（lane・region・patch）・平均ランクによる rank_tier 判定・apply_batch_result の rank_tier を行ごとに変更・collection_logs.rank_tier を TEXT に</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.9.0)</div><div class="value">2026-11-10 archive_old_patches 関数と idx_item_build_patch を追加（006 マイグレーション）。collection_logs.matches_collected は失敗時も書き込み済みの数を記録。apply_batch_result は500試合ごとに呼ぶ。勝者が1チームでない試合を対象外に追加。archive_old_patches は今のパッチより古いものをすべて消す（直前のパッチも含む）。バッチは item_build_stats に書き込まない</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.8.0)</div><div class="value">2026-11-09 平均の出し方に「LP が負の値なら 0LP」を明記（テスト仕様書の未決事項 Q-3 の決定）。collection_logs.status に running のまま残る場合の扱いを追記（Q-5 の決定）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.7.0)</div><div class="value">2026-11-07 RLS 方針に「anon キーで操作したときの結果」と「apply_batch_result のエラー」（SQLSTATE）を追記。テスト仕様書の期待結果の根拠にするため</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.6.0)</div><div class="value">2026-11-04 collection_logs.completed_at を失敗時も記録する仕様に変更・リメイクの試合は集計しないことを追記</div></div>
@@ -315,7 +316,7 @@
       <div class="table-card">
         <div class="table-card-header" style="background:#e8f0ff; border-bottom: 2px solid #2980b9;">
           <span class="table-name" style="color:#2471a3;">item_build_stats</span>
-          <span class="table-desc">アイテムビルド別統計（バッチ実行ごとに加算）</span>
+          <span class="table-desc">アイテムビルド別統計（今のパッチより古い行は archive_old_patches で消す。v1.9.0 からバッチは書き込んでいない。使う機能がなく容量を超えるおそれがあるため。02 ステップ6）</span>
         </div>
         <table class="col-table">
           <thead><tr><th>カラム名</th><th>型</th><th>制約</th><th>説明</th></tr></thead>
@@ -337,6 +338,7 @@
           <div class="idx-header">ユニーク制約 / インデックス</div>
           <div class="index-row"><span class="idx-name">uq_item_build</span><span class="idx-cols">UNIQUE (champion_id, lane, patch, region, rank_tier, item_ids)</span></div>
           <div class="index-row"><span class="idx-name">idx_item_filter</span><span class="idx-cols">INDEX (champion_id, lane, patch, region, rank_tier)</span></div>
+          <div class="index-row"><span class="idx-name">idx_item_build_patch</span><span class="idx-cols">INDEX (patch) — 古いパッチの行を消すため（v1.9.0。006 マイグレーション）</span></div>
         </div>
       </div>
 
@@ -344,7 +346,7 @@
       <div class="table-card" style="grid-column: span 2;">
         <div class="table-card-header" style="background:#e8fff0; border-bottom: 2px solid #16a34a;">
           <span class="table-name" style="color:#15803d;">processed_matches</span>
-          <span class="table-desc">処理済み試合ID管理（スノーボール方式の重複除去用）</span>
+          <span class="table-desc">処理済み試合ID管理（スノーボール方式の重複除去用。今のパッチより古い行は archive_old_patches で消す。v1.9.0）</span>
         </div>
         <table class="col-table">
           <thead><tr><th>カラム名</th><th>型</th><th>制約</th><th>説明</th></tr></thead>
@@ -374,7 +376,7 @@
             <tr><td class="col-name">region</td><td class="col-type">VARCHAR(10)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>収集対象リージョン</td></tr>
             <tr><td class="col-name">rank_tier</td><td class="col-type">TEXT</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>試合を集めた対象のランク（環境変数 TARGET_TIERS の値。例: "PLATINUM" / "PLATINUM,EMERALD,DIAMOND,MASTER"）。v1.5.0 で VARCHAR(20) から変更</td></tr>
             <tr><td class="col-name">status</td><td class="col-type">VARCHAR(20)</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>running / completed / failed（DB に届かないまま失敗すると running のまま残る。started_at から6時間を過ぎた running の行は、途中で終わった実行とみなす。02 ステップ7、v1.8.0）</td></tr>
-            <tr><td class="col-name">matches_collected</td><td class="col-type">INTEGER</td><td></td><td>収集済み試合数（完了時に記録）</td></tr>
+            <tr><td class="col-name">matches_collected</td><td class="col-type">INTEGER</td><td></td><td>DB に書き込み終えた試合数（完了時と失敗時に記録。失敗時は途中までに書き込んだ数。v1.9.0 で変更。以前は「完了時に記録」）</td></tr>
             <tr><td class="col-name">started_at</td><td class="col-type">TIMESTAMPTZ</td><td><div class="col-constraint"><span class="tag tag-nn">NN</span></div></td><td>ジョブ開始時刻</td></tr>
             <tr><td class="col-name">completed_at</td><td class="col-type">TIMESTAMPTZ</td><td></td><td>ジョブ終了時刻。完了・失敗のどちらでも記録する（失敗までの所要時間を見るため）。実行中は NULL。<br>（v1.6.0 で変更。旧仕様は「失敗時は NULL」だったが、実装は失敗時も記録しており、所要時間がわかる方が調査に役立つため実装に合わせた）</td></tr>
             <tr><td class="col-name">error_message</td><td class="col-type">TEXT</td><td></td><td>エラー内容（失敗時のみ記録）</td></tr>
@@ -471,7 +473,7 @@
       <tr><td>lane</td><td>試合詳細の <code>teamPosition</code> を変換する: TOP → <code>TOP</code>／JUNGLE → <code>JG</code>／MIDDLE → <code>MID</code>／BOTTOM → <code>BOT</code>／UTILITY → <code>SUP</code>。それ以外（空文字など）の参加者は集計しない</td></tr>
       <tr><td>region</td><td>プラットフォーム名から数字を除いて大文字にする（例: <code>jp1</code> → <code>JP</code>、<code>euw1</code> → <code>EUW</code>）</td></tr>
       <tr><td>patch</td><td>gameVersion の先頭2つ（例: <code>14.21.619.9898</code> → <code>14.21</code>）</td></tr>
-      <tr><td>（対象外の試合）</td><td>リメイク（参加者の <code>gameEndedInEarlySurrender</code> が true）の試合はどの集計テーブルにも加算せず、processed_matches にも記録しない（v1.6.0 で追加。01 FR-21）</td></tr>
+      <tr><td>（対象外の試合）</td><td>リメイク（参加者の <code>gameEndedInEarlySurrender</code> が true）の試合（v1.6.0 で追加）と、勝者が1チームでない試合（v1.9.0 で追加）は、どの集計テーブルにも加算せず、processed_matches にも記録しない（01 FR-21）</td></tr>
       <tr><td>rank_tier</td><td><code>_plus</code> が付く値はそのランク以上をすべて含む（例: <code>diamond_plus</code> = Diamond・Master・Grandmaster・Challenger）。<code>all</code> は収集したすべての試合。<br>
       試合のランク帯は<b>参加者10人の平均ランク</b>で決め、当てはまるランク帯すべてに加算する（例: 平均 Diamond の試合 → <code>all</code>・<code>platinum_plus</code>・<code>diamond_plus</code> の3行に加算）。<br>
       平均の出し方: ランクをポイントにして平均する。Iron IV 0LP を 0 とし、1段階 100・1ランク 400（Platinum IV = 1600、Emerald IV = 2000、Diamond IV = 2400、Master = 2800）。段階内の LP は 99 まで足す。Master 以上は 2800 + LP（LP は 400 で打ち切る。1人の高い LP が平均を大きく動かさないため）。LP が負の値なら 0LP として扱う（v1.8.0 で明記。テスト仕様書の未決事項 Q-3 の決定）。名簿（Platinum 以上）にいない人は Gold II 50LP 相当（1450）として平均に入れる（外すと実際より高いランクの試合として数えられるため）。<br>
@@ -594,6 +596,18 @@
 <span class="sql-kw">REVOKE ALL ON FUNCTION</span> <span class="sql-fn">apply_batch_result</span>(...) <span class="sql-kw">FROM PUBLIC, anon, authenticated</span>;
 <span class="sql-kw">GRANT EXECUTE ON FUNCTION</span> <span class="sql-fn">apply_batch_result</span>(...) <span class="sql-kw">TO</span> service_role;
 
+<span class="sql-comment">-- archive_old_patches 関数（v1.9.0 で追加。006 マイグレーション）</span>
+<span class="sql-comment">-- 今のパッチより古いパッチの item_build_stats・processed_matches を、1回に最大 p_limit 行消す（01 FR-23）</span>
+<span class="sql-comment">-- champion_stats・counter_stats は残す。パッチは数字の配列にして比べる（'16.9' &lt; '16.10'）。戻り値は消した行数</span>
+<span class="sql-kw">CREATE INDEX</span> idx_item_build_patch <span class="sql-kw">ON</span> item_build_stats (patch);
+<span class="sql-kw">CREATE OR REPLACE FUNCTION</span> <span class="sql-fn">archive_old_patches</span>(p_current_patch <span class="sql-type">text</span>, p_limit <span class="sql-type">integer</span> <span class="sql-kw">DEFAULT</span> 20000)
+<span class="sql-kw">RETURNS</span> <span class="sql-type">integer</span> <span class="sql-kw">LANGUAGE</span> plpgsql <span class="sql-kw">SECURITY INVOKER</span> ...
+  <span class="sql-comment">-- 消す対象: champion_stats ∪ processed_matches にあるパッチのうち、今のパッチより古いもの</span>
+  <span class="sql-kw">DELETE FROM</span> item_build_stats <span class="sql-kw">WHERE</span> id <span class="sql-kw">IN</span> (<span class="sql-kw">SELECT</span> id ... <span class="sql-kw">WHERE</span> patch = <span class="sql-fn">ANY</span>(古いパッチ) <span class="sql-kw">LIMIT</span> p_limit);
+  <span class="sql-comment">-- 残りの枠で processed_matches も同様に消す</span>
+<span class="sql-kw">REVOKE ALL ON FUNCTION</span> <span class="sql-fn">archive_old_patches</span>(<span class="sql-type">text</span>, <span class="sql-type">integer</span>) <span class="sql-kw">FROM PUBLIC, anon, authenticated</span>;
+<span class="sql-kw">GRANT EXECUTE ON FUNCTION</span> <span class="sql-fn">archive_old_patches</span>(<span class="sql-type">text</span>, <span class="sql-type">integer</span>) <span class="sql-kw">TO</span> service_role;
+
 <span class="sql-comment">-- collection_logs.rank_tier に収集対象ランクの設定を残すため型を広げる（v1.5.0）</span>
 <span class="sql-kw">ALTER TABLE</span> collection_logs <span class="sql-kw">ALTER COLUMN</span> rank_tier <span class="sql-kw">TYPE</span> <span class="sql-type">TEXT</span>;</pre>
     </div>
@@ -633,6 +647,7 @@
         <td>
           画面表示用4テーブル: SELECT はできる。INSERT は RLS の拒否（SQLSTATE <code>42501</code>、メッセージ「new row violates row-level security policy」）。UPDATE・DELETE はエラーにならず対象 0行（UPDATE・DELETE のポリシーがないため）。どの場合もデータは変わらない<br>
           バッチ専用2テーブル: SELECT はエラーにならず 0行（ポリシーがないため行が見えない）。INSERT は RLS の拒否（<code>42501</code>）。UPDATE・DELETE はエラーにならず 0行。データは変わらない<br>
+          <code>archive_old_patches</code> の呼び出し: <code>apply_batch_result</code> と同じく権限エラー（<code>42501</code>、「permission denied for function archive_old_patches」。v1.9.0。06 の DB-14）<br>
           <code>apply_batch_result</code> の呼び出し: 権限エラー（<code>42501</code>、メッセージ「permission denied for function apply_batch_result」。実行権限を service_role に限っているため）。同じ <code>42501</code> は RLS の拒否でも出る（実行権限の設定が漏れていると、関数の中の INSERT が RLS で拒否されて 42501 になる）ので、テストではメッセージで見分ける<br>
           いずれも 2026-11-07 の結合テスト（06 の DB-09〜11）で確認した動き（実行権限の設定漏れのときの動きも、ローカルの DB で anon に実行権限を与えて確認した）
         </td>
@@ -643,6 +658,7 @@
           処理済みの試合を含む: <code>RAISE EXCEPTION</code>（SQLSTATE <code>P0001</code>）。メッセージは「処理済みの試合が N 件含まれています（バッチの同時実行の可能性）。例: …」。書き込む前に止まる<br>
           champions にない champion_id を含む: 外部キー違反（<code>23503</code>）。processed_matches などを書いた後に起きるが、1トランザクションなので全体が取り消される<br>
           同時実行で同じ試合IDが後から入った: processed_matches の主キー違反（<code>23505</code>）で全体が取り消される<br>
+          バッチは500試合ごとにこの関数を呼ぶ（v1.9.0。02 ステップ6）。全体が取り消されるのは、その1回の呼び出しの分だけ<br>
           バッチはどのエラーも「[apply_batch_result] 書き込み失敗: &lt;メッセージ&gt;」としてエラー終了する（02「エラー時の動き」）
         </td>
       </tr>

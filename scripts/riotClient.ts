@@ -20,6 +20,14 @@ const MAX_RETRIES = 4;
 // 時間上限を大きく超えるため（システムテスト ST-04 で 17分の上限に対して 31分動いた）
 export const REQUEST_TIMEOUT_MS = 10_000;
 
+/**
+ * エラー文に入れる URL の PUUID を先頭8文字だけにする
+ * GitHub Actions のログは公開リポジトリでは誰でも読めるため、プレイヤーの ID をそのまま出さない
+ */
+export function maskUrl(url: string): string {
+  return url.replace(/\/by-puuid\/([^/?]{8})[^/?]*/, '/by-puuid/$1...');
+}
+
 export class RiotClient {
   private readonly apiKey: string;
   private readonly platform: string;
@@ -99,13 +107,13 @@ export class RiotClient {
       });
 
       if (!res.ok) {
-        throw new HttpError(`Riot API エラー: ${res.status} ${res.statusText} [${url}]`, res.status);
+        throw new HttpError(`Riot API エラー: ${res.status} ${res.statusText} [${maskUrl(url)}]`, res.status);
       }
 
       return (await res.json()) as T;
     } catch (err) {
       if (controller.signal.aborted) {
-        throw new Error(`Riot API タイムアウト: ${REQUEST_TIMEOUT_MS / 1000}秒以内に応答がありません [${url}]`);
+        throw new Error(`Riot API タイムアウト: ${REQUEST_TIMEOUT_MS / 1000}秒以内に応答がありません [${maskUrl(url)}]`);
       }
       throw err;
     } finally {

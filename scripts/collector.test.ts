@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { collectMatches, type MatchSource, type CollectOptions } from './collector';
+import { collectMatches, hasSingleWinningTeam, type MatchSource, type CollectOptions } from './collector';
 import { buildChampionRows } from './supabaseWriter';
 import type { Roster } from './roster';
 import type { CollectTier } from './rank';
@@ -270,6 +270,71 @@ describe('collectMatches', () => {
 
     expect(source.getMatchIds.mock.calls.map(c => c[0])).toEqual(['p1', 'p2']);
     expect(result.matchIds).toEqual(['m2']);
+  });
+
+  // LOOP-18
+  it('勝者が1チームでない試合（両チームとも負けなど）は集計せず、参加者も次のシードにしないが、同じプレイヤーの残りの試合は続ける', async () => {
+    const roster = makeRoster([['p1', 'PLATINUM', 1700], ['p2', 'PLATINUM', 1700]]);
+    const aborted = makeMatch(['p1', 'p2', ...others('a1').slice(0, 8)]);
+    aborted.info.participants.forEach(p => { p.win = false; }); // 不正対策による中止（Abort_AntiCheatExit）で両チームとも負け
+    const source = makeSource(
+      { p1: ['a1', 'm2'] },
+      { a1: aborted, m2: makeMatch(['p1', ...others('m2')]) },
+    );
+
+    const result = await collectMatches(source, options({ roster, seedPools: { PLATINUM: ['p1'], EMERALD: [], DIAMOND: [], MASTER: [] } }));
+
+    expect(result.matchIds).toEqual(['m2']);
+    expect(result.collected.PLATINUM).toBe(1);
+    expect(source.getMatchIds).not.toHaveBeenCalledWith('p2', expect.anything());
+  });
+
+  it('hasSingleWinningTeam: 勝った参加者がちょうど5人で同じチームのときだけ true', () => {
+    const match = makeMatch(Array.from({ length: 10 }, (_, i) => `u${i}`));
+    const ps = match.info.participants;
+    expect(hasSingleWinningTeam(ps)).toBe(true);
+    expect(hasSingleWinningTeam(ps.map(p => ({ ...p, win: false })))).toBe(false);               // 両チームとも負け
+    expect(hasSingleWinningTeam(ps.map(p => ({ ...p, win: true })))).toBe(false);                // 両チームとも勝ち
+    expect(hasSingleWinningTeam(ps.map((p, i) => ({ ...p, win: i < 4 })))).toBe(false);           // 勝者が4人
+    expect(hasSingleWinningTeam(ps.map((p, i) => ({ ...p, win: i < 4 || i === 5 })))).toBe(false); // 5人だがチームがまたがる
+  });
+
+  // LOOP-16
+  it('writeEvery 試合ごとと最後の残りを書き込み、書き込んだ分の集計はメモリから消す', async () => {
+    const roster = makeRoster([['p1', 'PLATINUM', 1700]]);
+    const ids = ['m1', 'm2', 'm3', 'm4', 'm5'];
+    const source = makeSource({ p1: ids }, Object.fromEntries(ids.map(id => [id, makeMatch(['p1', ...others(id)])])));
+    const writes: Array<{ matchIds: string[]; championRows: number }> = [];
+
+    const result = await collectMatches(source, options({
+      roster, seedPools: { PLATINUM: ['p1'], EMERALD: [], DIAMOND: [], MASTER: [] },
+      writeEvery: 2,
+      onWrite: async (aggregation, matchIds) => {
+        // 1試合あたり 10人 × all の1ランク帯 = 10行。前の書き込みの分が残っていれば行の試合数が増える
+        const rows = buildChampionRows(aggregation.championStats);
+        writes.push({ matchIds: [...matchIds], championRows: rows.reduce((a, r) => a + r.games_played, 0) });
+      },
+    }));
+
+    expect(writes.map(w => w.matchIds)).toEqual([['m1', 'm2'], ['m3', 'm4'], ['m5']]);
+    expect(writes.map(w => w.championRows)).toEqual([20, 20, 10]);
+    expect(result.matchIds).toEqual(ids);
+    expect(result.aggregation.championStats.size).toBe(0);
+  });
+
+  // LOOP-17
+  it('書き込みが失敗したら、そこで止めてエラーにする（その後の試合は取りに行かない）', async () => {
+    const roster = makeRoster([['p1', 'PLATINUM', 1700]]);
+    const ids = ['m1', 'm2', 'm3', 'm4'];
+    const source = makeSource({ p1: ids }, Object.fromEntries(ids.map(id => [id, makeMatch(['p1', ...others(id)])])));
+
+    await expect(collectMatches(source, options({
+      roster, seedPools: { PLATINUM: ['p1'], EMERALD: [], DIAMOND: [], MASTER: [] },
+      writeEvery: 2,
+      onWrite: async () => { throw new Error('[apply_batch_result] 書き込み失敗: test'); },
+    }))).rejects.toThrow('[apply_batch_result] 書き込み失敗: test');
+
+    expect(source.getMatch.mock.calls.map(c => c[0])).toEqual(['m1', 'm2']);
   });
 
   it('名簿のプレイヤーを使い切ったら queue_empty で終わる', async () => {

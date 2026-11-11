@@ -67,9 +67,10 @@
   <h1>バッチテスト仕様書</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-11-04</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.5.0</div></div>
-    <div class="meta-item"><div class="label">対象</div><div class="value">データ収集バッチ（scripts/・DB関数 apply_batch_result・collect-daily.yml）</div></div>
-    <div class="meta-item"><div class="label">根拠とする設計書</div><div class="value">01 v1.8.0 / 02 v1.9.0 / 04 v1.8.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.6.0</div></div>
+    <div class="meta-item"><div class="label">対象</div><div class="value">データ収集バッチ（scripts/・DB関数 apply_batch_result・archive_old_patches・collect-daily.yml）</div></div>
+    <div class="meta-item"><div class="label">根拠とする設計書</div><div class="value">01 v1.9.0 / 02 v1.10.0 / 04 v1.9.0</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.6.0)</div><div class="value">2026-11-10 main へのマージ前の確認で見つかった問題の対策に合わせて、LOOP-16・17（500試合ごとの書き込み）、API-09（PUUID を伏せる）、DB-13・14（古いパッチの削除）、ST-10 を追加。LOG-03・ST-09 の期待結果を変更（失敗時の matches_collected は書き込み済みの数）し、結果をやり直す。PR 前のレビューの指摘を反映: LOG-07・DB-15 を追加、LOOP-16・API-09・LOG-03 に確かめる範囲、ST-10 に時間の上限と容量の記録、未決事項 Q-9（容量）、1章の対象に FR-23、3章を 001〜006 に。ST-10 の結果を受けて: LOOP-18（勝者が1チームでない試合の除外）を追加、Q-9 を決定（アイテムビルドは今のパッチだけ残す）し DB-13 の期待結果を変更。PR #24 のレビューを受けて: 1日の試合数の見直しから、アイテムビルドは書き込まないことにし（Q-9 の決定を更新）、AGG-11 を追加。再レビューを受けて ST-07 に見直した見込み、AGG-09 の範囲、7章に item_build_stats が0行になる注記</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.5.0)</div><div class="value">2026-11-09 未決事項 Q-1〜Q-8 をすべて決定し、関係する項目（RANK-07・LOOP-06・11〜13・LOG-04・05・ST-06・OT-02）の根拠と判定を更新。Q-2・Q-6 の自動テストを追加。OT-02 は max_matches 20 で実行する。PR 前のレビューの指摘を反映: OT-02・05 でログの「終了条件」を確かめる、OT-04 の入力値、LOOP-06 の期待結果、8章の扱い。PR 後のレビューの指摘を反映: OT-02 の行を id で見分ける・SQL-1 は対象外・所要時間は参考値、LOOP-13 の列ごとのテスト名</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.4.0)</div><div class="value">2026-11-09 システムテストを実施し結果を記入。結果を受けて、Riot API の呼び出しの時間切れ（API-08 を追加）、APIキーの確認で 401 も失効扱い（INIT-02・ST-05）、ST-04 に時間上限の許容差を追加。Riot API キーを Personal Key に（3章）。reviewer の指摘を反映: 結果に実施したコードを明記、ENV-17 に MAX_DURATION_MINUTES・SUPABASE_URL の例、OT-06 の前提、LOG-05 を8章へ、テスト名の誤り（AGG-07・LOOP-06・LOOP-09）。再レビューの指摘を反映: API-08 に本文の場合を追加、ENV-17 に例ごとのメッセージ、OT-06 に Secrets を戻す確認</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.3.0)</div><div class="value">2026-11-07 2.5「期待結果と判定の書き方」を追加し、表に「判定方法」列を追加。エラーの期待結果を種類（SQLSTATE・ステータスコード・メッセージ）まで書く（ENV・RST-04・DB-06〜11・API-04・05 など）。ENV-17 を追加（開始ログより前のエラーがメッセージなしで終わっていた不具合を修正したため）。ENV-13〜15 を自動テストに変更。test-design-reviewer の指摘を反映: 2.5 に A-6〜A-9 を追加、判定方法が空欄だった ST・OT・LOG などを記入、DB-09 はメッセージで実行権限のエラーと見分ける、DB-11 に INSERT・UPDATE・DELETE を追加、ST-08（DB-12）・ST-09（LOG-03）を追加、SQL-6 を 0件で判定できる形に、SQL-1 に許容差、出力先を標準エラー出力に修正、8章に「テスト項目のないエラー」を追加。reviewer（PR #17）の指摘を反映: DB-08 の自動テスト列の崩れを修正、ENV-17 の手順に SUPABASE_SERVICE_ROLE_KEY を追加、ST-09 の SQL の実行方法、Q-1 の出力先、判定を作り直した項目の結果はレビュー後に記入し直す</div></div>
@@ -88,8 +89,8 @@
     <p>GitHub Actions での定期実行を始める前に、データ収集バッチが設計書どおりに動き、DB の集計データを壊さないことを確かめる。</p>
     <table>
       <tr><th style="width:120px">区分</th><th>内容</th></tr>
-      <tr><td>対象</td><td>FR-20（スノーボール収集）・FR-21（集計と加算）・FR-22（実行ログ）・FR-24（champions 同期）、非機能要件のセキュリティ（キーの管理）、02「バッチ収集フロー」ステップ1〜7、04 の変換ルール・DB関数・RLS</td></tr>
-      <tr><td>対象外</td><td>画面・API Routes（03・05 の範囲）／FR-23 パッチ更新時の自動アーカイブ（未実装）／Riot API・Supabase 自体の動作</td></tr>
+      <tr><td>対象</td><td>FR-20（スノーボール収集）・FR-21（集計と加算）・FR-22（実行ログ）・FR-23（古いパッチのアーカイブ。v1.6.0 で対象に追加）・FR-24（champions 同期）、非機能要件のセキュリティ（キーの管理）、02「バッチ収集フロー」ステップ1〜7、04 の変換ルール・DB関数・RLS</td></tr>
+      <tr><td>対象外</td><td>画面・API Routes（03・05 の範囲）／Riot API・Supabase 自体の動作</td></tr>
     </table>
   </div>
 
@@ -112,7 +113,7 @@
     <h3>2.3 使うテスト技法</h3>
     <table>
       <tr><th style="width:170px">技法</th><th>このバッチで使う箇所</th></tr>
-      <tr><td>同値分割</td><td>環境変数（正しい値・未指定・不正な値）、teamPosition の種類、試合の種類（対象パッチ・古いパッチ・リメイク・処理済み）</td></tr>
+      <tr><td>同値分割</td><td>環境変数（正しい値・未指定・不正な値）、teamPosition の種類、試合の種類（対象パッチ・古いパッチ・リメイク・勝者が1チームでない試合・処理済み）</td></tr>
       <tr><td>境界値分析</td><td>境界の「1つ下・ちょうど・1つ上」を必ずテストする。平均ポイント 1600・2400・2800、LP の上限 99・400、名簿の取得失敗 20回、429 のリトライ 4回、<code>MAX_MATCHES</code>、PostgREST の 1000件</td></tr>
       <tr><td>デシジョンテーブル</td><td>終了条件（時間・試合数・キュー切れ）の組み合わせ、試合の加算先ランク帯</td></tr>
       <tr><td>状態遷移</td><td><code>collection_logs.status</code>（running → completed／running → failed）</td></tr>
@@ -154,7 +155,7 @@
     <div class="section-header"><div class="section-num">3</div><h2>テスト環境</h2></div>
     <table>
       <tr><th style="width:150px">項目</th><th>内容</th></tr>
-      <tr><td>DB（IT・ST）</td><td>ローカルの Supabase（Docker）。本番データを汚さないため本番 DB は使わない。<code>supabase/migrations/</code> の 001〜005 を適用した状態から始める</td></tr>
+      <tr><td>DB（IT・ST）</td><td>ローカルの Supabase（Docker）。本番データを汚さないため本番 DB は使わない。<code>supabase/migrations/</code> の 001〜006 を適用した状態から始める</td></tr>
       <tr><td>DB（OT）</td><td>本番の Supabase。OT はそのまま本番データの収集になる</td></tr>
       <tr><td>Riot API</td><td>Personal Key（製品登録・承認済み。有効期限なし。v1.4.0 で変更。以前は「本物の Development Key（24時間で失効するため、ST の当日に発行する）」）</td></tr>
       <tr><td>Node.js</td><td>22（GitHub Actions と同じ）</td></tr>
@@ -163,7 +164,7 @@
 <pre># supabase/config.toml はリポジトリにあるので init は不要（v1.2.0 で変更）
 # Supabase CLI は devDependencies で 3.0.0 に固定している（npm install で入る。config.toml を作った版と合わせるため）
 
-# 起動すると supabase/migrations/ の 001〜005 が順に適用される
+# 起動すると supabase/migrations/ の 001〜006 が順に適用される
 npx supabase start
 
 # 表示される API URL と service_role key を控える
@@ -178,7 +179,7 @@ npm run collect
 
 # DB を初期状態に戻す（migration を適用し直す）
 npx supabase db reset
-# 結合テスト DB-01〜11 を実行する（初期状態に戻してから実行し、項目ごとに OK／NG を出す）
+# 結合テスト DB-01〜11・13・14 を実行する（初期状態に戻してから実行し、項目ごとに OK／NG を出す）
 npm run it:db</pre>
     <div class="note">ST はどれも名簿の作成に約14分かかる（02 ステップ3）。1回の ST は 15〜20分程度を見込む。</div>
   </div>
@@ -192,13 +193,14 @@ npm run it:db</pre>
       <tr><td>FR-20 収集（名簿）</td><td>RST-01〜RST-06</td></tr>
       <tr><td>FR-20 収集（メインループ・終了条件）</td><td>LOOP-01〜LOOP-15、ST-01・ST-03・ST-04</td></tr>
       <tr><td>FR-21 平均ランク</td><td>RANK-01〜RANK-20</td></tr>
-      <tr><td>FR-21 集計・加算</td><td>AGG-01〜AGG-10、DB-01〜DB-12、ST-01・ST-02・ST-06・ST-08</td></tr>
-      <tr><td>FR-22 実行ログ</td><td>LOG-01〜LOG-06、ST-09</td></tr>
+      <tr><td>FR-21 集計・加算</td><td>AGG-01〜AGG-11、DB-01〜DB-12、LOOP-16〜18、ST-01・ST-02・ST-06・ST-08・ST-10</td></tr>
+      <tr><td>FR-22 実行ログ</td><td>LOG-01〜LOG-07、ST-09</td></tr>
       <tr><td>FR-24 champions 同期</td><td>INIT-01〜INIT-05</td></tr>
-      <tr><td>02 Riot API のレート制限</td><td>API-01〜API-08</td></tr>
+      <tr><td>02 Riot API のレート制限</td><td>API-01〜API-09</td></tr>
       <tr><td>非機能 セキュリティ</td><td>DB-09〜DB-11、OT-03</td></tr>
       <tr><td>02 同時実行の防止</td><td>DB-06、OT-04</td></tr>
-      <tr><td>02 エラー時の動き</td><td>ENV-03〜ENV-15・ENV-17、INIT-02、RST-04、LOG-03・LOG-04、ST-05・ST-06・ST-09（テスト項目のないエラーは8章）</td></tr>
+      <tr><td>FR-23 パッチのアーカイブ（v1.9.0）</td><td>DB-13〜DB-15</td></tr>
+      <tr><td>02 エラー時の動き</td><td>ENV-03〜ENV-15・ENV-17、INIT-02、RST-04、LOOP-17、DB-15、LOG-03・LOG-04・LOG-07、ST-05・ST-06・ST-09（テスト項目のないエラーは8章）</td></tr>
       <tr><td>02 バッチスケジュール</td><td>ST-07、OT-05</td></tr>
     </table>
   </div>
@@ -284,6 +286,7 @@ npm run it:db</pre>
       <tr><td class="id">LOOP-02</td><td><span class="badge p1">P1</span></td><td>同値</td><td>前回までに処理済みの試合ID</td><td>試合詳細を取りに行かない</td><td></td><td>02 3.1 ステップ4・5</td><td><span class="badge auto">既存</span> collector › 前回までに処理済みの試合は取りに行かない</td><td></td></tr>
       <tr><td class="id">LOOP-03</td><td><span class="badge p1">P1</span></td><td>同値</td><td>古いパッチの試合</td><td>集計しない。そのプレイヤーの残りの試合も取りに行かない</td><td></td><td>01 FR-03、02 3.1 ステップ5</td><td><span class="badge auto">既存</span> collector › 古いパッチの試合が出たら…</td><td></td></tr>
       <tr><td class="id">LOOP-04</td><td><span class="badge p1">P1</span></td><td>同値</td><td>リメイクの試合</td><td>集計せず、処理済みにも記録しない。参加者を次のシードにしない。同じプレイヤーの残りの試合は続ける</td><td></td><td>01 FR-21、02 3.1 ステップ5（v1.6.0）</td><td><span class="badge auto">既存</span> collector › リメイクの試合は集計せず…</td><td></td></tr>
+      <tr><td class="id">LOOP-18</td><td><span class="badge p1">P1</span></td><td>同値</td><td>勝者が1チームでない試合（10人全員が負け。不正対策による中止 Abort_AntiCheatExit など）。判定の境界は、勝者4人・両チームとも勝ち・勝者5人だがチームがまたがる場合</td><td>集計せず、処理済みにも記録しない。参加者を次のシードにしない。同じプレイヤーの残りの試合は続ける。勝った参加者がちょうど5人で同じチームのときだけ集計する</td><td>集計した試合ID／収集元ランクの試合数／参加者の試合ID一覧を取りに行かない／hasSingleWinningTeam の戻り値（4つの場合で false、正常な試合で true）</td><td>01 FR-21（v1.9.0）、02 ステップ5（v1.10.0。ST-10 で 1,100試合中1試合あった）</td><td><span class="badge auto">既存</span> collector › 勝者が1チームでない試合（両チームとも負けなど）は集計せず、参加者も次のシードにしないが、同じプレイヤーの残りの試合は続ける／hasSingleWinningTeam: 勝った参加者がちょうど5人で同じチームのときだけ true</td><td></td></tr>
       <tr><td class="id">LOOP-05</td><td><span class="badge p1">P1</span></td><td>同値</td><td>新しいパッチ（対象パッチより後）の試合</td><td>集計しない</td><td></td><td>01 FR-03「異なるパッチのデータは混在させない」</td><td><span class="badge auto">既存</span> collector › 対象パッチより新しいパッチの試合も集計しない</td><td></td></tr>
       <tr><td class="id">LOOP-06</td><td><span class="badge p2">P2</span></td><td>同値</td><td>複数のランクが対象</td><td>集めた試合数が最も少ないランクから進め、どのランクにも作業が残っている間は、ランクごとの試合数の差が1以内。集めた試合数が同じなら低いランク（PLATINUM → EMERALD → DIAMOND → MASTER）を先に進める（対象のランクは ENV-06 で低い順に並べ直される）</td><td></td><td>01 FR-20「対象ランクの試合数をそろえる」。同数なら低いランクを先に（02 ステップ5、v1.9.0。旧 8章 Q-6）</td><td><span class="badge auto">既存</span> collector › 複数のランクを対象にしたとき、ランクごとの試合数をそろえる／rank › 集めた試合数が同じなら、低いランクを先に選ぶ</td><td></td></tr>
       <tr><td class="id">LOOP-07</td><td><span class="badge p2">P2</span></td><td>同値</td><td>あるランクのキューと名簿が尽きた</td><td>そのランクを飛ばし、残りのランクで続ける</td><td></td><td>02 3.1 ステップ5</td><td><span class="badge auto">既存</span> rank › 作業が残っていないランクは飛ばす</td><td></td></tr>
@@ -295,6 +298,8 @@ npm run it:db</pre>
       <tr><td class="id">LOOP-13</td><td><span class="badge p2">P2</span></td><td>デシジョン</td><td>終了条件（下の表）</td><td>下の表のとおり</td><td></td><td>01 FR-20「いずれか先に達した方で終了」。同時に達したら時間上限（02 ステップ5、v1.9.0。旧 8章 Q-2）</td><td><span class="badge auto">既存</span> 1列目 utils › 時間上限に達したらtime_limit／2列目 utils › 試合数上限に達したらmatch_limit／3列目（キュー切れ）collector › 名簿のプレイヤーを使い切ったら queue_empty で終わる（LOOP-15）／4列目 utils › 時間上限と試合数上限に同時に達したら、時間上限を優先する／5列目 utils › どちらにも達していなければnull</td><td></td></tr>
       <tr><td class="id">LOOP-14</td><td><span class="badge p2">P2</span></td><td>境界値</td><td><code>MAX_MATCHES=N</code>、処理済みが N−1／N</td><td>N−1 なら続ける／N で止める（集計した試合はちょうど N）</td><td>終了理由と、集計した試合IDの数が N</td><td>01 FR-20</td><td><span class="badge auto">既存</span> utils › 試合数上限に達したらmatch_limit（止める判定）／collector › 複数のランクを対象にしたとき、ランクごとの試合数をそろえる（上限 20 で集計した試合がちょうど 20）</td><td></td></tr>
       <tr><td class="id">LOOP-15</td><td><span class="badge p2">P2</span></td><td>同値</td><td>すべてのランクで名簿のプレイヤーを使い切った</td><td>キュー切れ（queue_empty）で終わり、集めた分を書き込む</td><td></td><td>01 FR-20「キュー枯渇」</td><td><span class="badge auto">既存</span> collector › 名簿のプレイヤーを使い切ったら queue_empty で終わる</td><td></td></tr>
+      <tr><td class="id">LOOP-16</td><td><span class="badge p1">P1</span></td><td>境界値</td><td>500試合ごとに書き込む設定で、ちょうどの数・端数が出るように試合を集める（自動テストでは writeEvery=2・5試合）</td><td>writeEvery 試合ごとに書き込み、ループ終了後に残り（端数）を書き込む。各回に渡す集計はその回の試合の分だけ（前の回の分を含まない）。書き込んだ分の集計はメモリから消える</td><td>各回に渡した試合ID の並び（[m1,m2]・[m3,m4]・[m5]）／各回の集計の試合数の合計（20・20・10）／終了後のメモリ上の集計が空</td><td>02 ステップ6（v1.10.0）</td><td><span class="badge auto">既存</span> collector › writeEvery 試合ごとと最後の残りを書き込み、書き込んだ分の集計はメモリから消す。自動テストは writeEvery=2 で動きを確かめる。500 という値（collect.ts の定数 WRITE_EVERY_MATCHES）は ST-10 で確かめる</td><td></td></tr>
+      <tr><td class="id">LOOP-17</td><td><span class="badge p1">P1</span></td><td>エラー推測</td><td>途中の書き込みが失敗する</td><td>そこで止めて、書き込みのエラー（「[apply_batch_result] 書き込み失敗: …」）で失敗する。その後の試合は取りに行かない（試合詳細の取得失敗として飛ばさない）</td><td>エラーのメッセージ／試合詳細を取りに行った試合ID が失敗した回の分まで（m1・m2）</td><td>02 ステップ6（v1.10.0）</td><td><span class="badge auto">既存</span> collector › 書き込みが失敗したら、そこで止めてエラーにする（その後の試合は取りに行かない）</td><td></td></tr>
     </table></div>
 
     <p><b>LOOP-13 終了条件のデシジョンテーブル</b>（ループの各回の始めに判定する）</p>
@@ -317,12 +322,13 @@ npm run it:db</pre>
       <tr><td class="id">AGG-06</td><td><span class="badge p2">P2</span></td><td>同値</td><td>同じレーンに相手がいない</td><td>counter_stats には加算しない（champion_stats には加算する）</td><td></td><td>04 counter_stats</td><td><span class="badge auto">既存</span> aggregator › 同じレーンに相手がいなければ、counter_stats には加算せず、champion_stats には加算する</td><td></td></tr>
       <tr><td class="id">AGG-07</td><td><span class="badge p1">P1</span></td><td>同値</td><td>item0〜5 が <code>[3153,0,3031,6675,0,0]</code>、item6 が 3340</td><td>item_ids は <code>3031,3153,6675</code>（空きを除き昇順、item6 は含めない）</td><td></td><td>04 item_build_stats「ソート済みアイテムID列」</td><td><span class="badge auto">既存</span> utils › 0を除外してソート済みカンマ区切り文字列を返す／購入順が異なっても同じ結果を返す（集計の一貫性のため）／supabaseWriter › item_build_stats の行にアイテムIDを展開する（空スロットのみの人は含まない）（item6=3340 を含めない）</td><td></td></tr>
       <tr><td class="id">AGG-08</td><td><span class="badge p2">P2</span></td><td>境界値</td><td>item0〜5 がすべて 0</td><td>item_build_stats に加算しない</td><td></td><td>04 item_ids は NOT NULL の列</td><td><span class="badge auto">既存</span> supabaseWriter › 空スロットのみの人は含まない</td><td></td></tr>
-      <tr><td class="id">AGG-09</td><td><span class="badge p1">P1</span></td><td>デシジョン</td><td>平均 Diamond の試合</td><td>3テーブルとも all・platinum_plus・diamond_plus の3つのランク帯に同じ値を加算</td><td></td><td>04「当てはまるランク帯すべてに加算」</td><td><span class="badge auto">既存</span> supabaseWriter › 指定したランク帯それぞれに…</td><td></td></tr>
+      <tr><td class="id">AGG-09</td><td><span class="badge p1">P1</span></td><td>デシジョン</td><td>平均 Diamond の試合</td><td>3テーブルとも all・platinum_plus・diamond_plus の3つのランク帯に同じ値を加算（集計の段階の確認。item_build_stats は v1.6.0 から集計のみで DB には送らない。AGG-11）</td><td></td><td>04「当てはまるランク帯すべてに加算」</td><td><span class="badge auto">既存</span> supabaseWriter › 指定したランク帯それぞれに…</td><td></td></tr>
       <tr><td class="id">AGG-10</td><td><span class="badge p1">P1</span></td><td>同値</td><td>同じチャンピオン・レーンが複数の試合に出る</td><td>メモリ上で1行にまとめ、games_played・wins を足し合わせる</td><td></td><td>01 FR-21</td><td><span class="badge auto">既存</span> aggregator › 同じチャンピオン・レーンが複数の試合に出たら、1行にまとめて試合数と勝ち数を足し合わせる</td><td></td></tr>
+      <tr><td class="id">AGG-11</td><td><span class="badge p1">P1</span></td><td>同値</td><td>アイテムを持つ参加者がいる試合を集計して書き込む</td><td>集計にはアイテムビルドがあるが、DB に送る item_build_stats の行は空（<code>p_item_rows</code> が <code>[]</code>）。champion_stats・counter_stats の行は送る。書き込んだ行数の表示も item_build_stats は 0件</td><td>rpc に渡した p_item_rows が空・ほかの2つは1行以上／戻り値の itemRows が 0</td><td>02 ステップ6（v1.10.0。06 の未決事項 Q-9）</td><td><span class="badge auto">既存</span> supabaseWriter › item_build_stats には書き込まない（集計はしても、DB に送るアイテムビルドの行は空）</td><td></td></tr>
     </table></div>
 
     <h3>5.7 DB 書き込み・権限（DB）— 結合テスト</h3>
-    <p>ローカルの Supabase で、<code>apply_batch_result</code> を SQL エディター（<code>npx supabase status</code> の Studio URL）または <code>supabase-js</code> から直接呼ぶ。DB-01〜11 は <code>npm run it:db</code>（<code>scripts/it/db.ts</code>）でまとめて実行できる。スクリプトは接続先がローカルでない場合と、DB が初期状態でない場合は実行せずに止まる。</p>
+    <p>ローカルの Supabase で、<code>apply_batch_result</code> を SQL エディター（<code>npx supabase status</code> の Studio URL）または <code>supabase-js</code> から直接呼ぶ。DB-01〜11・13・14 は <code>npm run it:db</code>（<code>scripts/it/db.ts</code>）でまとめて実行できる（DB-13・14 は v1.6.0 で追加）。スクリプトは接続先がローカルでない場合と、DB が初期状態でない場合は実行せずに止まる。</p>
     <div class="table-wrap"><table>
       <tr><th>ID</th><th>優先</th><th>技法</th><th>前提・入力</th><th>期待結果</th><th>判定方法</th><th>根拠</th><th>自動テスト</th><th>結果</th></tr>
       <tr><td class="id">DB-01</td><td><span class="badge p1">P1</span></td><td>同値</td><td>集計行がない状態で、champion_stats 1行（10試合・6勝）を渡す</td><td>新しい行ができ、games_played 10・wins 6・win_rate 0.6000</td><td></td><td>04 apply_batch_result ③</td><td><span class="badge auto">it:db</span></td><td>合格（2026-11-07）</td></tr>
@@ -337,6 +343,9 @@ npm run it:db</pre>
       <tr><td class="id">DB-10</td><td><span class="badge p1">P1</span></td><td>同値</td><td>anon キーで集計4テーブルを SELECT／INSERT・UPDATE・DELETE</td><td>SELECT は1行以上返る。INSERT は RLS の拒否（<code>42501</code>、メッセージに「row-level security policy」）。UPDATE・DELETE はエラーにならず 0行。どの操作でもデータは変わらない</td><td>SELECT の行数／INSERT のエラーコード／UPDATE・DELETE のエラーなしと行数／実行前後のスナップショット（champions は全行）が同じ</td><td>04 RLS 方針・「anon キーで操作したときの結果」</td><td><span class="badge auto">it:db</span></td><td>合格（2026-11-08、PR #17 の再レビュー後に実施）。4テーブルとも INSERT は RLS の拒否（42501）、UPDATE・DELETE はエラーなし・0行、データは変わらない</td></tr>
       <tr><td class="id">DB-11</td><td><span class="badge p1">P1</span></td><td>同値</td><td>anon キーで collection_logs・processed_matches を SELECT／INSERT・UPDATE・DELETE</td><td>SELECT はエラーにならず 0行。INSERT は RLS の拒否（<code>42501</code>）。UPDATE・DELETE はエラーにならず 0行。どの操作でもデータは変わらない</td><td>service_role で行があることを確かめたうえで、anon の各操作の結果（エラーコード・メッセージ・行数）／実行前後のスナップショットが同じ</td><td>04 RLS 方針・「anon キーで操作したときの結果」</td><td><span class="badge auto">it:db</span></td><td>合格（2026-11-08、PR #17 の再レビュー後に実施）。2テーブルとも SELECT は 0行、INSERT は RLS の拒否（42501）、UPDATE・DELETE はエラーなし・0行、データは変わらない（patch の書き換えも見る）</td></tr>
       <tr><td class="id">DB-12</td><td><span class="badge p2">P2</span></td><td>境界値</td><td>ST-08 の手順（<code>MAX_DURATION_MINUTES=1</code>。名簿の作成に約14分かかるので、試合の収集に入った時点で時間上限に達し 0件で終わる）</td><td>apply_batch_result を呼ばない（標準出力に「新しく処理した試合がないため、書き込みをスキップ」）。collection_logs は completed・matches_collected 0</td><td>標準出力の文字列／processed_matches の件数が実行前後で同じ／collection_logs の status と matches_collected</td><td>02 3.1 ステップ6「1件以上の場合」</td><td><span class="badge manual">手動</span>（ST-08）</td><td>合格（2026-11-08）。ST-08 で処理 0試合、書き込みをスキップ、processed_matches は 103件のまま、collection_logs は completed・0（修正の前のコード c8dc79e で実施）</td></tr>
+      <tr><td class="id">DB-13</td><td><span class="badge p1">P1</span></td><td>境界値</td><td>DB-01〜11 の後、パッチ 17.9・17.10・17.11・17.12 に champion_stats・counter_stats 各1行、item_build_stats 5行、processed_matches 3行を入れ、<code>archive_old_patches('17.12', 4)</code> を 0 が返るまで呼ぶ（DB-01〜11 で入れたパッチ 16.21 の行もある）</td><td>今のパッチ 17.12 は残り、それより古い 17.9・17.10・17.11（直前のパッチを含む）・16.21 の item_build_stats・processed_matches は 0行になる（17.9 &lt; 17.10 と数字で比べる）。champion_stats・counter_stats はどのパッチも残る。1回に消すのは 4行以下で、合計は消す対象の行数と同じ（直前のパッチも消す。同じ v1.6.0 の中で、未決事項 Q-9 の決定に合わせて変更）</td><td>パッチごとの各テーブルの行数／1回ごとの戻り値（4以下、最後が 0）とその合計</td><td>01 FR-23（v1.9.0）、02 ステップ2、04 archive_old_patches</td><td><span class="badge auto">it:db</span>＋<span class="badge auto">既存</span> supabaseWriter › 0 が返るまで繰り返し呼び、消した行の合計を返す（バッチ側の繰り返し）。今より新しいパッチ（DB-08 の 90.x）の行が残ることは、消した行の合計が期待どおりであることから間接的に確かめる（直接は確かめていない）</td><td>合格（2026-11-11、最終の 006 で、再レビュー後に実施）。1回ごとの行数 4・4・4・4・4・4・4・3・0（合計 31 = 期待 31）。17.9・17.10・17.11・16.21 の item_build_stats・processed_matches は 0行、17.12 は 5行・3行。champion_stats・counter_stats はすべて残った</td></tr>
+      <tr><td class="id">DB-14</td><td><span class="badge p1">P1</span></td><td>同値</td><td>anon キーで <code>archive_old_patches</code> を呼ぶ</td><td>権限エラー（SQLSTATE <code>42501</code>、メッセージに「permission denied for function archive_old_patches」）</td><td>エラーコードとメッセージ</td><td>04「anon キーで操作したときの結果」（v1.9.0）</td><td><span class="badge auto">it:db</span></td><td>合格（2026-11-11）。42501「permission denied for function archive_old_patches」</td></tr>
+      <tr><td class="id">DB-15</td><td><span class="badge p2">P2</span></td><td>エラー推測</td><td>古いパッチの削除（archive_old_patches の呼び出し）がエラーを返す</td><td>「[archive_old_patches] 古いパッチの削除に失敗: &lt;DB のエラー&gt;」のエラーにする（バッチは failed で止まる。02「エラー時の動き」）</td><td>例外のメッセージ</td><td>02「エラー時の動き」（v1.10.0）</td><td><span class="badge auto">既存</span> supabaseWriter › rpc がエラーを返したら「古いパッチの削除に失敗」のエラーにする。failed になることは LOG-03 と同じ経路</td><td></td></tr>
     </table></div>
 
     <h3>5.8 実行ログ（LOG）</h3>
@@ -344,10 +353,11 @@ npm run it:db</pre>
       <tr><th>ID</th><th>優先</th><th>技法</th><th>前提・入力</th><th>期待結果</th><th>判定方法</th><th>根拠</th><th>自動テスト</th><th>結果</th></tr>
       <tr><td class="id">LOG-01</td><td><span class="badge p2">P2</span></td><td>状態遷移</td><td>名簿の作成中</td><td>collection_logs に status running の行が1つあり、patch・region（JP）・rank_tier（例 "PLATINUM"）・started_at が入っている。completed_at は NULL</td><td>名簿の作成中に collection_logs を SELECT して各列の値を見る</td><td>02 3.1 ステップ2、04 collection_logs</td><td><span class="badge manual">手動</span>（ST-01）</td><td>合格（2026-11-08）。名簿の作成中に running・16.22・JP・PLATINUM・started_at あり・completed_at なし（修正の前のコード c8dc79e で実施）</td></tr>
       <tr><td class="id">LOG-02</td><td><span class="badge p2">P2</span></td><td>状態遷移</td><td>正常終了</td><td>同じ行が completed になり、matches_collected・completed_at が入る</td><td>終了後の行の status／matches_collected が標準出力の処理済み試合数と同じ／completed_at が NULL でない</td><td>02 3.1 ステップ7</td><td><span class="badge manual">手動</span>（ST-01）</td><td>合格（2026-11-08）。completed・matches_collected 10（標準出力と同じ）・completed_at あり（修正の前のコード c8dc79e で実施）</td></tr>
-      <tr><td class="id">LOG-03</td><td><span class="badge p2">P2</span></td><td>状態遷移</td><td>開始ログの後、DB が動いている状態で書き込みだけを失敗させる（ST-09 の手順）</td><td>同じ行が failed になり、error_message に「[apply_batch_result] 書き込み失敗: permission denied for function apply_batch_result」、completed_at が入る（matches_collected は NULL）。終了コード 1</td><td>実行後の行の status・error_message・completed_at・matches_collected／終了コード</td><td>02 3.1 ステップ7・「エラー時の動き」、04 completed_at（v1.6.0）</td><td><span class="badge manual">手動</span>（ST-09）</td><td>合格（2026-11-08）。ST-09 で failed・error_message「[apply_batch_result] 書き込み失敗: permission denied for function apply_batch_result」・completed_at あり・matches_collected なし。終了コード 1（修正の前のコード c8dc79e で実施）</td></tr>
+      <tr><td class="id">LOG-03</td><td><span class="badge p2">P2</span></td><td>状態遷移</td><td>開始ログの後、DB が動いている状態で書き込みだけを失敗させる（ST-09 の手順）</td><td>同じ行が failed になり、error_message に「[apply_batch_result] 書き込み失敗: permission denied for function apply_batch_result」、completed_at が入り、matches_collected は書き込み済みの試合数（ST-09 では最初の書き込みで失敗するので 0。v1.6.0 で変更。以前は NULL）。終了コード 1</td><td>実行後の行の status・error_message・completed_at・matches_collected／終了コード</td><td>02 3.1 ステップ7・「エラー時の動き」、04 completed_at（v1.6.0）、02 ステップ7（v1.10.0）</td><td><span class="badge manual">手動</span>（ST-09）。0 でない値（途中まで書き込んでから失敗した場合）は LOG-07 の自動テストで確かめる</td><td>合格（2026-11-10、ST-09 で。コード ca08ad3）。failed・error_message「[apply_batch_result] 書き込み失敗: permission denied for function apply_batch_result」・completed_at あり・matches_collected 0。終了コード 1</td></tr>
       <tr><td class="id">LOG-04</td><td><span class="badge p2">P2</span></td><td>状態遷移</td><td>開始ログより前でエラー（APIキーの失効など）</td><td>collection_logs に行はできない。終了コード 1</td><td>collection_logs の行数を実行前後で比べる。原因（標準エラー出力の文字列）は ST-05 で確かめる</td><td>02「エラー時の動き」（開始ログより前は行ができない）、01 FR-22（v1.8.0。旧 8章 Q-1）</td><td><span class="badge manual">手動</span>（ST-05）</td><td>合格（2026-11-09、時間切れ・401 の修正後のコードで、再レビュー後に実施）。ST-05 で collection_logs の行数は 1→1、終了コード 1</td></tr>
       <tr><td class="id">LOG-05</td><td><span class="badge p3">P3</span></td><td>エラー推測</td><td>開始ログの書き込みだけ失敗する</td><td>処理は続け、集計は書き込む（ログ行はない）</td><td>期待結果の値（状態を作る手順がないため実施していない。8章「テスト項目のないエラー」）</td><td>02 3.1 ステップ2（開始ログの記録に失敗しても続ける。旧 8章 Q-5）</td><td>なし（状態を作る手順がないため。8章「テスト項目のないエラー」）</td><td></td></tr>
       <tr><td class="id">LOG-06</td><td><span class="badge p3">P3</span></td><td>同値</td><td>終了時の標準出力</td><td>終了理由・処理した試合数・ランク帯ごとの加算試合数・書き込んだ行数が出る</td><td>標準出力の該当行を見る</td><td>01 FR-22</td><td><span class="badge manual">手動</span>（ST-01）</td><td>合格（2026-11-08）。終了理由・処理した試合数・ランク帯ごとの加算試合数・書き込んだ行数が出る（修正の前のコード c8dc79e で実施）</td></tr>
+      <tr><td class="id">LOG-07</td><td><span class="badge p1">P1</span></td><td>境界値</td><td>500試合ごとの書き込みが2回成功し、3回目で失敗する（自動テストでは 3試合・2試合の後に1試合で失敗）</td><td>書き込み済みの試合数は、成功した回の分だけ（5）。失敗した回の分は数えない。失敗した後もその数を返す（collection_logs.matches_collected に記録する値）</td><td>written() の値／rpc に渡した試合IDの数（3・2・1）／失敗のメッセージ</td><td>02 ステップ6・7（v1.10.0）</td><td><span class="badge auto">既存</span> supabaseWriter › 書き込みに成功した試合だけを数え、失敗した後もそれまでの数を返す</td><td></td></tr>
     </table></div>
 
     <h3>5.9 Riot API の呼び出し（API）</h3>
@@ -361,6 +371,7 @@ npm run it:db</pre>
       <tr><td class="id">API-06</td><td><span class="badge p2">P2</span></td><td>同値</td><td>platform <code>jp1</code></td><td>LEAGUE-V4 は <code>jp1.api.riotgames.com</code>、MATCH-V5 は <code>asia.api.riotgames.com</code> に送る</td><td></td><td>02 Riot API「ホスト」</td><td><span class="badge auto">既存</span> riotClient › jp1 では LEAGUE-V4 を jp1、MATCH-V5 を asia のホストに送る</td><td></td></tr>
       <tr><td class="id">API-07</td><td><span class="badge p1">P1</span></td><td>同値</td><td>試合ID一覧の取得</td><td>ソロランク（queue=420）・20件を指定している</td><td></td><td>02 MATCH-V5</td><td><span class="badge auto">既存</span> riotClient › 試合ID一覧はソロランク（queue=420）を指定し、渡した件数を count に入れる／collector › 1人から取る試合数（matchesPerPlayer）を、試合ID一覧の取得に渡す。20件そのものは <code>collect.ts</code> の定数 <code>MATCHES_PER_PLAYER</code> で、自動テストの対象外</td><td></td></tr>
       <tr><td class="id">API-08</td><td><span class="badge p2">P2</span></td><td>エラー推測</td><td>10秒たっても応答がない（ヘッダーが届かない場合と、ヘッダーは届いたが本文が止まる場合）</td><td>10秒で中断し、メッセージ「Riot API タイムアウト: 10秒以内に応答がありません」のエラーにする。再試行しない（呼び出し1回）</td><td>例外のメッセージ／fetch の呼び出し回数／中断までの時間（リクエスト間隔 1.2秒＋10秒）</td><td>02 Riot API「エラーの判定」（v1.8.0）</td><td><span class="badge auto">既存</span> riotClient › 応答が10秒ないときは時間切れのエラーにし、再試行しない／ヘッダーの後、本文が10秒で届かないときも時間切れのエラーにする</td><td></td></tr>
+      <tr><td class="id">API-09</td><td><span class="badge p2">P2</span></td><td>同値</td><td>試合ID一覧の取得（URL に PUUID が入る）が 404 で失敗する</td><td>エラー文の URL の PUUID は先頭8文字だけ（「/by-puuid/abcdefgh.../ids?…」）。PUUID の全体は入らない。PUUID の入らない URL はそのまま</td><td>エラーのメッセージに伏せた URL が入り、PUUID の全体が入らない／試合詳細の URL が変わらない</td><td>02 Riot API「エラーの判定」（v1.10.0。公開リポジトリの Actions のログは誰でも読めるため）</td><td><span class="badge auto">既存</span> riotClient › エラー文の URL の PUUID は先頭8文字だけにする。自動テストは HTTP エラー（404）の場合だけ。時間切れのエラー文も同じ maskUrl を通すが、自動テストでは確かめていない</td><td></td></tr>
     </table></div>
   </div>
 
@@ -401,15 +412,21 @@ npm run it:db</pre>
         ・集計3テーブル・processed_matches の行数と games_played の合計が実行前と同じ<br>
         ・collection_logs の行は running のまま（failed への更新も DB に届かないため。02 ステップ7、旧 8章 Q-5）<br>
         ・目的は「DB が止まってもデータが壊れない」ことの確認。DB に一度も届かないので、取り消しの確認にはならない（取り消しは DB-07）</td><td>実行前に控えた値と、実行後の値を比べる／collection_logs の status</td><td>02 ステップ7（旧 Q-5）</td><td>合格（2026-11-08）。収集に入ってから DB を停止し、書き込みはその後。終了コード 1・「[apply_batch_result] 書き込み失敗: TypeError: fetch failed」。DB を戻した後、行数と試合数の合計は実行前と同じ。collection_logs は running のまま（修正の前のコード c8dc79e で実施）</td></tr>
-      <tr><td class="id">ST-07</td><td><span class="badge p3">P3</span></td><td>ST-01〜04 の所要時間を記録</td><td>名簿の作成が約14分、1試合あたりの時間を記録し、330分で何試合集まるかの見込みを出す</td><td>記録のみ（合否は判定しない）</td><td>02 バッチスケジュール</td><td>記録（2026-11-08）。起動から名簿の作成完了まで約13分15秒（ST-08）。1試合あたり約3秒（ST-01: 2.7秒、ST-03: 3.1秒）。330分なら計算上は約6,000試合。ただし通信が遅くなるとその分減る（ST-04・ST-09 で接続が切れるエラーと待ち時間あり）（修正の前のコード c8dc79e で実施）</td></tr>
+      <tr><td class="id">ST-07</td><td><span class="badge p3">P3</span></td><td>ST-01〜04 の所要時間を記録</td><td>名簿の作成が約14分、1試合あたりの時間を記録し、330分で何試合集まるかの見込みを出す</td><td>記録のみ（合否は判定しない）</td><td>02 バッチスケジュール</td><td>記録（2026-11-08）。起動から名簿の作成完了まで約13分15秒（ST-08）。1試合あたり約3秒（ST-01: 2.7秒、ST-03: 3.1秒）。330分なら計算上は約6,000試合。ただし通信が遅くなるとその分減る（ST-04・ST-09 で接続が切れるエラーと待ち時間あり）（修正の前のコード c8dc79e で実施）。v1.6.0 で見直し: ST-04 のやり直し（112試合を約227秒、1試合約2秒）と1回目の ST-10（1,100試合を約1,680秒、1試合約1.5秒）から、1日約9,500〜12,700試合の見込み（未決事項 Q-9）</td></tr>
       <tr><td class="id">ST-08</td><td><span class="badge p2">P2</span></td><td>実行前に processed_matches の件数を控える。<code>MAX_DURATION_MINUTES=1</code> で実行する（名簿の作成に約14分かかるので、試合の収集に入った時点で時間上限に達する。v1.3.0 で追加）</td><td>
         ・終了理由は時間上限、処理済み 0試合。終了コード 0<br>
         ・標準出力に「新しく処理した試合がないため、書き込みをスキップ」<br>
         ・processed_matches の件数は変わらない。collection_logs は completed・matches_collected 0</td><td>標準出力の文字列と終了コード／processed_matches の件数を実行前後で比べる／collection_logs の status と matches_collected</td><td>DB-12</td><td>合格（2026-11-08）。終了コード 0・時間上限・処理 0試合。「新しく処理した試合がないため、書き込みをスキップ」。processed_matches 103→103。completed・0（修正の前のコード c8dc79e で実施）</td></tr>
       <tr><td class="id">ST-09</td><td><span class="badge p2">P2</span></td><td><code>npx supabase db reset</code> の後、DB で <code>REVOKE EXECUTE ON FUNCTION apply_batch_result(text, text, jsonb, jsonb, jsonb, text[]) FROM service_role;</code> を実行してから（例: <code>docker exec -i supabase_db_lol-pick-tool psql -U postgres -d postgres -c "&lt;上の SQL&gt;"</code>、または Studio の SQL Editor）、<code>TARGET_TIERS=PLATINUM MAX_MATCHES=3</code> で実行する（DB は動いたまま、書き込みだけが失敗する。終わったら <code>npx supabase db reset</code> で戻す。v1.3.0 で追加）</td><td>
         ・書き込みでエラー終了（終了コード 1、標準エラー出力に「[apply_batch_result] 書き込み失敗: permission denied for function apply_batch_result」）<br>
-        ・collection_logs の行が failed、error_message に同じメッセージ、completed_at が入り、matches_collected は NULL<br>
-        ・processed_matches・集計3テーブルは 0行のまま</td><td>終了コードと標準エラー出力の文字列／collection_logs の各列／各テーブルの件数</td><td>LOG-03</td><td>合格（2026-11-08）。終了コード 1・「[apply_batch_result] 書き込み失敗: permission denied for function apply_batch_result」。collection_logs は failed・同じメッセージ・completed_at あり・matches_collected なし。各テーブル 0行。終了後に db reset で権限を戻した（修正の前のコード c8dc79e で実施）</td></tr>
+        ・collection_logs の行が failed、error_message に同じメッセージ、completed_at が入り、matches_collected は 0（書き込み済みの試合数。v1.6.0 で変更。以前は NULL）<br>
+        ・processed_matches・集計3テーブルは 0行のまま</td><td>終了コードと標準エラー出力の文字列／collection_logs の各列／各テーブルの件数</td><td>LOG-03</td><td>合格（2026-11-10、再レビュー後に実施。勝者の除外とアイテムビルドの変更の前のコード ca08ad3 で実施。この2つは権限がなくて書き込みが失敗するこの項目の判定に関係しない）。終了コード 1・「[collect] 致命的なエラー: [apply_batch_result] 書き込み失敗: permission denied for function apply_batch_result」。collection_logs は failed・matches_collected 0・completed_at あり・同じメッセージ。各テーブル 0行</td></tr>
+      <tr><td class="id">ST-10</td><td><span class="badge p1">P1</span></td><td><code>npx supabase db reset</code> の後、<code>TARGET_TIERS=PLATINUM MAX_MATCHES=1100</code> で実行する（v1.6.0 で追加。名簿の作成を含めて約1時間）</td><td>
+        ・終了コード 0・試合数上限。標準出力に「DBに書き込み中... (500試合分)」が2回と「(100試合分)」が1回、その後に「書き込み済み 累計 1100試合」<br>
+        ・processed_matches が 1100行（重複なし）。collection_logs は completed・matches_collected 1100<br>
+        ・標準出力に「古いパッチの削除: 0行」（db reset の後なので消すものがない）<br>
+        ・7章の不変条件 SQL-2〜6 がすべて 0件、SQL-1 は 7章の基準<br>
+        ・ローカルの Supabase の API の時間の上限は本番と同じ 8秒（authenticator の statement_timeout。2026-11-10 に確認）なので、すべての書き込みが成功すれば、上限に収まっている</td><td>標準出力の書き込みの行の回数と試合数／processed_matches の行数と重複／collection_logs の status と matches_collected／7章の SQL／書き込みの後の item_build_stats・counter_stats の行数と大きさ（<code>SELECT count(*), pg_size_pretty(pg_total_relation_size('item_build_stats'))</code>。索引を含む大きさで、02 のコスト試算と同じ測り方。未決事項 Q-9 の見直しに使い、合否には使わない）</td><td>LOOP-16、02 ステップ6</td><td>合格（2026-11-11、最終のコードで、再レビュー後に実施）。終了コード 0・試合数上限。「DBに書き込み中... (500試合分)」2回・「(100試合分)」1回、「書き込み済み 累計 1100試合」。processed_matches 1,100行（重複なし）、completed・1,100。「古いパッチの削除: 0行」。SQL-2〜6 は 0件、SQL-1 は all 1,100・platinum_plus 700（どちらも標準出力と同じで、7章の基準を満たす）。すべての書き込みが成功したので、8秒の上限に収まった。記録: item_build_stats 17,268行・4.4MB、counter_stats 10,048行・2.4MB。所要 161分は実行した PC のスリープのため（01:06 から。取得の失敗 7回は接続が切れたもので、時間切れは 0回）。最初の実施（勝者のいない試合の除外の前）では SQL-5 が 20件 NG で、その原因の試合（JP1_611698115、Abort_AntiCheatExit）を除外するように直した。この後、アイテムビルドを書き込まないように変えた（AGG-11）。この項目の判定（書き込みの回数・処理済み・実行ログ・不変条件）には関係しない</td></tr>
     </table></div>
 
     <h3>6.2 運用テスト（OT）— GitHub Actions ＋ 本番の Supabase</h3>
@@ -468,6 +485,7 @@ LEFT JOIN counter_stats b
 WHERE a.patch = :patch
   AND (b.id IS NULL OR a.games_played <> b.games_played OR a.wins + b.wins <> a.games_played);
 
+-- 注: v1.6.0 から item_build_stats には書き込まないので、ST・OT では item_build_stats の行は常に0（AGG-11）。SQL-2・SQL-6 の item_build_stats は何も確かめずに合格する
 -- SQL-6: 対象パッチ以外の行（ST は db reset の後に1つのパッチだけを集めるので 0件。v1.3.0 で 0件で判定できる形に変更）
 SELECT 'champion_stats' AS t, COUNT(*) FROM champion_stats WHERE patch &lt;&gt; :patch
 UNION ALL SELECT 'counter_stats', COUNT(*) FROM counter_stats WHERE patch &lt;&gt; :patch
@@ -480,9 +498,9 @@ UNION ALL SELECT 'processed_matches', COUNT(*) FROM processed_matches WHERE patc
   <!-- 8. 未決事項 -->
   <div class="section">
     <div class="section-header"><div class="section-num">8</div><h2>未決事項・設計書に記載のない動き</h2></div>
-    <p>設計書から期待結果が決まらないもの。テストでは「今の実装の動き」を記録するだけにし、合否の判定には使わない。決まったら設計書に反映し、「決定」の列に日付と反映先を書く（経緯を残すため行は消さない。v1.5.0 で変更。以前は「この表から外す」）。v1.5.0 で Q-1〜Q-8 はすべて決まった。</p>
+    <p>設計書から期待結果が決まらないもの。テストでは「今の実装の動き」を記録するだけにし、合否の判定には使わない。決まったら設計書に反映し、「決定」の列に日付と反映先を書く（経緯を残すため行は消さない。v1.5.0 で変更。以前は「この表から外す」）。v1.5.0 で Q-1〜Q-8 はすべて決まった。Q-9 は v1.6.0 で追加し、同じ版で決めた。</p>
     <table>
-      <tr><th style="width:60px">No.</th><th>内容</th><th style="width:260px">決定前の実装の動き</th><th style="width:100px">関連</th><th style="width:260px">決定（v1.5.0、2026-11-09。ユーザーの判断）</th></tr>
+      <tr><th style="width:60px">No.</th><th>内容</th><th style="width:260px">決定前の実装の動き</th><th style="width:100px">関連</th><th style="width:260px">決定（日付・反映先。ユーザーの判断）</th></tr>
       <tr><td>Q-1</td><td>開始ログより前のエラー（APIキーの失効・Data Dragon の取得失敗・champions の同期失敗）が DB に記録されない。01 FR-22「エラー内容を記録」と合っているか</td><td>標準エラー出力（GitHub Actions のログ）と失敗通知でしかわからない</td><td>LOG-04</td><td>今の動きを仕様にする。DB に残すのは開始ログの後のエラー（01 FR-22・02「エラー時の動き」）</td></tr>
       <tr><td>Q-2</td><td>時間上限と試合数上限に同時に達したときの終了理由</td><td>時間上限を優先する</td><td>LOOP-13</td><td>時間上限を優先（02 ステップ5）</td></tr>
       <tr><td>Q-3</td><td>LP が負の値のとき</td><td>0LP として扱う</td><td>RANK-07</td><td>0LP として扱う（04「平均の出し方」）</td></tr>
@@ -491,6 +509,7 @@ UNION ALL SELECT 'processed_matches', COUNT(*) FROM processed_matches WHERE patc
       <tr><td>Q-6</td><td>集めた試合数が同じランクが複数あるとき、どれを先に進めるか</td><td>低いランクを先にする</td><td>LOOP-06</td><td>低いランクを先に（02 ステップ5）</td></tr>
       <tr><td>Q-7</td><td>リメイクの試合を processed_matches に記録しないため、次回以降に同じプレイヤーから同じ試合IDが返ると、もう一度試合詳細を取りに行く（1リクエスト分のむだ）</td><td>記録しない（v1.6.0 の判断）</td><td>LOOP-04</td><td>記録しない。むだは1回の実行につき1回の呼び出し（02 ステップ5）</td></tr>
       <tr><td>Q-8</td><td>GitHub Actions の手動実行に <code>MAX_MATCHES</code> の入力欄がないため、OT は毎回 330分まで動く</td><td>入力欄なし</td><td>OT-02</td><td>手動実行に入力欄 max_matches・max_duration_minutes を追加（collect-daily.yml・02。OT-02 で使う）</td></tr>
+      <tr><td>Q-9</td><td>容量（Supabase Free 500MB）に収まるか（v1.6.0 で追加）。1回目の ST-10（platinum_plus 1,019試合）の計測ではアイテムビルドが1試合あたり約18行・1行約260バイトで、1日6,000試合なら1パッチ約400MB。今と直前のパッチの分を残すと収まらないおそれが高い（02 コスト試算）。PR #24 のレビューで、1日の試合数は約9,500〜12,700試合（ST-04・ST-10 の速さから）とわかり、今のパッチだけでも約550〜840MB になる</td><td>今と直前のパッチのアイテムビルドを残す（006 の最初の案）</td><td>ST-10、DB-13</td><td>2026-11-11: アイテムビルドは今のパッチの分だけ残す（直前のパッチの分も消す。01 FR-23・02 ステップ2・006）。さらに同じ日に、1日の試合数を見直した結果、アイテムビルドは書き込まないことにした（使う機能が要件・画面・API にないため。02 ステップ6・AGG-11）。勝率・対面勝率は残し、本番の DB の使用量が 400MB を超えたら次の対策を決める（02 コスト試算）</td></tr>
     </table>
     <h3>テスト項目のないエラー（v1.3.0 で追加）</h3>
     <p>02「エラー時の動き」・04「apply_batch_result のエラー」に書いたもののうち、テスト項目がないもの。状態を作るのが難しい、または影響が小さいため。必要になったら項目を追加する。</p>

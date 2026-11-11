@@ -1,6 +1,11 @@
 import { supabase } from './supabase';
 import type { AggregationMap, AggregationResult } from './aggregator';
 
+// item_build_stats には書き込まない（2026-11-11 にユーザーの判断。02 ステップ6）
+// アイテムビルドを使う機能（要件・画面・API）がまだなく、1パッチで 500MB を超えるおそれがあるため（06 の未決事項 Q-9）
+// 使う機能を作るときに、容量とあわせて設計し直す。集計の仕組み（aggregator）と表はそのまま残す
+export const WRITE_ITEM_BUILDS = false;
+
 // Supabase（PostgREST）は1回の SELECT で最大1000件までしか返さないため、ページ単位で取得する
 const SELECT_PAGE_SIZE = 1000;
 
@@ -64,7 +69,7 @@ export async function applyBatchResult(
 ): Promise<{ championRows: number; counterRows: number; itemRows: number }> {
   const championRows = buildChampionRows(aggregation.championStats);
   const counterRows  = buildCounterRows(aggregation.counterStats);
-  const itemRows     = buildItemRows(aggregation.itemBuildStats);
+  const itemRows     = WRITE_ITEM_BUILDS ? buildItemRows(aggregation.itemBuildStats) : [];
 
   const { error } = await supabase.rpc('apply_batch_result', {
     p_patch:         patch,
@@ -81,6 +86,44 @@ export async function applyBatchResult(
     counterRows:  counterRows.length,
     itemRows:     itemRows.length,
   };
+}
+
+/**
+ * 試合を少しずつ書き込み、書き込み終えた試合数を数える（02 ステップ6・7）
+ * write が失敗したら、その回の試合は数えない（書き込まれていないため）。written() は失敗した後も、それまでの数を返す
+ */
+export function createChunkWriter(patch: string, region: string) {
+  let written = 0;
+  return {
+    async write(aggregation: AggregationResult, matchIds: string[]) {
+      const counts = await applyBatchResult(aggregation, matchIds, patch, region);
+      written += matchIds.length;
+      return counts;
+    },
+    written: () => written,
+  };
+}
+
+// 古いパッチを消すときの1回の上限（DB 関数 archive_old_patches、006 マイグレーション）。API の時間の上限（8秒）に収めるため
+const ARCHIVE_ROWS_PER_CALL = 20000;
+
+/**
+ * 今のパッチより古いパッチ（直前のパッチも含む）の item_build_stats と processed_matches を消す（要件 FR-23、02 ステップ2）
+ * champion_stats・counter_stats は残す。1回で消すのは最大 ARCHIVE_ROWS_PER_CALL 行で、0 が返るまで繰り返す
+ * 戻り値は消した行の合計
+ */
+export async function archiveOldPatches(currentPatch: string): Promise<number> {
+  let total = 0;
+  for (;;) {
+    const { data, error } = await supabase.rpc('archive_old_patches', {
+      p_current_patch: currentPatch,
+      p_limit:         ARCHIVE_ROWS_PER_CALL,
+    });
+    if (error) throw new Error(`[archive_old_patches] 古いパッチの削除に失敗: ${error.message}`);
+    const deleted = Number(data ?? 0);
+    total += deleted;
+    if (deleted === 0) return total;
+  }
 }
 
 /**

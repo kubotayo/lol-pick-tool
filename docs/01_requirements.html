@@ -90,13 +90,14 @@
   <h1>要件定義書</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.8.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.9.0</div></div>
     <div class="meta-item"><div class="label">ステータス</div><div class="value">Draft</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.1.0)</div><div class="value">FR-06 Tier閾値を明記</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.2.0)</div><div class="value">FR-03パッチ必須化・FR-20スノーボール方式・FR-24追加・リージョンJPのみ</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.3.0)</div><div class="value">FR-20に終了条件・環境変数名・デフォルト値を補足</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.4.0)</div><div class="value">FR-21の集計値を上書きから加算に変更</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.5.0)</div><div class="value">FR-04 ランク帯の意味・FR-20 名簿と収集対象ランク・FR-21 平均ランクによるランク帯判定</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.9.0)</div><div class="value">2026-11-10 FR-23 の「アーカイブ」の意味を定義（今のパッチより古いパッチのアイテムビルドを消す）。FR-21 に勝者が1チームでない試合の除外を追加。アイテムビルドは DB に書き込まないことを FR-23 に追記</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.8.0)</div><div class="value">2026-11-09 FR-22 で DB に記録するエラーの範囲を明記（テスト仕様書の未決事項 Q-1 の決定）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.7.0)</div><div class="value">2026-11-08 Riot API キーを Personal Key に変更（Development Key は24時間で失効するため）。Personal Key では一般公開できないので、Web サイトを非公開にしたことを制約事項に追記</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.6.0)</div><div class="value">2026-11-04 FR-21 リメイクの試合を集計から除外</div></div>
@@ -265,7 +266,7 @@
           <td><span class="req-id">FR-21</span></td>
           <td><span class="badge badge-must">Must</span></td>
           <td>収集データをリージョン・ランク帯・パッチで集計し既存値に加算</td>
-          <td>試合のランク帯は参加者10人の平均ランクで決める（名簿にいない人は Gold 相当として平均に入れる。計算方法は 04 DB設計書）。1試合を、当てはまるランク帯すべて（all と、平均がそのランク以上の platinum_plus / diamond_plus / master_plus）に加算する。リメイク（開始直後の降参で終わった試合）は集計しない（数分で終わった試合はチャンピオンの強さと関係がなく、勝率を歪めるため。v1.6.0 で追加）。集計済みデータのみDBに保存（生データは保存しない）。既存の集計行に games_played / wins を加算し、win_rate を再計算してから更新。処理済み試合IDはprocessed_matchesテーブルに記録し、バッチ実行をまたいだ重複処理を防ぐ。</td>
+          <td>試合のランク帯は参加者10人の平均ランクで決める（名簿にいない人は Gold 相当として平均に入れる。計算方法は 04 DB設計書）。1試合を、当てはまるランク帯すべて（all と、平均がそのランク以上の platinum_plus / diamond_plus / master_plus）に加算する。リメイク（開始直後の降参で終わった試合）は集計しない（数分で終わった試合はチャンピオンの強さと関係がなく、勝率を歪めるため。v1.6.0 で追加）。勝者が1チームでない試合（不正対策による中止などで両チームとも負けの試合）も集計しない（試合数だけが増えて勝率が下がるため。v1.9.0 で追加）。集計済みデータのみDBに保存（生データは保存しない）。既存の集計行に games_played / wins を加算し、win_rate を再計算してから更新。処理済み試合IDはprocessed_matchesテーブルに記録し、バッチ実行をまたいだ重複処理を防ぐ。</td>
         </tr>
         <tr>
           <td><span class="req-id">FR-24</span></td>
@@ -283,7 +284,7 @@
           <td><span class="req-id">FR-23</span></td>
           <td><span class="badge badge-should">Should</span></td>
           <td>パッチ更新時に自動で前パッチをアーカイブ</td>
-          <td>gameVersionの変化を検知して自動切替</td>
+          <td>gameVersionの変化を検知して自動切替。「アーカイブ」は、今のパッチより古いパッチについて、勝率（champion_stats）・対面勝率（counter_stats）を残し、アイテムビルド（item_build_stats）と処理済みの試合ID を消すこと（v1.9.0 で定義。Supabase Free の容量 500MB を守るため。アイテムビルドが容量の大半を占めるので、直前のパッチの分も残さない（当初は1パッチ約400MB と見込んだが、後に1日の試合数を見直して約550〜840MB とした。02 コスト試算）。アイテムビルドはまだ画面・API で使っていない）。なお、アイテムビルドは v1.9.0 から DB に書き込んでいない（集計の仕組みは残す。使う機能がなく、今のパッチの分だけでも 500MB を超えるおそれがあるため。使う機能を作るときに設計し直す）</td>
         </tr>
       </table>
     </div>

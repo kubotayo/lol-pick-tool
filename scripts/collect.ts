@@ -1,5 +1,5 @@
 import { RiotClient } from './riotClient';
-import { applyBatchResult, getProcessedMatchIds } from './supabaseWriter';
+import { archiveOldPatches, createChunkWriter, getProcessedMatchIds } from './supabaseWriter';
 import { supabase } from './supabase';
 import { normalizePatch, parseTargetRegion, parsePositiveInt, getStopReason, StopReason } from './utils';
 import { collectMatches } from './collector';
@@ -16,6 +16,9 @@ const DEFAULT_MAX_DURATION_MINUTES = 330;
 const SEED_PLAYERS_PER_TIER = 5;
 // 1プレイヤーあたりの試合取得数
 const MATCHES_PER_PLAYER = 20;
+// この試合数ごとに DB に書き込む。1回の書き込みを API の時間の上限（8秒）に収めるため
+// （1回の書き込みは 500試合で約2秒、6,000試合では約9秒かかった。2026-11-10 にローカルで計測）
+const WRITE_EVERY_MATCHES = 500;
 
 const STOP_REASON_LABEL: Record<StopReason | 'queue_empty', string> = {
   time_limit:  '時間上限に達した',
@@ -112,8 +115,14 @@ async function runCollection(): Promise<void> {
 
   // ③ collection_logs にジョブ開始を記録（rank_tier には収集対象ランクの設定を残す）
   const logId = await startLog({ patch, region, rank_tier: tiersLabel, status: 'running', started_at: new Date().toISOString() });
+  // DB に書き込み終えた試合数を数える。途中で失敗したときも collection_logs に残す（02 ステップ7）
+  const writer = createChunkWriter(patch, region);
 
   try {
+    // ③' 古いパッチのアイテムビルドと処理済み試合IDを消す（容量を守るため。要件 FR-23）
+    const archived = await archiveOldPatches(patch);
+    console.log(`[collect] 古いパッチの削除: ${archived}行`);
+
     // ④ 名簿（Platinum 以上の全プレイヤーのランク）を作る。試合の平均ランクの計算とシードに使う
     console.log('[collect] 名簿を作成中...');
     const roster = await buildRoster(client);
@@ -144,18 +153,20 @@ async function runCollection(): Promise<void> {
           console.log(`[collect] 処理済み試合: ${totalMatches}件 / 収集元ランク別: ${formatCollected(collected, targetTiers)}`);
         }
       },
+      // ⑦ 集計結果の加算と処理済み試合IDの記録を、WRITE_EVERY_MATCHES 試合ごとに1トランザクションで書き込む
+      writeEvery: WRITE_EVERY_MATCHES,
+      onWrite: async (aggregation, matchIds) => {
+        console.log(`[collect] DBに書き込み中... (${matchIds.length}試合分)`);
+        const counts = await writer.write(aggregation, matchIds);
+        console.log(`[collect] champion_stats: ${counts.championRows}件 / counter_stats: ${counts.counterRows}件 / item_build_stats: ${counts.itemRows}件 を加算（書き込み済み 累計 ${writer.written()}試合）`);
+      },
     });
     const totalMatches = result.matchIds.length;
 
     console.log(`[collect] ループ終了: ${STOP_REASON_LABEL[result.stopReason]}（処理済み ${totalMatches}試合 / 経過 ${Math.round((Date.now() - PROCESS_STARTED_AT) / 60_000)}分）`);
     console.log(`[collect] 収集元ランク別: ${formatCollected(result.collected, targetTiers)} / ランク帯別の加算試合数: ${JSON.stringify(result.rankTierCounts)}`);
 
-    // ⑦ 集計結果の加算と処理済み試合IDの記録を、1トランザクションで書き込む
-    if (totalMatches > 0) {
-      console.log(`[collect] DBに書き込み中... (${totalMatches}試合分)`);
-      const counts = await applyBatchResult(result.aggregation, result.matchIds, patch, region);
-      console.log(`[collect] champion_stats: ${counts.championRows}件 / counter_stats: ${counts.counterRows}件 / item_build_stats: ${counts.itemRows}件 を加算`);
-    } else {
+    if (totalMatches === 0) {
       console.log('[collect] 新しく処理した試合がないため、書き込みをスキップ');
     }
 
@@ -172,9 +183,10 @@ async function runCollection(): Promise<void> {
     // 致命的エラーを collection_logs に記録して、呼び出し元（main）に伝える。標準出力への表示は main で行う
     const message = err instanceof Error ? err.message : String(err);
     await updateLog(logId, {
-      status:        'failed',
-      error_message: message,
-      completed_at:  new Date().toISOString(),
+      status:            'failed',
+      matches_collected: writer.written(), // 途中まで書き込んだ試合は DB に残っているため、その数を記録する
+      error_message:     message,
+      completed_at:      new Date().toISOString(),
     });
     throw err;
   }

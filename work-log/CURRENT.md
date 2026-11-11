@@ -1,24 +1,30 @@
 # 現在の状況
 
-最終更新: 2026-11-09（未決事項の決定）
+最終更新: 2026-11-11
 
 ## 進行中のタスク
 
-- **バッチのテスト**（PR #12〜#21 は development にマージ済み。未決事項 Q-1〜Q-8 の決定を、ブランチ `feat/resolve-open-questions` の PR で作成。マージ待ち）
-  - テスト仕様書 `docs/06_batch-test-spec.html` v1.5.0（未決事項はすべて決定）。自動テスト 173件成功。結合テスト DB-01〜11 合格（`npm run it:db`）。**システムテスト ST-01〜09 はすべて合格**（ST-04・05 は修正後にやり直し）。OT（本番）はまだ
+- **バッチのテスト**（PR #12〜#22 は development にマージ済み。main へのマージ PR #23 は保留中: マージ前の確認で、書き込みの時間の上限（8秒）と容量（500MB）の問題が見つかったため。対策（500試合ごとの書き込み・アイテムビルドは書き込まない・古いパッチの削除・勝者のいない試合の除外・ログの PUUID）をブランチ `fix/batch-write-chunks` の PR で作成。マージ待ち）
+  - テスト仕様書 `docs/06_batch-test-spec.html` v1.6.0。自動テスト 182件成功。結合テスト DB-01〜11・13・14 合格（`npm run it:db`）。ST-09・ST-10 も合格（ST-10: 1,100試合を3回に分けて書き込み）。**システムテスト ST-01〜09 はすべて合格**（ST-04・05 は修正後にやり直し）。OT（本番）はまだ
   - システムテストで見つかった2点を修正: Riot API の呼び出しに10秒の時間切れ、APIキーの確認で 401 も「無効または失効」
   - ローカルの Supabase は `supabase/config.toml` を作成済み。Docker Desktop を起動して `npx supabase start` で使える
 - **Web サイトは非公開**（2026-11-08。Vercel Authentication を All Deployments に設定。Personal Key のデータは一般公開できないため）。設計書にも反映済み（PR #20）
 - Riot API キーは Personal Key（承認済み・有効期限なし）
-- DB（本番）には手元で確認した35試合分（正しいデータ）が入っている。migration 005 まで適用済み
+- DB（本番）には手元で確認した35試合分（正しいデータ）が入っている。migration 005 まで適用済み（**006 は未適用**。main へのマージより前に適用する）
 
 ## 次にやること
 
-- [ ] `feat/resolve-open-questions` の PR を development へマージする
-- [ ] development → main へマージし、OT（Secrets 確認・手動実行は max_matches 20）→ 定期実行を始める。GitHub Secrets の RIOT_API_KEY を Personal Key にする
+- [ ] `fix/batch-write-chunks` の PR を development へマージ
+- [ ] 本番 DB に migration 006 を適用する（main へのマージより前。ユーザーの確認を取ってから）
+- [ ] PR #23（development → main）を更新して、マージ
+- [ ] main へのマージで定期実行（UTC 17:00）が有効になる。マージした後、OT（手動実行は max_matches 20。日本時間 1:00〜3:00 を避ける）を行う。GitHub Secrets の RIOT_API_KEY は Personal Key（ユーザー確認済み）
 - [ ] API を Supabase に接続する（今はモックデータ。05 の「実装状況」参照）
 
 ## 未解決の課題 / 保留中の確認事項
+
+- 容量: アイテムビルドは書き込まない（Q-9 の決定。1日約9,500〜12,700試合の見込みで、今のパッチだけでも 500MB を超えるおそれがあったため）。勝率・対面勝率は残す。本番の DB の使用量が 400MB を超えたら次の対策（古いパッチの対面勝率を消す・有料プラン）を決める。定期実行の後に使用量を確かめる
+- アイテムビルドを使う機能を作るときは、容量とあわせて設計し直す（`WRITE_ITEM_BUILDS`）
+- 本番 DB に 006 を適用する前に、champion_stats・processed_matches の patch がすべて「数字.数字」か確かめる（違う値があると archive_old_patches が毎回エラーになる）
 
 - OT-02 の判定は PR #22 の最後のコミットで強めたので、OT の結果を記入する前に、その部分を reviewer で再レビューする（CLAUDE.md「テスト仕様書」4）
 

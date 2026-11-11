@@ -1,4 +1,4 @@
-// 結合テスト DB-01〜11（docs/06_batch-test-spec.html 5.7節）をローカルの Supabase で確かめる
+// 結合テスト DB-01〜11・13・14（docs/06_batch-test-spec.html 5.7節）をローカルの Supabase で確かめる
 // 実行: npm run it:db（ローカルの DB を初期状態に戻してから実行する）
 // - 接続先と鍵は `npx supabase status` から取る。ローカル以外の接続先なら実行しない（本番データを汚さないため）
 // - 初期状態（champions が空）でなければ実行しない。結果が前回の実行に左右されないようにするため
@@ -256,6 +256,59 @@ async function main() {
       detail.push(`${table}: 実際 ${adminCount}行 / anon SELECT ${sel.error ? `エラー(${sel.error.code})` : `${sel.data?.length}行`} / INSERT ${ins.error ? `拒否(${ins.error.code})` : '成功'} / UPDATE ${upd.error ? `エラー(${upd.error.code})` : `${upd.data?.length}行`} / DELETE ${del.error ? `エラー(${del.error.code})` : `${del.data?.length}行`} / データ変化なし=${before === after}`);
     }
     record('DB-11', ok, detail.join(' / '));
+  }
+
+  // DB-13（古いパッチの削除。ほかの項目の後に行う。DB-01〜11 で入れた 16.21 の行も「古いパッチ」として扱われる）
+  {
+    const patches = ['17.9', '17.10', '17.11', '17.12']; // 17.12 が今のパッチ。それより前はすべて消す対象。17.9 < 17.10（数字で比べる）
+    for (const patch of patches) {
+      const inserts: Array<[string, Row[]]> = [
+        ['champion_stats',   [{ champion_id: 1, lane: 'MID', patch, region: REGION, rank_tier: 'all', games_played: 1, wins: 1, win_rate: 1 }]],
+        ['counter_stats',    [{ champion_id: 1, enemy_champion_id: 2, lane: 'MID', patch, region: REGION, rank_tier: 'all', games_played: 1, wins: 1, win_rate: 1 }]],
+        ['item_build_stats', Array.from({ length: 5 }, (_, i) => ({ champion_id: 1, lane: 'MID', patch, region: REGION, rank_tier: 'all', item_ids: `${i}`, games_played: 1, wins: 1, win_rate: 1 }))],
+        ['processed_matches', Array.from({ length: 3 }, (_, i) => ({ match_id: `IT13_${patch}_${i}`, patch }))],
+      ];
+      for (const [table, rows] of inserts) {
+        const { error } = await admin.from(table).insert(rows);
+        if (error) throw error;
+      }
+    }
+    const count = async (table: string, patch: string) =>
+      (await admin.from(table).select('*', { count: 'exact', head: true }).eq('patch', patch)).count;
+    const before16 = { item: await count('item_build_stats', '16.21'), processed: await count('processed_matches', '16.21') };
+
+    // 1回の上限を 4 にして、0 が返るまで呼ぶ
+    const returned: number[] = [];
+    let firstError: string | null = null;
+    for (let i = 0; i < 50; i++) {
+      const { data, error } = await admin.rpc('archive_old_patches', { p_current_patch: '17.12', p_limit: 4 });
+      if (error) { firstError = `${error.code} ${error.message}`; break; }
+      returned.push(Number(data));
+      if (Number(data) === 0) break;
+    }
+    const after: Record<string, unknown> = {};
+    for (const patch of [...patches, '16.21']) {
+      after[patch] = {
+        champion: await count('champion_stats', patch), counter: await count('counter_stats', patch),
+        item: await count('item_build_stats', patch), processed: await count('processed_matches', patch),
+      };
+    }
+    const a = after as Record<string, { champion: number; counter: number; item: number; processed: number }>;
+    // 今のパッチより前（直前の 17.11 を含む）の item_build_stats・processed_matches は消え、今のパッチ 17.12 は残る
+    const deletedOk = ['17.9', '17.10', '17.11', '16.21'].every(p => a[p].item === 0 && a[p].processed === 0);
+    const keptOk = a['17.12'].item === 5 && a['17.12'].processed === 3;
+    const statsKept = [...patches].every(p => a[p].champion === 1 && a[p].counter === 1) && a['16.21'].champion > 0;
+    const expectedTotal = 3 * (5 + 3) + (before16.item ?? 0) + (before16.processed ?? 0);
+    const limitOk = returned.slice(0, -1).every(n => n > 0 && n <= 4) && returned.at(-1) === 0 && returned.reduce((x, y) => x + y, 0) === expectedTotal;
+    record('DB-13', !firstError && deletedOk && keptOk && statsKept && limitOk,
+      `error=${firstError ?? 'なし'} 1回ごとの行数=${JSON.stringify(returned)}（合計 ${returned.reduce((x, y) => x + y, 0)}／期待 ${expectedTotal}） 実行後=${JSON.stringify(after)}`);
+  }
+
+  // DB-14
+  {
+    const { error } = await anon.rpc('archive_old_patches', { p_current_patch: '17.12', p_limit: 4 });
+    record('DB-14', error?.code === '42501' && /permission denied for function archive_old_patches/.test(error.message),
+      `error=${error?.code} ${error?.message ?? 'なし'}`);
   }
 
   const ng = results.filter(r => !r.ok);
