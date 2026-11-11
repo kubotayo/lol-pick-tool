@@ -1,5 +1,5 @@
 import { RiotClient } from './riotClient';
-import { archiveOldPatches, createChunkWriter, getProcessedMatchIds } from './supabaseWriter';
+import { archiveOldPatches, createChunkWriter, getProcessedMatchIds, WRITE_ITEM_BUILDS } from './supabaseWriter';
 import { supabase } from './supabase';
 import { normalizePatch, parseTargetRegion, parsePositiveInt, getStopReason, StopReason } from './utils';
 import { collectMatches } from './collector';
@@ -158,7 +158,9 @@ async function runCollection(): Promise<void> {
       onWrite: async (aggregation, matchIds) => {
         console.log(`[collect] DBに書き込み中... (${matchIds.length}試合分)`);
         const counts = await writer.write(aggregation, matchIds);
-        console.log(`[collect] champion_stats: ${counts.championRows}件 / counter_stats: ${counts.counterRows}件 / item_build_stats: ${counts.itemRows}件 を加算（書き込み済み 累計 ${writer.written()}試合）`);
+        // アイテムビルドを書き込まない間（WRITE_ITEM_BUILDS = false）は、常に0件なので表示しない
+        const itemText = WRITE_ITEM_BUILDS ? ` / item_build_stats: ${counts.itemRows}件` : '';
+        console.log(`[collect] champion_stats: ${counts.championRows}件 / counter_stats: ${counts.counterRows}件${itemText} を加算（書き込み済み 累計 ${writer.written()}試合）`);
       },
     });
     const totalMatches = result.matchIds.length;

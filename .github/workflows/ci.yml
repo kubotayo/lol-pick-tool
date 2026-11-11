@@ -6,6 +6,10 @@ on:
   push:
     branches: [development]
 
+# GITHUB_TOKEN は checkout でリポジトリを読むだけに使うので、読み取りだけにする（contents: read は checkout に必要）
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Test & Build
