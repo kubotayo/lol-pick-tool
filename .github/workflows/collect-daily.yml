@@ -29,7 +29,7 @@ concurrency:
   group: collect-daily
   cancel-in-progress: false
 
-# GITHUB_TOKEN は使わないので、読み取りだけにする
+# GITHUB_TOKEN は checkout でリポジトリを読むだけに使うので、読み取りだけにする（contents: read は checkout に必要）
 permissions:
   contents: read
 
