@@ -18,7 +18,7 @@
 - [x] 本番 DB に migration 006 を適用する
 - [ ] `fix/release-prep` の PR を development へマージ
 - [ ] PR #23（development → main）をマージ
-- [ ] main へのマージで定期実行（UTC 17:00）が有効になる。マージした後、OT（手動実行は max_matches 20。日本時間 1:00〜3:00 を避ける）を行う。GitHub Secrets の RIOT_API_KEY は Personal Key（ユーザー確認済み）
+- [ ] main へのマージで定期実行（UTC 17:00）が有効になる。マージした後、OT（手動実行は max_matches 20。定期実行が動いていないことを確かめ、UTC 15:30〔JST 0:30〕までに始める。06 OT-02）を行う。GitHub Secrets の RIOT_API_KEY は Personal Key（ユーザー確認済み）
 - [ ] API を Supabase に接続する（今はモックデータ。05 の「実装状況」参照）
 
 ## 未解決の課題 / 保留中の確認事項
