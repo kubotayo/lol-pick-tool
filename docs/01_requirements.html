@@ -90,13 +90,14 @@
   <h1>要件定義書</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.9.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.9.1</div></div>
     <div class="meta-item"><div class="label">ステータス</div><div class="value">Draft</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.1.0)</div><div class="value">FR-06 Tier閾値を明記</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.2.0)</div><div class="value">FR-03パッチ必須化・FR-20スノーボール方式・FR-24追加・リージョンJPのみ</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.3.0)</div><div class="value">FR-20に終了条件・環境変数名・デフォルト値を補足</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.4.0)</div><div class="value">FR-21の集計値を上書きから加算に変更</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.5.0)</div><div class="value">FR-04 ランク帯の意味・FR-20 名簿と収集対象ランク・FR-21 平均ランクによるランク帯判定</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.9.1)</div><div class="value">2026-11-12 FR-20 の定期実行の時刻を JST 02:00 から JST 01:37 に変更（GitHub Actions の定期実行は混雑すると遅れ、毎時0分は特に混む。初回〔2026-11-11 の UTC 17:00 の予定〕は約6時間20分遅れて 23:22 UTC に始まった）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.9.0)</div><div class="value">2026-11-10 FR-23 の「アーカイブ」の意味を定義（今のパッチより古いパッチのアイテムビルドを消す）。FR-21 に勝者が1チームでない試合の除外を追加。アイテムビルドは DB に書き込まないことを FR-23 に追記</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.8.0)</div><div class="value">2026-11-09 FR-22 で DB に記録するエラーの範囲を明記（テスト仕様書の未決事項 Q-1 の決定）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.7.0)</div><div class="value">2026-11-08 Riot API キーを Personal Key に変更（Development Key は24時間で失効するため）。Personal Key では一般公開できないので、Web サイトを非公開にしたことを制約事項に追記</div></div>
@@ -260,7 +261,7 @@
           <td><span class="req-id">FR-20</span></td>
           <td><span class="badge badge-must">Must</span></td>
           <td>スノーボール方式でRiot MATCH-V5 APIから試合データを収集</td>
-          <td>GitHub Actionsのバッチジョブで定期実行（Cron: 毎日 JST 02:00）。最初に Platinum 以上の全プレイヤーのランク（名簿）を LEAGUE-V4 から取得する。名簿から選んだシードプレイヤーの試合を取得し、各試合の参加者のうち名簿にいる人を次のシードとして芋づる式に試合を広げる。試合を集める対象のランクは環境変数 TARGET_TIERS（PLATINUM / EMERALD / DIAMOND / MASTER のカンマ区切り。未指定時は4ランクすべて。MASTER は Master 以上）で指定し、集めた試合数が最も少ないランクのプレイヤーを優先して、対象ランクの試合数をそろえる。運用当初は PLATINUM のみ（Actions の既定値）。収集対象リージョン：JPのみ（環境変数 TARGET_REGIONS、デフォルト jp1。複数指定時はエラー終了）。終了条件：時間上限 MAX_DURATION_MINUTES（デフォルト330分、Actions timeout-minutes: 360 から書き込み用に30分の余裕）または試合数上限 MAX_MATCHES（未指定時は上限なし）またはキュー枯渇のいずれか先に達した方で終了。</td>
+          <td>GitHub Actionsのバッチジョブで定期実行（Cron: 毎日 JST 01:37。v1.9.1 で変更。以前は JST 02:00。GitHub の混雑で数時間遅れることがある）。最初に Platinum 以上の全プレイヤーのランク（名簿）を LEAGUE-V4 から取得する。名簿から選んだシードプレイヤーの試合を取得し、各試合の参加者のうち名簿にいる人を次のシードとして芋づる式に試合を広げる。試合を集める対象のランクは環境変数 TARGET_TIERS（PLATINUM / EMERALD / DIAMOND / MASTER のカンマ区切り。未指定時は4ランクすべて。MASTER は Master 以上）で指定し、集めた試合数が最も少ないランクのプレイヤーを優先して、対象ランクの試合数をそろえる。運用当初は PLATINUM のみ（Actions の既定値）。収集対象リージョン：JPのみ（環境変数 TARGET_REGIONS、デフォルト jp1。複数指定時はエラー終了）。終了条件：時間上限 MAX_DURATION_MINUTES（デフォルト330分、Actions timeout-minutes: 360 から書き込み用に30分の余裕）または試合数上限 MAX_MATCHES（未指定時は上限なし）またはキュー枯渇のいずれか先に達した方で終了。</td>
         </tr>
         <tr>
           <td><span class="req-id">FR-21</span></td>
