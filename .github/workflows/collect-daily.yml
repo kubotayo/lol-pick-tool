@@ -1,9 +1,11 @@
 name: Collect Daily
 
 on:
-  # 毎日 JST 02:00（UTC 17:00）に実行
+  # 毎日 JST 01:37（UTC 16:37）に実行。
+  # 毎時0分は GitHub Actions が混んで遅れやすいので、半端な分にずらしている（2026-11-12 に変更。以前は UTC 17:00）。
+  # 混雑すると数時間遅れることがある（遅れても次の実行とは concurrency で重ならない）
   schedule:
-    - cron: '0 17 * * *'
+    - cron: '37 16 * * *'
   # 手動実行（パッチ更新後の初回シード収集・デバッグ用）
   workflow_dispatch:
     inputs:

@@ -81,9 +81,10 @@
   <h1>システム構成図</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.10.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.10.1</div></div>
     <div class="meta-item"><div class="label">月額コスト見込み</div><div class="value">$0（全て無料枠）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.5.0)</div><div class="value">Riot API・Data Dragon の使い方・名簿と収集対象ランク（TARGET_TIERS）・API のキャッシュ・API設計書（05）への参照</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.10.1)</div><div class="value">2026-11-12 定期実行の時刻を JST 02:00（UTC 17:00）から JST 01:37（UTC 16:37）に変更（GitHub Actions の定期実行は混雑すると遅れ、毎時0分は特に混む。初回〔2026-11-11 の UTC 17:00 の予定〕は約6時間20分遅れて 23:22 UTC に始まった）。遅れたときの動きを追記</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.10.0)</div><div class="value">2026-11-10 main へのマージ前の確認で見つかった問題の対策: 500試合ごとの書き込み（API の時間の上限 8秒）、古いパッチのアイテムビルドの削除（容量 500MB）、失敗時も書き込み済みの試合数を記録、ログの PUUID を伏せる。勝者が1チームでない試合の除外。アイテムビルドは書き込まない（古いパッチの削除の仕組みは残す）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.9.0)</div><div class="value">2026-11-09 テスト仕様書の未決事項 Q-1〜Q-8 の決定を反映（手動実行の入力欄 max_matches・max_duration_minutes の追加、終了理由・ランクの順・取得失敗・running の行・リメイクの扱いを仕様として明記）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.8.0)</div><div class="value">2026-11-09 システムテストの結果を受けて、Riot API の呼び出しに10秒の時間切れを追加し、APIキーの確認で 401 も「無効または失効」として扱うように変更。時間上限は1ループ分（最大約71秒）超えることがあると明記</div></div>
@@ -136,7 +137,7 @@
         <!-- GitHub Actions box -->
         <rect x="30" y="55" width="270" height="80" rx="8" fill="#9b59b6" />
         <text x="165" y="83" text-anchor="middle" font-size="13" fill="white" font-weight="700">GitHub Actions</text>
-        <text x="165" y="100" text-anchor="middle" font-size="11" fill="#e8d5f5">Cron: 毎日 02:00 JST</text>
+        <text x="165" y="100" text-anchor="middle" font-size="11" fill="#e8d5f5">Cron: 毎日 01:37 JST</text>
         <text x="165" y="116" text-anchor="middle" font-size="11" fill="#e8d5f5">収集スクリプト（TypeScript）</text>
 
         <!-- Collector script components -->
@@ -253,7 +254,7 @@
         <div class="service"><span class="service-badge">GitHub Actions</span> 無料（publicリポジトリ）</div>
         <ul>
           <li>TypeScript で実装（collect.ts）</li>
-          <li>Cron スケジュール実行：毎日 JST 02:00（UTC 17:00）</li>
+          <li>Cron スケジュール実行：毎日 JST 01:37（UTC 16:37）（v1.10.1 で変更。以前は JST 02:00〔UTC 17:00〕。毎時0分は GitHub Actions が混んで遅れやすいため、半端な分にずらした。初回は 17:00 の予定が約6時間20分遅れた）。混雑すると数時間遅れることがある。遅れても、同時に動くのは1つだけ（concurrency）で、時間上限 330分も起動から測るので、集める量はほぼ変わらない</li>
           <li>最大6時間/ジョブ（timeout-minutes: 360）</li>
           <li>環境変数：TARGET_REGIONS（デフォルト jp1、現在1リージョンのみ対応）/ TARGET_TIERS（試合を集める対象のランク。PLATINUM / EMERALD / DIAMOND / MASTER のカンマ区切り。未指定時は4ランクすべて。Actions の既定値は当面 PLATINUM）/ MAX_DURATION_MINUTES（デフォルト 330分）/ MAX_MATCHES（未指定時は上限なし）。手動実行では入力欄 max_matches・max_duration_minutes で MAX_MATCHES・MAX_DURATION_MINUTES を指定できる（空なら既定値。定期実行は既定値。v1.9.0 で追加。運用テストなどで短く終えるため）。max_duration_minutes は 330 以下にする（スクリプトは正の整数かどうかしか見ない。時間上限は起動から測るので、330 を超えると、書き込みを終える前に timeout-minutes 360 で打ち切られるおそれがある。360 以上なら必ず打ち切られる。打ち切られると、その回に集めた試合はすべて失われ、running の行が残る）</li>
           <li>Riot APIキーは GitHub Secrets で管理</li>
@@ -460,7 +461,7 @@
           <div class="cron-label">Cron式</div>
           <div class="cron-box">0 2 * * *</div>
         </td>
-        <td>毎日午前2時（JST）に最新パッチの試合データを収集・集計してDBを更新</td>
+        <td>毎日 JST 01:37（v1.10.1 で変更。以前は午前2時。GitHub の混雑で遅れることがある）に最新パッチの試合データを収集・集計してDBを更新</td>
         <td>約2〜6時間</td>
       </tr>
       <tr>

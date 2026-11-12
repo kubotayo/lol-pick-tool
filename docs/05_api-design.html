@@ -61,8 +61,9 @@
   <h1>API設計書</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-11-02</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.0.1</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.0.2</div></div>
     <div class="meta-item"><div class="label">対象</div><div class="value">Next.js API Routes（app/api/）</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.0.2)</div><div class="value">2026-11-12 キャッシュの方針のバッチの時刻を、02 v1.10.1 の定期実行の時刻（JST 01:37）に合わせた</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.0.1)</div><div class="value">2026-11-08 共通仕様の「認証」に、デプロイ全体を Vercel Authentication で保護していることを追記（サイトを非公開にしたため）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.0.0)</div><div class="value">新規作成。API の仕様を 02 から分離して記載</div></div>
   </div>
@@ -82,7 +83,7 @@
       <tr><td>キャッシュ</td><td>成功（<code>200</code>）の応答に <code>Cache-Control: s-maxage=3600, stale-while-revalidate=86400</code> を付け、Vercel の CDN でクエリ文字列ごとにキャッシュする。エラー応答には <code>Cache-Control: no-store</code> を付けてキャッシュしない</td></tr>
     </table>
     <div class="note">
-      <b>キャッシュの方針（Why）</b>: 集計データが変わるのは1日1回のバッチ実行時（JST 02:00）だけなので、1時間キャッシュしてもほぼ影響がない。表示が速くなり、Supabase 無料枠の転送量も減る。キャッシュが切れた後の最初のアクセスは古い応答をすぐ返し、裏で新しい応答を取り直す（stale-while-revalidate）。バッチ直後の最大1時間は前日のデータが表示されることを許容する。<br>
+      <b>キャッシュの方針（Why）</b>: 集計データが変わるのは1日1回のバッチ実行時（JST 01:37 から最大約6時間。v1.0.2 で変更。以前は JST 02:00。GitHub の混雑で遅れることがある。書き込みは500試合ごと）だけなので、1時間キャッシュしてもほぼ影響がない。表示が速くなり、Supabase 無料枠の転送量も減る。キャッシュが切れた後の最初のアクセスは古い応答をすぐ返し、裏で新しい応答を取り直す（stale-while-revalidate）。バッチ直後の最大1時間は前日のデータが表示されることを許容する。<br>
       検討して採用しなかった案: キャッシュしない（毎回 DB に問い合わせる）／バッチ完了時にキャッシュを消す（バッチから Vercel を呼ぶ仕組みと秘密鍵の管理が増え、個人利用には大げさ）。
     </div>
   </div>
