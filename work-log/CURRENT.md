@@ -5,7 +5,7 @@
 ## 進行中のタスク
 
 - **本番の運用の開始**（2026-11-11 に main へリリース。PR #12〜#25 と #23 をマージ済み。定期実行が有効。時刻は UTC 16:37〔JST 1:37〕に変更〔PR #27。main にマージするまでは UTC 17:00〕）
-  - テスト仕様書 `docs/06_batch-test-spec.html` v1.6.2。自動テスト 182件成功。結合テスト DB-01〜11・13・14 合格（`npm run it:db`）。システムテスト ST-01〜10 合格。**OT-01〜04 合格**（PR #26）。OT-06 も合格。残りは OT-05（定期実行の遅れへの対応の後）
+  - テスト仕様書 `docs/06_batch-test-spec.html` v1.6.2。自動テスト 182件成功。結合テスト DB-01〜11・13・14 合格（`npm run it:db`）。システムテスト ST-01〜10 合格。**OT-01〜04 合格**（PR #26）。OT-06 も合格。残りは OT-05（PR #28 のマージ後の初回の定期実行で確かめる）
   - ローカルの Supabase は `supabase/config.toml` を作成済み。Docker Desktop を起動して `npx supabase start` で使える
 - **Web サイトは非公開**（2026-11-08。Vercel Authentication を All Deployments に設定。Personal Key のデータは一般公開できないため）。設計書にも反映済み（PR #20）
 - Riot API キーは Personal Key（承認済み・有効期限なし）
@@ -19,7 +19,9 @@
 - [x] PR #25・#23 をマージ（2026-11-11。定期実行が有効）
 - [x] GitHub Secrets の RIOT_API_KEY を Personal Key に更新（2026-11-11。古いキーが残っていた。更新日 2026-10-18 から、Personal Key に変える前の Development Key と考えられる）
 - [x] OT-01〜04 を実施し合格（06 に記入。PR #26）
-- [ ] PR #26 を development へマージ
+- [x] PR #26・#27 を development へマージ（2026-11-12）
+- [ ] **PR #28（development → main）をマージ**（cron を UTC 16:37 にする。OT-05 の前提）
+- [ ] PR #29（06 v1.6.2・02 v1.10.2）を development へマージ
 - [ ] OT-05: 06 v1.6.2 の判定で確かめる。対象は PR #28（cron を UTC 16:37 に）のマージ後で最初の予定の schedule の run。窓（その予定から次の予定まで）の間は手動実行しない。来なかったら NG として記録し翌日も確かめる〔翌日が正しくても NG のまま、結果は併記〕、こちらの手動実行で取り消したらやり直す（ユーザーの判断）。成否（success・completed・1試合以上）も見る
 - [x] OT-06: 合格（2026-11-12 に記入。1回目の試行の失敗通知のメールが 2026-11-11 15:44 JST に届いたことをユーザーが確認）
 - [ ] API を Supabase に接続する（今はモックデータ。05 の「実装状況」参照）
