@@ -1,6 +1,6 @@
 # 現在の状況
 
-最終更新: 2026-11-11（午後）
+最終更新: 2026-11-12
 
 ## 進行中のタスク
 
@@ -17,7 +17,7 @@
 - [x] `fix/batch-write-chunks` の PR（#24）を development へマージ
 - [x] 本番 DB に migration 006 を適用する
 - [x] PR #25・#23 をマージ（2026-11-11。定期実行が有効）
-- [x] GitHub Secrets の RIOT_API_KEY を Personal Key に更新（2026-11-11。古い Development Key が残っていた）
+- [x] GitHub Secrets の RIOT_API_KEY を Personal Key に更新（2026-11-11。古いキーが残っていた。更新日 2026-10-18 から、Personal Key に変える前の Development Key と考えられる）
 - [x] OT-01〜04 を実施し合格（06 に記入。PR #26）
 - [ ] PR #26 を development へマージ
 - [ ] OT-05: 初回の定期実行は GitHub の混雑で約6時間20分遅れ、23:22 UTC に開始（予定 17:00。判定「17:00〜18:00」を満たさない）。ユーザーの判断で、cron を混みにくい時刻（UTC 16:37）にずらし、OT-05 の判定を「次の定期実行までに始まる」にゆるめる（別の PR）。直した判定を再レビューしてから記入する
