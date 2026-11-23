@@ -1,4 +1,7 @@
 {
+  "enabledPlugins": {
+    "vercel@claude-plugins-official": false
+  },
   "hooks": {
     "PostToolUse": [
       {
