@@ -2,6 +2,7 @@
 paths:
   - "scripts/**"
   - ".github/workflows/**"
+  - "supabase/migrations/**"
 ---
 
 # Riot API・バッチ

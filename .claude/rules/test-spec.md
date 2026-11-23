@@ -2,6 +2,8 @@
 paths:
   - "docs/06_batch-test-spec.html"
   - "scripts/it/**"
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
 ---
 
 # テスト仕様書

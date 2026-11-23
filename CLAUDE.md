@@ -77,9 +77,9 @@ work-log/
 | ファイル | 内容 | 対象 |
 |--------|------|------|
 | `design-docs.md` | 設計書の更新ルール | `docs/` |
-| `test-spec.md` | テスト仕様書の書き方・レビュー・結果の記入 | `docs/06`、`scripts/it/` |
-| `riot-batch.md` | Riot API・バッチ | `scripts/`、`.github/workflows/` |
-| `api-supabase.md` | API Routes・Supabase | `app/api/`、`lib/api.ts`、`lib/supabase/`、`scripts/supabase*.ts`、`supabase/` |
+| `test-spec.md` | テスト仕様書の書き方・レビュー・結果の記入 | `docs/06`、`scripts/it/`、テストファイル（`*.test.ts`・`*.test.tsx`） |
+| `riot-batch.md` | Riot API・バッチ | `scripts/`、`.github/workflows/`、`supabase/migrations/` |
+| `api-supabase.md` | API Routes・Supabase | `app/api/`、`lib/api.ts`、`lib/supabase/`、`lib/constants.ts`、`scripts/supabase*.ts`、`scripts/collect.ts`、`scripts/it/`、`supabase/` |
 
 ---
 
@@ -105,7 +105,7 @@ work-log/
 
 ## エージェントの使い方
 
-実装は種類（設計書・コード・DDL）を問わずメインの会話で行う。サブエージェントは次の用途に限る。Vercel の操作、テストの設計・実行も、メインの会話で行う。Vercel プラグインはこのプロジェクトでは無効にしてある（毎回読み込まれる量を減らすため）。使うときは `.claude/settings.local.json` の `enabledPlugins` で `vercel@claude-plugins-official` を `true` にして、Claude Code を起動し直す（2026-11-21 に `vercel-expert`・`test-designer`・`test-executor` など共通のエージェントを削除した。ユーザーの判断）。
+実装は種類（設計書・コード・DDL）を問わずメインの会話で行う。サブエージェントは次の用途に限る。Vercel の操作、テストの設計・実行も、メインの会話で行う（2026-11-21 に `vercel-expert`・`test-designer`・`test-executor` など共通のエージェントを削除した。ユーザーの判断）。Vercel プラグインはこのプロジェクトでは無効にしてある（毎回読み込まれる量を減らすため）。使うときは `.claude/settings.local.json` の `enabledPlugins` で `vercel@claude-plugins-official` を `true` にして、Claude Code を起動し直す。
 
 | 用途 | エージェント | 備考 |
 |------|------------|------|

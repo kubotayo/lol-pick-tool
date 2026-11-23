@@ -3,7 +3,10 @@ paths:
   - "app/api/**"
   - "lib/api.ts"
   - "lib/supabase/**"
+  - "lib/constants.ts"
   - "scripts/supabase*.ts"
+  - "scripts/collect.ts"
+  - "scripts/it/**"
   - "supabase/**"
 ---
 
