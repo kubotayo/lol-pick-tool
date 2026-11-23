@@ -94,7 +94,7 @@ work-log/
 
 ## 技術スタック（設計書より）
 
-- **フロントエンド**: Next.js 14（App Router）/ React / TypeScript / Tailwind CSS
+- **フロントエンド**: Next.js 16（App Router）/ React / TypeScript / Tailwind CSS
 - **バックエンド**: Next.js API Routes
 - **DB**: Supabase（PostgreSQL）
 - **バッチ**: TypeScript + GitHub Actions
