@@ -145,6 +145,7 @@ export async function collectMatches(source: MatchSource, options: CollectOption
 
       // 対象パッチ以外はスキップ
       // 試合IDは新しい順なので、古いパッチの試合が出たらこのプレイヤーの残りも古い。残りは取りに行かない
+      // 対象より新しいパッチの試合でも同じく打ち切る（この場合は、残りに対象パッチの試合があっても取らない）
       // （休止中のプレイヤーで20試合分のリクエストを無駄にし、そのランクが選ばれ続けるのを防ぐ）
       if (normalizePatch(match.info.gameVersion) !== patch) {
         requestStats.otherPatchStops++;
