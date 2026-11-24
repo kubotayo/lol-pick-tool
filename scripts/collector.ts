@@ -35,6 +35,20 @@ export interface CollectResult {
   stopReason:     StopReason | 'queue_empty';
   collected:      Record<CollectTier, number>;   // 収集元のランクごとの試合数
   rankTierCounts: Record<string, number>;        // ランク帯ごとの加算試合数
+  requestStats:   RequestStats;                  // メインループの Riot API の呼び出しの内訳
+}
+
+// メインループの Riot API の呼び出しの内訳。どこにリクエストを使ったかをログで確かめるため
+// 名簿の作成と 429 の再試行は含まない
+export interface RequestStats {
+  matchIdCalls:     number; // 試合ID一覧の取得
+  matchIdFailures:  number; // うち失敗
+  playersNoNew:     number; // うち、新しい試合が1つもなかったプレイヤー
+  matchCalls:       number; // 試合詳細の取得
+  oldPatchStops:    number; // うち、古いパッチの試合で打ち切った
+  earlySurrenders:  number; // うち、リメイクで集計しなかった
+  invalidResults:   number; // うち、勝者が1チームでなく集計しなかった
+  matchFailures:    number; // うち、失敗
 }
 
 // ランクごとの収集状態
@@ -65,6 +79,10 @@ export async function collectMatches(source: MatchSource, options: CollectOption
     pendingIds = [];
   };
   const rankTierCounts: Record<string, number> = {};
+  const requestStats: RequestStats = {
+    matchIdCalls: 0, matchIdFailures: 0, playersNoNew: 0,
+    matchCalls: 0, oldPatchStops: 0, earlySurrenders: 0, invalidResults: 0, matchFailures: 0,
+  };
   const collected = (): Record<CollectTier, number> => {
     const result = { PLATINUM: 0, EMERALD: 0, DIAMOND: 0, MASTER: 0 };
     for (const t of targetTiers) result[t] = state[t].collected;
@@ -103,6 +121,7 @@ export async function collectMatches(source: MatchSource, options: CollectOption
     // 処理待ちの試合がなければ、プレイヤーの直近の試合IDを取りに行く
     if (s.matches.length === 0) {
       const puuid = s.players.shift()!;
+      requestStats.matchIdCalls++;
       try {
         const ids = await source.getMatchIds(puuid, options.matchesPerPlayer);
         for (const id of ids) {
@@ -111,13 +130,16 @@ export async function collectMatches(source: MatchSource, options: CollectOption
             s.matches.push(id);
           }
         }
+        if (s.matches.length === 0) requestStats.playersNoNew++;
       } catch (err) {
+        requestStats.matchIdFailures++;
         console.warn(`[collect] 試合ID取得失敗 PUUID=${puuid.slice(0, 8)}...:`, err);
       }
       continue;
     }
 
     const matchId = s.matches.shift()!;
+    requestStats.matchCalls++;
     try {
       const match = await source.getMatch(matchId);
 
@@ -125,6 +147,7 @@ export async function collectMatches(source: MatchSource, options: CollectOption
       // 試合IDは新しい順なので、古いパッチの試合が出たらこのプレイヤーの残りも古い。残りは取りに行かない
       // （休止中のプレイヤーで20試合分のリクエストを無駄にし、そのランクが選ばれ続けるのを防ぐ）
       if (normalizePatch(match.info.gameVersion) !== patch) {
+        requestStats.oldPatchStops++;
         s.matches.length = 0;
         continue;
       }
@@ -133,12 +156,18 @@ export async function collectMatches(source: MatchSource, options: CollectOption
 
       // リメイク（開始直後の降参）の試合は集計しない。数分で終わった試合はチャンピオンの強さと関係がなく、勝率を歪めるため
       // 処理済みにも記録せず、参加者を次のシードにも使わない。同じプレイヤーの残りの試合は通常どおり続ける
-      if (participants.some(p => p.gameEndedInEarlySurrender)) continue;
+      if (participants.some(p => p.gameEndedInEarlySurrender)) {
+        requestStats.earlySurrenders++;
+        continue;
+      }
 
       // 勝者が1チーム（勝った参加者がちょうど5人で、同じチーム）でない試合も集計しない（リメイクと同じ扱い）
       // 不正対策による中止（endOfGameResult: Abort_AntiCheatExit）などで両チームとも負けの試合があり、
       // 集計すると試合数だけが増えて勝率が下がるため（システムテスト ST-10 で 1,100試合中1試合）
-      if (!hasSingleWinningTeam(participants)) continue;
+      if (!hasSingleWinningTeam(participants)) {
+        requestStats.invalidResults++;
+        continue;
+      }
 
       // 10人の平均ランクで、この試合を加算するランク帯を決める（名簿にいない人は Gold 相当）
       const average = averageMatchPoints(participants.map(p => roster.get(p.puuid)?.points ?? null));
@@ -160,6 +189,7 @@ export async function collectMatches(source: MatchSource, options: CollectOption
 
       options.onProgress?.(matchIds.length, collected());
     } catch (err) {
+      requestStats.matchFailures++;
       console.warn(`[collect] 試合詳細取得失敗 ${matchId}:`, err);
     }
 
@@ -168,7 +198,16 @@ export async function collectMatches(source: MatchSource, options: CollectOption
   }
 
   await write();
-  return { aggregation, matchIds, stopReason, collected: collected(), rankTierCounts };
+  return { aggregation, matchIds, stopReason, collected: collected(), rankTierCounts, requestStats };
+}
+
+/** リクエストの内訳をログの1行にする。集計した試合が0件なら「1試合あたり」は - にする */
+export function formatRequestStats(stats: RequestStats, totalMatches: number): string {
+  const perMatch = totalMatches > 0 ? ((stats.matchIdCalls + stats.matchCalls) / totalMatches).toFixed(2) : '-';
+  return `試合ID一覧 ${stats.matchIdCalls}回（失敗 ${stats.matchIdFailures} / 新しい試合なし ${stats.playersNoNew}）`
+    + ` / 試合詳細 ${stats.matchCalls}回（集計 ${totalMatches} / 古いパッチで打ち切り ${stats.oldPatchStops}`
+    + ` / リメイク ${stats.earlySurrenders} / 勝者が1チームでない ${stats.invalidResults} / 失敗 ${stats.matchFailures}）`
+    + ` / 1試合あたり ${perMatch}回`;
 }
 
 /** 勝った参加者がちょうど5人で、全員が同じチームなら true */

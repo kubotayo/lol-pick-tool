@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { collectMatches, hasSingleWinningTeam, type MatchSource, type CollectOptions } from './collector';
+import { collectMatches, formatRequestStats, hasSingleWinningTeam, type MatchSource, type CollectOptions } from './collector';
 import { buildChampionRows } from './supabaseWriter';
 import type { Roster } from './roster';
 import type { CollectTier } from './rank';
@@ -335,6 +335,57 @@ describe('collectMatches', () => {
     }))).rejects.toThrow('[apply_batch_result] 書き込み失敗: test');
 
     expect(source.getMatch.mock.calls.map(c => c[0])).toEqual(['m1', 'm2']);
+  });
+
+  // LOOP-19
+  it('メインループのリクエストを、結果ごとに数える', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const roster = makeRoster([['p1', 'PLATINUM', 1700], ['p2', 'PLATINUM', 1700], ['p3', 'PLATINUM', 1700]]);
+    const remake = makeMatch(['p1', ...others('remake')]);
+    remake.info.participants[0].gameEndedInEarlySurrender = true;
+    const noWinner = makeMatch(['p1', ...others('noWinner')]);
+    noWinner.info.participants.forEach(p => { p.win = false; });
+    const source = makeSource(
+      { p1: ['ok1', 'remake', 'noWinner', 'missing', 'old1', 'old2'], p3: ['done'] },
+      {
+        ok1: makeMatch(['p1', ...others('ok1')]),
+        remake,
+        noWinner,
+        old1: makeMatch(['p1', ...others('old1')], '16.20.1.1'),
+        old2: makeMatch(['p1', ...others('old2')], '16.20.1.1'),
+      },
+    );
+    const getIds = source.getMatchIds.getMockImplementation()!;
+    source.getMatchIds.mockImplementation(async (puuid: string) => {
+      if (puuid === 'p2') throw new Error('500');
+      return getIds(puuid);
+    });
+
+    const result = await collectMatches(source, options({
+      roster, processedIds: new Set(['done']),
+      seedPools: { PLATINUM: ['p3', 'p2', 'p1'], EMERALD: [], DIAMOND: [], MASTER: [] },
+    }));
+    warn.mockRestore();
+
+    expect(result.matchIds).toEqual(['ok1']);
+    expect(result.requestStats).toEqual({
+      matchIdCalls: 3, matchIdFailures: 1, playersNoNew: 1,
+      matchCalls: 5, oldPatchStops: 1, earlySurrenders: 1, invalidResults: 1, matchFailures: 1,
+    });
+    expect(source.getMatchIds).toHaveBeenCalledTimes(result.requestStats.matchIdCalls);
+    expect(source.getMatch).toHaveBeenCalledTimes(result.requestStats.matchCalls);
+  });
+
+  // LOOP-19
+  it('リクエストの内訳を1行にし、集計が0試合なら1試合あたりを - にする', () => {
+    const stats = {
+      matchIdCalls: 3, matchIdFailures: 1, playersNoNew: 1,
+      matchCalls: 5, oldPatchStops: 1, earlySurrenders: 1, invalidResults: 1, matchFailures: 1,
+    };
+    expect(formatRequestStats(stats, 1)).toBe(
+      '試合ID一覧 3回（失敗 1 / 新しい試合なし 1） / 試合詳細 5回（集計 1 / 古いパッチで打ち切り 1 / リメイク 1 / 勝者が1チームでない 1 / 失敗 1） / 1試合あたり 8.00回',
+    );
+    expect(formatRequestStats(stats, 0)).toContain('1試合あたり -回');
   });
 
   it('名簿のプレイヤーを使い切ったら queue_empty で終わる', async () => {
