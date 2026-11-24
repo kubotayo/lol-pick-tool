@@ -45,10 +45,10 @@ export interface RequestStats {
   matchIdFailures:  number; // うち失敗
   playersNoNew:     number; // うち、新しい試合が1つもなかったプレイヤー
   matchCalls:       number; // 試合詳細の取得
-  oldPatchStops:    number; // うち、古いパッチの試合で打ち切った
+  otherPatchStops:  number; // うち、対象パッチ以外（古い・新しいの両方）の試合で打ち切った
   earlySurrenders:  number; // うち、リメイクで集計しなかった
   invalidResults:   number; // うち、勝者が1チームでなく集計しなかった
-  matchFailures:    number; // うち、失敗
+  matchFailures:    number; // うち、取得または処理の失敗
 }
 
 // ランクごとの収集状態
@@ -81,7 +81,7 @@ export async function collectMatches(source: MatchSource, options: CollectOption
   const rankTierCounts: Record<string, number> = {};
   const requestStats: RequestStats = {
     matchIdCalls: 0, matchIdFailures: 0, playersNoNew: 0,
-    matchCalls: 0, oldPatchStops: 0, earlySurrenders: 0, invalidResults: 0, matchFailures: 0,
+    matchCalls: 0, otherPatchStops: 0, earlySurrenders: 0, invalidResults: 0, matchFailures: 0,
   };
   const collected = (): Record<CollectTier, number> => {
     const result = { PLATINUM: 0, EMERALD: 0, DIAMOND: 0, MASTER: 0 };
@@ -147,7 +147,7 @@ export async function collectMatches(source: MatchSource, options: CollectOption
       // 試合IDは新しい順なので、古いパッチの試合が出たらこのプレイヤーの残りも古い。残りは取りに行かない
       // （休止中のプレイヤーで20試合分のリクエストを無駄にし、そのランクが選ばれ続けるのを防ぐ）
       if (normalizePatch(match.info.gameVersion) !== patch) {
-        requestStats.oldPatchStops++;
+        requestStats.otherPatchStops++;
         s.matches.length = 0;
         continue;
       }
@@ -205,7 +205,7 @@ export async function collectMatches(source: MatchSource, options: CollectOption
 export function formatRequestStats(stats: RequestStats, totalMatches: number): string {
   const perMatch = totalMatches > 0 ? ((stats.matchIdCalls + stats.matchCalls) / totalMatches).toFixed(2) : '-';
   return `試合ID一覧 ${stats.matchIdCalls}回（失敗 ${stats.matchIdFailures} / 新しい試合なし ${stats.playersNoNew}）`
-    + ` / 試合詳細 ${stats.matchCalls}回（集計 ${totalMatches} / 古いパッチで打ち切り ${stats.oldPatchStops}`
+    + ` / 試合詳細 ${stats.matchCalls}回（集計 ${totalMatches} / 対象外パッチで打ち切り ${stats.otherPatchStops}`
     + ` / リメイク ${stats.earlySurrenders} / 勝者が1チームでない ${stats.invalidResults} / 失敗 ${stats.matchFailures}）`
     + ` / 1試合あたり ${perMatch}回`;
 }

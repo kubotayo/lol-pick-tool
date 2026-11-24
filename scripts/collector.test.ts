@@ -370,20 +370,37 @@ describe('collectMatches', () => {
     expect(result.matchIds).toEqual(['ok1']);
     expect(result.requestStats).toEqual({
       matchIdCalls: 3, matchIdFailures: 1, playersNoNew: 1,
-      matchCalls: 5, oldPatchStops: 1, earlySurrenders: 1, invalidResults: 1, matchFailures: 1,
+      matchCalls: 5, otherPatchStops: 1, earlySurrenders: 1, invalidResults: 1, matchFailures: 1,
     });
     expect(source.getMatchIds).toHaveBeenCalledTimes(result.requestStats.matchIdCalls);
     expect(source.getMatch).toHaveBeenCalledTimes(result.requestStats.matchCalls);
   });
 
   // LOOP-19
+  it('対象より新しいパッチの試合で打ち切った場合も、対象外パッチとして数える', async () => {
+    const roster = makeRoster([['p1', 'PLATINUM', 1700]]);
+    const source = makeSource(
+      { p1: ['newer', 'm2'] },
+      { newer: makeMatch(['p1', ...others('newer')], '16.22.1.1'), m2: makeMatch(['p1', ...others('m2')]) },
+    );
+
+    const result = await collectMatches(source, options({
+      roster, seedPools: { PLATINUM: ['p1'], EMERALD: [], DIAMOND: [], MASTER: [] },
+    }));
+
+    expect(result.matchIds).toEqual([]);
+    expect(result.requestStats.otherPatchStops).toBe(1);
+    expect(result.requestStats.matchCalls).toBe(1);
+  });
+
+  // LOOP-19
   it('リクエストの内訳を1行にし、集計が0試合なら1試合あたりを - にする', () => {
     const stats = {
       matchIdCalls: 3, matchIdFailures: 1, playersNoNew: 1,
-      matchCalls: 5, oldPatchStops: 1, earlySurrenders: 1, invalidResults: 1, matchFailures: 1,
+      matchCalls: 5, otherPatchStops: 1, earlySurrenders: 1, invalidResults: 1, matchFailures: 1,
     };
     expect(formatRequestStats(stats, 1)).toBe(
-      '試合ID一覧 3回（失敗 1 / 新しい試合なし 1） / 試合詳細 5回（集計 1 / 古いパッチで打ち切り 1 / リメイク 1 / 勝者が1チームでない 1 / 失敗 1） / 1試合あたり 8.00回',
+      '試合ID一覧 3回（失敗 1 / 新しい試合なし 1） / 試合詳細 5回（集計 1 / 対象外パッチで打ち切り 1 / リメイク 1 / 勝者が1チームでない 1 / 失敗 1） / 1試合あたり 8.00回',
     );
     expect(formatRequestStats(stats, 0)).toContain('1試合あたり -回');
   });
