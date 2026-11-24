@@ -2,7 +2,7 @@ import { RiotClient } from './riotClient';
 import { archiveOldPatches, createChunkWriter, getProcessedMatchIds, WRITE_ITEM_BUILDS } from './supabaseWriter';
 import { supabase } from './supabase';
 import { normalizePatch, parseTargetRegion, parsePositiveInt, getStopReason, StopReason } from './utils';
-import { collectMatches } from './collector';
+import { collectMatches, formatRequestStats } from './collector';
 import { buildRoster, groupRosterByTier } from './roster';
 import { parseTargetTiers, type CollectTier } from './rank';
 
@@ -167,6 +167,7 @@ async function runCollection(): Promise<void> {
 
     console.log(`[collect] ループ終了: ${STOP_REASON_LABEL[result.stopReason]}（処理済み ${totalMatches}試合 / 経過 ${Math.round((Date.now() - PROCESS_STARTED_AT) / 60_000)}分）`);
     console.log(`[collect] 収集元ランク別: ${formatCollected(result.collected, targetTiers)} / ランク帯別の加算試合数: ${JSON.stringify(result.rankTierCounts)}`);
+    console.log(`[collect] リクエスト内訳: ${formatRequestStats(result.requestStats, totalMatches)}`);
 
     if (totalMatches === 0) {
       console.log('[collect] 新しく処理した試合がないため、書き込みをスキップ');
