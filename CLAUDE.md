@@ -77,6 +77,7 @@ work-log/
 | ファイル | 内容 | 対象 |
 |--------|------|------|
 | `design-docs.md` | 設計書の更新ルール | `docs/` |
+| `coding.md` | コードの書き方（型・名前・書式・React・エラー・コメント） | `app/`、`components/`、`lib/`、`scripts/` |
 | `test-spec.md` | テスト仕様書の書き方・レビュー・結果の記入 | `docs/06`、`scripts/it/`、テストファイル（`*.test.ts`・`*.test.tsx`） |
 | `riot-batch.md` | Riot API・バッチ | `scripts/`、`.github/workflows/`、`supabase/migrations/` |
 | `api-supabase.md` | API Routes・Supabase | `app/api/`、`lib/api.ts`、`lib/supabase/`、`lib/constants.ts`、`scripts/supabase*.ts`、`scripts/collect.ts`、`scripts/it/`、`supabase/` |
