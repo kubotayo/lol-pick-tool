@@ -36,7 +36,7 @@ work-log/
 
 ## 実装前の確認
 
-**実装タスクを開始する前に、必ず以下を行うこと。** 実装（設計書・コード・DDL）はメインの会話で行う。
+**実装タスクを開始する前に、必ず以下を行うこと。** 実装（設計書・コード・DDL）はメインの会話で行う（テスト設計は「エージェントの使い方」の表のとおり、サブエージェントに任せてよい）。
 
 ### ステップ1: 設計書の読み込み
 
@@ -72,12 +72,20 @@ work-log/
 
 ## 自動で進める
 
-このプロジェクトでは、迷った判断をユーザーに聞かずに仮決めして進めてよい（`software-factory` スキルの仮決めを認める）。人は PR でまとめて確認する。
+このプロジェクトでは、迷った判断をユーザーに聞かずに仮決めして進む（`software-factory` スキルの仮決めを認める）。人は PR でまとめて確認する。PR を作らない作業では、終わりの報告で未確定事項を伝える。
 
 - **未確定事項**: 仮決めは `docs/factory/<ブランチの短い名前>/open-items.md` に残し、PR の本文に表を写す。書き方は `software-factory` スキルの「未確定事項の書き方」に従う。`software-factory` を使わない作業でも同じ
-- **確認が要る操作**: 本番の DB への操作（マイグレーションの適用を含む）、シークレット・環境変数の変更、main へのリリース、PR のマージは、自動で進めない。必要になったら未確定事項に「人の作業が要る」と書く
+- **設計書の「未決事項」との使い分け**: 仮決めして実装まで進めたものは未確定事項に書く。決めておらず、実装もしていないものは、今までどおり設計書の「未決事項」に書く。未確定事項が確定したら、決まった内容を設計書に反映する
+- **自動で進めない操作**: 次は自動で進めない。必要になったら未確定事項に「人の作業が要る」と書く。`software-factory` スキルの「してはいけないこと」は、スキルを使わない作業でも守る
+  - 本番の DB への操作（マイグレーションの適用、Supabase MCP での書き込み、本番のキーが入った `.env.local` での `npm run collect`、`gh workflow run` での収集の手動実行を含む）
+  - シークレット・環境変数の変更、料金がかかる操作
+  - 本番へのデプロイ（`vercel --prod` など）、main へのリリース、PR のマージ、`development`・`main` への直接の push
+  - テストを消す・弱めることで合格にすること
+- **レビューの指摘**: `reviewer` の指摘のうち、仕様や方針の判断が要るものは、直さずに未確定事項に残し、報告でユーザーに伝える（`pr-review` スキルの 3）
+- **ナレッジ**: `docs/knowledge/` は設計書ではない。仕様の正は設計書（HTML）で、ナレッジには、設計書に書かない前提・用語・過去の意思決定を書く
 - **PR のベース**: `development`
 - **プレビュー**: GitHub と Vercel が連携していて、push でプレビューが作られる。Web サイトは非公開（Vercel Authentication）なので、プレビューの動作は `vercel curl` で確かめる
+- **テスト仕様書**: バッチ以外のテスト仕様書は `docs/NN_名前-test-spec.html` に作る（`.claude/rules/test-spec.md` が読み込まれる名前にする）
 
 ---
 
@@ -87,9 +95,9 @@ work-log/
 
 | ファイル | 内容 | 対象 |
 |--------|------|------|
-| `design-docs.md` | 設計書の更新ルール | `docs/` |
+| `design-docs.md` | 設計書の更新ルール | `docs/` 直下の HTML |
 | `coding.md` | コードの書き方（型・名前・書式・React・エラー・コメント） | `app/`、`components/`、`lib/`、`scripts/` |
-| `test-spec.md` | テスト仕様書の書き方・レビュー・結果の記入 | `docs/06`、`scripts/it/`、テストファイル（`*.test.ts`・`*.test.tsx`） |
+| `test-spec.md` | テスト仕様書の書き方・レビュー・結果の記入 | `docs/` 直下の `*test-spec.html`（`docs/06` など）、`scripts/it/`、テストファイル（`*.test.ts`・`*.test.tsx`） |
 | `riot-batch.md` | Riot API・バッチ | `scripts/`、`.github/workflows/`、`supabase/migrations/` |
 | `api-supabase.md` | API Routes・Supabase | `app/api/`、`lib/api.ts`、`lib/supabase/`、`lib/constants.ts`、`scripts/supabase*.ts`、`scripts/collect.ts`、`scripts/it/`、`supabase/` |
 
@@ -117,7 +125,7 @@ work-log/
 
 ## エージェントの使い方
 
-実装は種類（設計書・コード・DDL）を問わずメインの会話で行う。サブエージェントは次の用途に使う。Vercel の操作とテストの実行は、メインの会話で行う（2026-11-21 に `vercel-expert`・`test-designer`・`test-executor` など共通のエージェントを削除した。ユーザーの判断）。Vercel プラグインはこのプロジェクトでは無効にしてある（毎回読み込まれる量を減らすため）。使うときは `.claude/settings.local.json` の `enabledPlugins` で `vercel@claude-plugins-official` を `true` にして、Claude Code を起動し直す。
+実装は種類（設計書・コード・DDL）を問わずメインの会話で行う（テスト設計は下の表のとおり）。サブエージェントの用途は次のとおり。ほかの用途で続けて使うときは、この表に足す。Vercel の操作とテストの実行は、メインの会話で行う（2026-11-21 に `vercel-expert`・`test-designer`・`test-executor` など共通のエージェントを削除した。ユーザーの判断）。Vercel プラグインはこのプロジェクトでは無効にしてある（毎回読み込まれる量を減らすため）。使うときは `.claude/settings.local.json` の `enabledPlugins` で `vercel@claude-plugins-official` を `true` にして、Claude Code を起動し直す。
 
 | 用途 | エージェント | 備考 |
 |------|------------|------|
