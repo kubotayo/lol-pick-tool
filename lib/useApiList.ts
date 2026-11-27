@@ -45,7 +45,12 @@ export function useApiList<T>(url: string | null): ApiListState<T> {
       }
     };
     void load();
-    return () => { isCancelled = true; };
+    return () => {
+      isCancelled = true;
+      // url が変わる・null になるときに、前の結果を捨てる。捨てないと、null を挟んで同じ url に戻ったときに、
+      // 取り直しているあいだ前の結果（前回の失敗の文言を含む）を出してしまう
+      setLoaded(null);
+    };
   }, [url]);
 
   // 今の url の結果だけを使う。読み込み中かどうかを state に持たず、結果の有無から決める（effect の中で同期的に setState しないため）

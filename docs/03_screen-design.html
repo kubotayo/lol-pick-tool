@@ -164,7 +164,8 @@
   <h1>画面設計・画面遷移図</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.3.1</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.3.2</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.3.2)</div><div class="value">2026-11-27 6章を訂正（再レビューの指摘から）: <code>useApiList</code> は、<code>url</code> が変わる・<code>null</code> になるときに前の結果を捨てる（v1.3.1 は「同じ <code>url</code> に戻ると前の結果をすぐ返す。2画面では通らない」としていたが、カウンターピックで相手を選び直すと通り、取り直すあいだ前回の失敗の文言が出るため）。選ばれているレーンの押し直しでは、相手の選択は外れない</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.3.1)</div><div class="value">2026-11-27 6章に追記（レビューの指摘から）: 絞り込み条件を元に戻しても相手チャンピオンの選択は戻らない、取得できない文言の優先順、同じ相手を押し直しても取り直さない、<code>useApiList</code> が同じ <code>url</code> に戻ったときの動き</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.3.0)</div><div class="value">2026-11-27 6章「API から取得できないときの表示」を追加（PR #42 の確認でのユーザーの指示。以前は、取得できないと「読み込み中」のまま、または一覧が空だった）。SCR-02 のアノテーションに順位の数え方を追記（実装が 1・2・3… でなく -2・0・2… と表示していた誤りを直したため）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.2.0)</div><div class="value">2026-11-27 5章「絞り込み条件の保存」を追加（01 FR-08）。SCR-02・SCR-03/04 のアノテーションに保存の動きを追記</div></div>
@@ -653,7 +654,7 @@
       <li>取得できないとき・パッチが空のときは、「読み込み中...」を表示し続けない</li>
       <li>応答を待っているあいだ（<code>/api/patches</code> の応答の前を含む）は「読み込み中...」を表示する</li>
       <li>絞り込み条件を続けて変えて、前の条件の応答が後から届いた場合は、その応答を使わない（今選ばれている条件の結果だけを表示する）</li>
-      <li>SCR-03/04 で絞り込み条件（レーン・リージョン・ランク帯・パッチ）を変えると、相手チャンピオンの選択は外れる。条件を元に戻しても、選択は戻らない</li>
+      <li>SCR-03/04 で絞り込み条件（レーン・リージョン・ランク帯・パッチ）を変えると、相手チャンピオンの選択は外れる。条件を元に戻しても、選択は戻らない。選ばれているレーンを押し直しただけでは、外れない</li>
       <li>文言は、パッチの取得失敗・パッチが空・データの取得失敗の順に、当てはまる最初の1つだけを表示する</li>
       <li>SCR-03/04 で <code>/api/counter</code> を取得できなかった後に、同じ相手チャンピオンを押し直しても取り直さない（条件か相手を変えると取り直す）</li>
       <li>再試行のボタンは置かない。自動でも再試行しない</li>
@@ -662,7 +663,7 @@
     <h3 style="font-size:14px; margin:14px 0 6px;">6.2 モジュール</h3>
     <table>
       <tr><th style="width:230px">場所</th><th>公開するもの</th><th>動き</th></tr>
-      <tr><td><code>lib/useApiList.ts</code></td><td><code>useApiList&lt;T&gt;(url: string | null): ApiListState&lt;T&gt;</code><br><code>interface ApiListState&lt;T&gt; { rows: T[]; isLoading: boolean; hasError: boolean }</code><br>文言の定数 <code>PATCHES_ERROR_MESSAGE</code>・<code>PATCHES_EMPTY_MESSAGE</code>・<code>DATA_ERROR_MESSAGE</code></td><td><code>url</code> が <code>null</code> のあいだは呼ばず、<code>{ rows: [], isLoading: false, hasError: false }</code> を返す。<code>url</code> が文字列になる・変わると <code>fetch</code> で1回呼び、応答が届くまで <code>isLoading: true</code>・<code>rows: []</code>。取得できたら <code>rows</code> に配列を入れる。取得できなければ <code>hasError: true</code>・<code>rows: []</code>。例外を投げない。<code>url</code> が <code>null</code> になった後に、直前と同じ <code>url</code> に戻ったときは、前の結果をすぐ返し（<code>isLoading: false</code>）、取り直した応答で置き換える（2画面では、この経路は通らない）</td></tr>
+      <tr><td><code>lib/useApiList.ts</code></td><td><code>useApiList&lt;T&gt;(url: string | null): ApiListState&lt;T&gt;</code><br><code>interface ApiListState&lt;T&gt; { rows: T[]; isLoading: boolean; hasError: boolean }</code><br>文言の定数 <code>PATCHES_ERROR_MESSAGE</code>・<code>PATCHES_EMPTY_MESSAGE</code>・<code>DATA_ERROR_MESSAGE</code></td><td><code>url</code> が <code>null</code> のあいだは呼ばず、<code>{ rows: [], isLoading: false, hasError: false }</code> を返す。<code>url</code> が文字列になる・変わると <code>fetch</code> で1回呼び、応答が届くまで <code>isLoading: true</code>・<code>rows: []</code>。取得できたら <code>rows</code> に配列を入れる。取得できなければ <code>hasError: true</code>・<code>rows: []</code>。例外を投げない。<code>url</code> が変わる・<code>null</code> になるときに、前の結果を捨てる（<code>null</code> を挟んで同じ <code>url</code> に戻ったときも、取り直した応答が届くまで <code>isLoading: true</code>・<code>rows: []</code>）</td></tr>
       <tr><td><code>app/first-pick/page.tsx</code><br><code>app/counter-pick/page.tsx</code></td><td>—</td><td>3つの API をすべて <code>useApiList</code> で読む。パッチは、利用者が選ぶまでは一覧の先頭（最新）</td></tr>
     </table>
   </div>

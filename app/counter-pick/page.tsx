@@ -67,6 +67,8 @@ export default function CounterPickPage() {
     setSelectedPatch(e.target.value);
   };
   const handleLaneClick = (next: Lane): void => {
+    // 選ばれているレーンを押し直しただけなら、条件は変わらないので選択を残す
+    if (next === lane) return;
     setSelection(null);
     setLane(next);
   };

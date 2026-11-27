@@ -770,6 +770,77 @@ describe('カウンターピック画面: 応答を待っているあいだ・�
     expect(callsTo('/api/counter')).toHaveLength(1);
   });
 
+  it('CP-28 選ばれているレーンを押し直しても、相手チャンピオンの選択は残り、API を呼び直さない', async () => {
+    render(<CounterPickPage />);
+    fireEvent.click(await findEnemyChampion(ENEMY_NAME));
+    expect(await waitForCounterCalls(1)).toHaveLength(1);
+
+    fireEvent.click(laneTab('TOP'));
+    await settle();
+
+    expect(screen.queryByText('← 相手チャンピオンを選択してください')).toBeNull();
+    expect(callsTo('/api/champions')).toHaveLength(1);
+    expect(callsTo('/api/counter')).toHaveLength(1);
+  });
+
+  it('CP-29 相手チャンピオンを選び、レーンを変えて元に戻し、同じ相手を選び直すと、応答の前は「読み込み中...」を表示する（前の結果を出さない）', async () => {
+    // /api/counter は、1回目は失敗、2回目はテストが返すまで止める
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    let counterCalls = 0;
+    calls = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = toUrl(input);
+      calls.push(url);
+      if (url.pathname === '/api/patches') return jsonResponse(PATCHES);
+      if (url.pathname === '/api/counter') {
+        counterCalls += 1;
+        if (counterCalls === 1) return jsonResponse({ error: 'Internal Server Error' }, 500);
+        await gate;
+      }
+      return jsonResponse(CHAMPION_ROWS);
+    }));
+
+    render(<CounterPickPage />);
+    fireEvent.click(await findEnemyChampion(ENEMY_NAME));
+    await waitFor(() => { expect(alertTexts()).toStrictEqual([DATA_ERROR_MESSAGE]); });
+
+    fireEvent.click(laneTab('JG'));
+    await waitForChampionsCalls(2);
+    fireEvent.click(laneTab('TOP'));
+    await waitForChampionsCalls(3);
+    fireEvent.click(await findEnemyChampion(ENEMY_NAME));
+    await waitFor(() => { expect(callsTo('/api/counter')).toHaveLength(2); });
+    await settle();
+
+    expect(alertTexts()).toStrictEqual([]);
+    expect(screen.getAllByText('読み込み中...')).toHaveLength(1);
+
+    await act(async () => { release(); });
+
+    await waitFor(() => { expect(screen.queryByText('読み込み中...')).toBeNull(); });
+    expect(alertTexts()).toStrictEqual([]);
+  });
+
+  it('CP-30 /api/counter が失敗した後に、同じ相手を押し直しても取り直さない。別の相手を押すと取り直す', async () => {
+    installFetchMock((url) => (
+      url.pathname === '/api/counter' ? jsonResponse({ error: 'Internal Server Error' }, 500) : undefined
+    ));
+
+    render(<CounterPickPage />);
+    fireEvent.click(await findEnemyChampion(ENEMY_NAME));
+    await waitFor(() => { expect(alertTexts()).toStrictEqual([DATA_ERROR_MESSAGE]); });
+
+    fireEvent.click(await findEnemyChampion(ENEMY_NAME));
+    await settle();
+    expect(callsTo('/api/counter')).toHaveLength(1);
+
+    fireEvent.click(await findEnemyChampion('レネクトン'));
+    const counterCalls = await waitForCounterCalls(2);
+    expect(counterCalls).toHaveLength(2);
+    expect(counterCalls[1].searchParams.get('enemy_champion_id')).toBe('58');
+  });
+
   it('CP-25 /api/counter が失敗したときの文言の色は #f87171', async () => {
     installFetchMock((url) => (
       url.pathname === '/api/counter' ? jsonResponse({ error: 'Internal Server Error' }, 500) : undefined
