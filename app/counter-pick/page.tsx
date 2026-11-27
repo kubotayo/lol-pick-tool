@@ -5,13 +5,13 @@ import Image from 'next/image';
 import AppHeader from '@/components/AppHeader';
 import { LANES, REGIONS, TIERS } from '@/lib/constants';
 import { getWinRateColor, formatWinRate, formatGames } from '@/lib/utils';
-import type { Lane, Region, Tier } from '@/lib/constants';
+import { useSavedFilters } from '@/lib/useSavedFilters';
 import type { ChampionStatRow, CounterStatRow } from '@/lib/types';
 
 export default function CounterPickPage() {
-  const [lane, setLane]               = useState<Lane>('TOP');
-  const [region, setRegion]           = useState<Region>('JP');
-  const [tier, setTier]               = useState<Tier>('platinum_plus');
+  // レーン・ランク帯・リージョンは覚えておき、先出しピックと共有する（01 FR-08）。パッチは覚えない（FR-03）
+  const { lane, region, tier, setLane, setRegion, setTier, ready } =
+    useSavedFilters({ lane: 'TOP', region: 'JP', tier: 'platinum_plus' });
   const [patch, setPatch]             = useState<string>('');
   const [patches, setPatches]         = useState<string[]>([]);
   const [search, setSearch]           = useState('');
@@ -29,14 +29,15 @@ export default function CounterPickPage() {
   }, []);
 
   useEffect(() => {
-    if (!patch) return;
+    // 保存値を読み終える前に、既定値で取りにいかない（03 の 5.4）
+    if (!ready || !patch) return;
     setLoadingList(true);
     setEnemy(null);
     setCounters([]);
     fetch(`/api/champions?lane=${lane}&patch=${patch}&region=${region}&tier=${tier}&limit=100&min_games=50`)
       .then(r => r.json())
       .then((rows: ChampionStatRow[]) => { setAllChamps(rows); setLoadingList(false); });
-  }, [lane, patch, region, tier]);
+  }, [ready, lane, patch, region, tier]);
 
   useEffect(() => {
     if (!selectedEnemy || !patch) return;

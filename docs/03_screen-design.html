@@ -164,7 +164,8 @@
   <h1>画面設計・画面遷移図</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.1.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.2.0</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.2.0)</div><div class="value">2026-11-27 5章「絞り込み条件の保存」を追加（01 FR-08）。SCR-02・SCR-03/04 のアノテーションに保存の動きを追記</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.1.0)</div><div class="value">カウンターの最低試合数をランク帯ごとの値に変更</div></div>
     <div class="meta-item"><div class="label">対応デバイス</div><div class="value">PCブラウザ（Chrome推奨）</div></div>
   </div>
@@ -410,11 +411,11 @@
         <div style="font-size:13px; font-weight:600; color:#2c3e50; margin-bottom:12px;">アノテーション</div>
         <div class="annotation-item">
           <div class="ann-num">1</div>
-          <div class="ann-text">フィルターバー：リージョン・ランク帯・パッチをドロップダウンで選択。変更時に即時データ再取得。</div>
+          <div class="ann-text">フィルターバー：リージョン・ランク帯・パッチをドロップダウンで選択。変更時に即時データ再取得。リージョン・ランク帯は変更時に保存し、次に開いたときに選んだ状態にする（5章）。パッチは保存せず、開くたびに最新を選ぶ。</div>
         </div>
         <div class="annotation-item">
           <div class="ann-num">2</div>
-          <div class="ann-text">レーンタブ：選択中のレーンを強調表示（金色）。タブ切り替えでリストを更新。</div>
+          <div class="ann-text">レーンタブ：選択中のレーンを強調表示（金色）。タブ切り替えでリストを更新。選んだレーンは保存する（5章）。</div>
         </div>
         <div class="annotation-item">
           <div class="ann-num">3</div>
@@ -544,7 +545,7 @@
         <div style="font-size:13px; font-weight:600; color:#2c3e50; margin-bottom:12px;">アノテーション</div>
         <div class="annotation-item">
           <div class="ann-num">1</div>
-          <div class="ann-text">①レーン選択：自分のレーンを選ぶ。選択中のレーンでプレイする相手チャンピオンのみが左パネルに表示される。</div>
+          <div class="ann-text">①レーン選択：自分のレーンを選ぶ。選択中のレーンでプレイする相手チャンピオンのみが左パネルに表示される。レーン・リージョン・ランク帯は保存し、先出しピックと共有する（5章）。相手チャンピオンと検索の文字は保存しない。</div>
         </div>
         <div class="annotation-item">
           <div class="ann-num">2</div>
@@ -564,6 +565,57 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- 5. 絞り込み条件の保存 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">5</div>
+      <h2>絞り込み条件の保存（01 FR-08）</h2>
+    </div>
+    <p style="font-size:13px; margin-bottom:10px;">対象の画面は SCR-02（先出しピック）と SCR-03/04（カウンターピック）。2つの画面は同じ保存値を共有する。</p>
+
+    <h3 style="font-size:14px; margin:14px 0 6px;">5.1 保存する項目</h3>
+    <table>
+      <tr><th style="width:120px">項目</th><th style="width:90px">保存</th><th>許可値（<code>lib/constants.ts</code>）</th><th>保存がない・使えないときの既定値</th></tr>
+      <tr><td>レーン</td><td>する</td><td><code>LANES</code>（TOP / JG / MID / BOT / SUP）</td><td>先出しピックは MID、カウンターピックは TOP</td></tr>
+      <tr><td>ランク帯</td><td>する</td><td><code>TIERS</code>（all / platinum_plus / diamond_plus / master_plus）</td><td>platinum_plus</td></tr>
+      <tr><td>リージョン</td><td>する</td><td><code>REGIONS</code>（JP / KR / NA / EUW / EUNE）</td><td>JP</td></tr>
+      <tr><td>パッチ</td><td>しない</td><td>—</td><td>開くたびに、<code>/api/patches</code> が返す一覧の先頭（最新）</td></tr>
+      <tr><td>相手チャンピオン・検索の文字</td><td>しない</td><td>—</td><td>未選択・空</td></tr>
+    </table>
+
+    <h3 style="font-size:14px; margin:14px 0 6px;">5.2 保存先と形式</h3>
+    <table>
+      <tr><th style="width:160px">項目</th><th>内容</th></tr>
+      <tr><td>保存先</td><td>ブラウザの <code>localStorage</code>。キーは <code>lol-pick-tool:filters</code></td></tr>
+      <tr><td>値</td><td>JSON の文字列。<code>{"v":1,"lane":"MID","region":"JP","tier":"platinum_plus"}</code>。<code>v</code> は形式のバージョンで、今は <code>1</code></td></tr>
+      <tr><td>保存するとき</td><td>利用者がレーン・ランク帯・リージョンのどれかを変えたとき。そのとき画面で選ばれている3項目をまとめて、1つの値として上書きする。画面を開いただけでは保存しない</td></tr>
+      <tr><td>読み込むとき</td><td>画面を開いたとき（マウントの直後）に1回</td></tr>
+    </table>
+
+    <h3 style="font-size:14px; margin:14px 0 6px;">5.3 読み込んだ値の確かめ方</h3>
+    <table>
+      <tr><th style="width:320px">保存されている値の状態</th><th>画面で選ばれる値</th></tr>
+      <tr><td>キーがない</td><td>3項目とも既定値</td></tr>
+      <tr><td>JSON として読めない／オブジェクトでない／<code>v</code> が <code>1</code> でない</td><td>3項目とも既定値</td></tr>
+      <tr><td>ある項目の値が許可値にない（項目がない・文字列でない場合を含む）</td><td>その項目だけ既定値。ほかの項目は保存値</td></tr>
+      <tr><td><code>localStorage</code> の読み書きが例外を投げる（保存を許さないブラウザの設定など）</td><td>読み込みは3項目とも既定値。書き込みは何もしない。どちらも、画面にエラーを表示しない</td></tr>
+    </table>
+
+    <h3 style="font-size:14px; margin:14px 0 6px;">5.4 API を呼ぶ順序</h3>
+    <ul style="font-size:13px; padding-left:20px; line-height:1.8;">
+      <li>保存値の読み込みが終わるまでは、<code>/api/champions</code>・<code>/api/counter</code> を呼ばない（既定値で1回、保存値でもう1回、と2回呼ばないため）</li>
+      <li>読み込みが終わり、パッチが決まった後に、選ばれている値で <code>/api/champions</code> を呼ぶ</li>
+    </ul>
+
+    <h3 style="font-size:14px; margin:14px 0 6px;">5.5 モジュール</h3>
+    <table>
+      <tr><th style="width:230px">場所</th><th>公開するもの</th><th>動き</th></tr>
+      <tr><td><code>lib/filterStorage.ts</code></td><td><code>FILTER_STORAGE_KEY</code>（<code>'lol-pick-tool:filters'</code>）<br><code>interface SavedFilters { lane?: Lane; region?: Region; tier?: Tier }</code><br><code>loadFilters(): SavedFilters</code><br><code>saveFilters(filters: { lane: Lane; region: Region; tier: Tier }): void</code></td><td><code>loadFilters</code> は 5.3 のとおりに確かめ、使える項目だけを持つオブジェクトを返す（使えない項目はプロパティを持たない。全部使えなければ <code>{}</code>）。例外を投げない。<br><code>saveFilters</code> は 5.2 の形式で書き込む。例外を投げない</td></tr>
+      <tr><td><code>lib/useSavedFilters.ts</code></td><td><code>useSavedFilters(defaults: { lane: Lane; region: Region; tier: Tier })</code><br>戻り値: <code>{ lane, region, tier, setLane, setRegion, setTier, ready }</code></td><td>最初の描画では <code>defaults</code> の値と <code>ready: false</code> を返す。マウントの直後に <code>loadFilters</code> を1回呼び、使える項目を <code>defaults</code> に上書きした値と <code>ready: true</code> を返す。<code>setLane</code>・<code>setRegion</code>・<code>setTier</code> は、値を変え、変えた後の3項目を <code>saveFilters</code> に渡す。<code>ready</code> が <code>true</code> になっただけでは <code>saveFilters</code> を呼ばない</td></tr>
+      <tr><td><code>app/first-pick/page.tsx</code><br><code>app/counter-pick/page.tsx</code></td><td>—</td><td><code>useSavedFilters</code> を使う。<code>defaults</code> は 5.1 の既定値。<code>ready</code> が <code>false</code> のあいだは 5.4 のとおり API を呼ばない</td></tr>
+    </table>
   </div>
 
 </div>

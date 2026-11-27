@@ -5,7 +5,7 @@ import Image from 'next/image';
 import AppHeader from '@/components/AppHeader';
 import { LANES, REGIONS, TIERS } from '@/lib/constants';
 import { getTierLabel, getWinRateColor, formatWinRate, formatGames } from '@/lib/utils';
-import type { Lane, Region, Tier } from '@/lib/constants';
+import { useSavedFilters } from '@/lib/useSavedFilters';
 import type { ChampionStatRow, Tier_Label } from '@/lib/types';
 
 const TIER_COLORS: Record<Tier_Label, string> = {
@@ -13,9 +13,9 @@ const TIER_COLORS: Record<Tier_Label, string> = {
 };
 
 export default function FirstPickPage() {
-  const [lane, setLane]       = useState<Lane>('MID');
-  const [region, setRegion]   = useState<Region>('JP');
-  const [tier, setTier]       = useState<Tier>('platinum_plus');
+  // レーン・ランク帯・リージョンは覚えておく（01 FR-08）。パッチは覚えず、開くたびに最新を選ぶ（FR-03）
+  const { lane, region, tier, setLane, setRegion, setTier, ready } =
+    useSavedFilters({ lane: 'MID', region: 'JP', tier: 'platinum_plus' });
   const [patch, setPatch]     = useState<string>('');
   const [patches, setPatches] = useState<string[]>([]);
   const [data, setData]       = useState<ChampionStatRow[]>([]);
@@ -29,12 +29,13 @@ export default function FirstPickPage() {
   }, []);
 
   useEffect(() => {
-    if (!patch) return;
+    // 保存値を読み終える前に、既定値で取りにいかない（03 の 5.4）
+    if (!ready || !patch) return;
     setLoading(true);
     fetch(`/api/champions?lane=${lane}&patch=${patch}&region=${region}&tier=${tier}`)
       .then(r => r.json())
       .then((rows: ChampionStatRow[]) => { setData(rows); setLoading(false); });
-  }, [lane, patch, region, tier]);
+  }, [ready, lane, patch, region, tier]);
 
   const grouped = data.reduce<Record<Tier_Label, ChampionStatRow[]>>(
     (acc, row) => {
