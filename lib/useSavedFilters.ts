@@ -11,12 +11,12 @@ export interface SavedFiltersState extends Filters {
   setRegion: (region: Region) => void;
   setTier: (tier: Tier) => void;
   // 保存値の読み込みが終わったか。false のあいだは、呼び出し側は API を呼ばない（03 の 5.4）
-  ready: boolean;
+  isReady: boolean;
 }
 
 export function useSavedFilters(defaults: Filters): SavedFiltersState {
   const [filters, setFilters] = useState<Filters>(defaults);
-  const [ready, setReady] = useState(false);
+  const [isReady, setReady] = useState(false);
 
   // 保存値はブラウザにしかないので、マウントの後に読む
   // （最初の描画で読むと、サーバーで描いた HTML と食い違う）
@@ -43,6 +43,6 @@ export function useSavedFilters(defaults: Filters): SavedFiltersState {
     setLane: lane => update({ lane }),
     setRegion: region => update({ region }),
     setTier: tier => update({ tier }),
-    ready,
+    isReady,
   };
 }

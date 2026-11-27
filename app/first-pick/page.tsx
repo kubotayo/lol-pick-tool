@@ -14,7 +14,7 @@ const TIER_COLORS: Record<Tier_Label, string> = {
 
 export default function FirstPickPage() {
   // レーン・ランク帯・リージョンは覚えておく（01 FR-08）。パッチは覚えず、開くたびに最新を選ぶ（FR-03）
-  const { lane, region, tier, setLane, setRegion, setTier, ready } =
+  const { lane, region, tier, setLane, setRegion, setTier, isReady } =
     useSavedFilters({ lane: 'MID', region: 'JP', tier: 'platinum_plus' });
   const [patch, setPatch]     = useState<string>('');
   const [patches, setPatches] = useState<string[]>([]);
@@ -30,12 +30,12 @@ export default function FirstPickPage() {
 
   useEffect(() => {
     // 保存値を読み終える前に、既定値で取りにいかない（03 の 5.4）
-    if (!ready || !patch) return;
+    if (!isReady || !patch) return;
     setLoading(true);
     fetch(`/api/champions?lane=${lane}&patch=${patch}&region=${region}&tier=${tier}`)
       .then(r => r.json())
       .then((rows: ChampionStatRow[]) => { setData(rows); setLoading(false); });
-  }, [ready, lane, patch, region, tier]);
+  }, [isReady, lane, patch, region, tier]);
 
   const grouped = data.reduce<Record<Tier_Label, ChampionStatRow[]>>(
     (acc, row) => {

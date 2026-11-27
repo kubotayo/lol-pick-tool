@@ -10,7 +10,7 @@ import type { ChampionStatRow, CounterStatRow } from '@/lib/types';
 
 export default function CounterPickPage() {
   // レーン・ランク帯・リージョンは覚えておき、先出しピックと共有する（01 FR-08）。パッチは覚えない（FR-03）
-  const { lane, region, tier, setLane, setRegion, setTier, ready } =
+  const { lane, region, tier, setLane, setRegion, setTier, isReady } =
     useSavedFilters({ lane: 'TOP', region: 'JP', tier: 'platinum_plus' });
   const [patch, setPatch]             = useState<string>('');
   const [patches, setPatches]         = useState<string[]>([]);
@@ -30,14 +30,14 @@ export default function CounterPickPage() {
 
   useEffect(() => {
     // 保存値を読み終える前に、既定値で取りにいかない（03 の 5.4）
-    if (!ready || !patch) return;
+    if (!isReady || !patch) return;
     setLoadingList(true);
     setEnemy(null);
     setCounters([]);
     fetch(`/api/champions?lane=${lane}&patch=${patch}&region=${region}&tier=${tier}&limit=100&min_games=50`)
       .then(r => r.json())
       .then((rows: ChampionStatRow[]) => { setAllChamps(rows); setLoadingList(false); });
-  }, [ready, lane, patch, region, tier]);
+  }, [isReady, lane, patch, region, tier]);
 
   useEffect(() => {
     if (!selectedEnemy || !patch) return;

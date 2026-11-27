@@ -184,17 +184,29 @@ function blockLocalStorageAccess(): () => void {
 }
 
 // 画面にエラーの表示がないこと（03 の 5.3「画面にエラーを表示しない」）
+// 画面の外に漏れた例外（イベントハンドラや effect の中で投げられ、誰にも捕まえられなかったもの）
+const uncaughtErrors: unknown[] = [];
+const recordUncaughtError = (event: ErrorEvent): void => {
+  uncaughtErrors.push(event.error ?? event.message);
+  event.preventDefault();
+};
+
 function expectNoErrorShown(): void {
+  // 例外が漏れていないこと（保存の失敗を握りつぶさずに投げると、ここで NG になる）
+  expect(uncaughtErrors).toStrictEqual([]);
   expect(screen.queryByRole('alert')).toBeNull();
   expect(document.body.textContent ?? '').not.toMatch(/エラー|失敗|できません|error|failed/i);
 }
 
 beforeEach(() => {
+  uncaughtErrors.length = 0;
+  window.addEventListener('error', recordUncaughtError);
   localStorage.clear();
   installFetchMock();
 });
 
 afterEach(() => {
+  window.removeEventListener('error', recordUncaughtError);
   cleanup();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -275,6 +287,7 @@ describe('カウンターピック画面: 絞り込み条件の保存', () => {
       expect(championsCalls.filter((url) => requestedFilters(url).tier === 'platinum_plus')).toHaveLength(0);
       expect(regionSelect().value).toBe('KR');
       expect(tierSelect().value).toBe('master_plus');
+      expect(patchSelect().value).toBe(LATEST_PATCH);
       expect(callsTo('/api/counter')).toHaveLength(0);
     });
 
@@ -307,6 +320,7 @@ describe('カウンターピック画面: 絞り込み条件の保存', () => {
       });
       expect(regionSelect().value).toBe('KR');
       expect(tierSelect().value).toBe('diamond_plus');
+      expect(patchSelect().value).toBe(LATEST_PATCH);
       expect(localStorage.getItem(KEY)).toBe(raw);
     });
 
@@ -470,6 +484,7 @@ describe('カウンターピック画面: 絞り込み条件の保存', () => {
       });
       expect(regionSelect().value).toBe('EUW');
       expect(tierSelect().value).toBe('diamond_plus');
+      expect(patchSelect().value).toBe(LATEST_PATCH);
     });
   });
 

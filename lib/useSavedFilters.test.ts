@@ -27,7 +27,7 @@ interface Filters {
 }
 
 interface Snapshot extends Filters {
-  ready: boolean;
+  isReady: boolean;
 }
 
 // 先出しピックの既定値（03 の 5.1）
@@ -46,15 +46,15 @@ function renderSavedFilters(defaults: Filters) {
   const renders: Snapshot[] = [];
   const hook = renderHook(() => {
     const value = useSavedFilters({ ...defaults });
-    renders.push({ lane: value.lane, region: value.region, tier: value.tier, ready: value.ready });
+    renders.push({ lane: value.lane, region: value.region, tier: value.tier, isReady: value.isReady });
     return value;
   });
   return { ...hook, renders };
 }
 
 function current(result: { current: ReturnType<typeof useSavedFilters> }): Snapshot {
-  const { lane, region, tier, ready } = result.current;
-  return { lane, region, tier, ready };
+  const { lane, region, tier, isReady } = result.current;
+  return { lane, region, tier, isReady };
 }
 
 beforeEach(() => {
@@ -69,51 +69,51 @@ afterEach(() => {
 
 describe('useSavedFilters', () => {
   describe('最初の描画', () => {
-    it('HK-01 保存値があっても、最初の描画は defaults と ready: false', () => {
+    it('HK-01 保存値があっても、最初の描画は defaults と isReady: false', () => {
       seed({ v: 1, lane: 'TOP', region: 'KR', tier: 'diamond_plus' });
 
       const { renders } = renderSavedFilters(FIRST_PICK_DEFAULTS);
 
-      expect(renders[0]).toStrictEqual({ lane: 'MID', region: 'JP', tier: 'platinum_plus', ready: false });
+      expect(renders[0]).toStrictEqual({ lane: 'MID', region: 'JP', tier: 'platinum_plus', isReady: false });
     });
 
-    it('HK-02 保存値がなくても、最初の描画は ready: false', () => {
+    it('HK-02 保存値がなくても、最初の描画は isReady: false', () => {
       const { renders } = renderSavedFilters(COUNTER_PICK_DEFAULTS);
 
-      expect(renders[0]).toStrictEqual({ lane: 'TOP', region: 'JP', tier: 'platinum_plus', ready: false });
+      expect(renders[0]).toStrictEqual({ lane: 'TOP', region: 'JP', tier: 'platinum_plus', isReady: false });
     });
   });
 
   describe('マウントの後', () => {
-    it('HK-03 保存値がなければ、defaults と ready: true', () => {
+    it('HK-03 保存値がなければ、defaults と isReady: true', () => {
       const { result } = renderSavedFilters(FIRST_PICK_DEFAULTS);
 
-      expect(current(result)).toStrictEqual({ lane: 'MID', region: 'JP', tier: 'platinum_plus', ready: true });
+      expect(current(result)).toStrictEqual({ lane: 'MID', region: 'JP', tier: 'platinum_plus', isReady: true });
     });
 
     it('HK-04 defaults のレーンが TOP なら、保存値がないときのレーンは TOP', () => {
       const { result } = renderSavedFilters(COUNTER_PICK_DEFAULTS);
 
-      expect(current(result)).toStrictEqual({ lane: 'TOP', region: 'JP', tier: 'platinum_plus', ready: true });
+      expect(current(result)).toStrictEqual({ lane: 'TOP', region: 'JP', tier: 'platinum_plus', isReady: true });
     });
 
-    it('HK-05 3項目とも保存値があれば、3項目とも保存値と ready: true', () => {
+    it('HK-05 3項目とも保存値があれば、3項目とも保存値と isReady: true', () => {
       seed({ v: 1, lane: 'SUP', region: 'KR', tier: 'master_plus' });
 
       const { result } = renderSavedFilters(FIRST_PICK_DEFAULTS);
 
-      expect(current(result)).toStrictEqual({ lane: 'SUP', region: 'KR', tier: 'master_plus', ready: true });
+      expect(current(result)).toStrictEqual({ lane: 'SUP', region: 'KR', tier: 'master_plus', isReady: true });
     });
 
-    it('HK-06 ready: true の描画は、どれも保存値を反映している（既定値のまま ready: true になる描画がない）', () => {
+    it('HK-06 isReady: true の描画は、どれも保存値を反映している（既定値のまま isReady: true になる描画がない）', () => {
       seed({ v: 1, lane: 'SUP', region: 'KR', tier: 'master_plus' });
 
       const { renders } = renderSavedFilters(FIRST_PICK_DEFAULTS);
 
-      const readyRenders = renders.filter((r) => r.ready);
+      const readyRenders = renders.filter((r) => r.isReady);
       expect(readyRenders.length).toBeGreaterThanOrEqual(1);
       for (const r of readyRenders) {
-        expect(r).toStrictEqual({ lane: 'SUP', region: 'KR', tier: 'master_plus', ready: true });
+        expect(r).toStrictEqual({ lane: 'SUP', region: 'KR', tier: 'master_plus', isReady: true });
       }
     });
 
@@ -128,19 +128,19 @@ describe('useSavedFilters', () => {
 
       const { result } = renderSavedFilters(FIRST_PICK_DEFAULTS);
 
-      expect(current(result)).toStrictEqual({ ...expected, ready: true });
+      expect(current(result)).toStrictEqual({ ...expected, isReady: true });
     });
 
     it.each([
       ['JSON として読めない', 'not json'],
       ['v が 2', '{"v":2,"lane":"TOP","region":"KR","tier":"all"}'],
       ['オブジェクトでない', '"TOP"'],
-    ])('HK-08 保存値の全体が使えない（%s）: 3項目とも defaults と ready: true', (_label, raw) => {
+    ])('HK-08 保存値の全体が使えない（%s）: 3項目とも defaults と isReady: true', (_label, raw) => {
       localStorage.setItem(KEY, raw);
 
       const { result } = renderSavedFilters(COUNTER_PICK_DEFAULTS);
 
-      expect(current(result)).toStrictEqual({ lane: 'TOP', region: 'JP', tier: 'platinum_plus', ready: true });
+      expect(current(result)).toStrictEqual({ lane: 'TOP', region: 'JP', tier: 'platinum_plus', isReady: true });
     });
 
     it('HK-09 loadFilters を1回だけ呼ぶ（描画し直しても増えない）', () => {
@@ -153,23 +153,23 @@ describe('useSavedFilters', () => {
       expect(loadFilters).toHaveBeenCalledTimes(1);
     });
 
-    it('HK-10 ready が true になっただけでは saveFilters を呼ばず、保存値も変えない（保存値がない）', () => {
+    it('HK-10 isReady が true になっただけでは saveFilters を呼ばず、保存値も変えない（保存値がない）', () => {
       const { result, rerender } = renderSavedFilters(FIRST_PICK_DEFAULTS);
       rerender();
 
-      expect(result.current.ready).toBe(true);
+      expect(result.current.isReady).toBe(true);
       expect(saveFilters).not.toHaveBeenCalled();
       expect(localStorage.getItem(KEY)).toBeNull();
     });
 
-    it('HK-11 ready が true になっただけでは saveFilters を呼ばず、保存値も変えない（一部が使えない保存値）', () => {
+    it('HK-11 isReady が true になっただけでは saveFilters を呼ばず、保存値も変えない（一部が使えない保存値）', () => {
       const raw = '{"v":1,"lane":"ADC","region":"KR","tier":"diamond_plus"}';
       localStorage.setItem(KEY, raw);
 
       const { result, rerender } = renderSavedFilters(FIRST_PICK_DEFAULTS);
       rerender();
 
-      expect(result.current.ready).toBe(true);
+      expect(result.current.isReady).toBe(true);
       expect(saveFilters).not.toHaveBeenCalled();
       // 使えない項目を既定値に直して書き戻す、ということをしない
       expect(localStorage.getItem(KEY)).toBe(raw);
@@ -184,7 +184,7 @@ describe('useSavedFilters', () => {
         result.current.setLane('JG');
       });
 
-      expect(current(result)).toStrictEqual({ lane: 'JG', region: 'JP', tier: 'platinum_plus', ready: true });
+      expect(current(result)).toStrictEqual({ lane: 'JG', region: 'JP', tier: 'platinum_plus', isReady: true });
       expect(saveFilters).toHaveBeenCalledTimes(1);
       expect(vi.mocked(saveFilters).mock.calls[0][0]).toStrictEqual({ lane: 'JG', region: 'JP', tier: 'platinum_plus' });
       expect(JSON.parse(localStorage.getItem(KEY) as string)).toStrictEqual({
@@ -199,7 +199,7 @@ describe('useSavedFilters', () => {
         result.current.setRegion('EUNE');
       });
 
-      expect(current(result)).toStrictEqual({ lane: 'MID', region: 'EUNE', tier: 'platinum_plus', ready: true });
+      expect(current(result)).toStrictEqual({ lane: 'MID', region: 'EUNE', tier: 'platinum_plus', isReady: true });
       expect(saveFilters).toHaveBeenCalledTimes(1);
       expect(vi.mocked(saveFilters).mock.calls[0][0]).toStrictEqual({ lane: 'MID', region: 'EUNE', tier: 'platinum_plus' });
       expect(JSON.parse(localStorage.getItem(KEY) as string)).toStrictEqual({
@@ -214,7 +214,7 @@ describe('useSavedFilters', () => {
         result.current.setTier('all');
       });
 
-      expect(current(result)).toStrictEqual({ lane: 'TOP', region: 'JP', tier: 'all', ready: true });
+      expect(current(result)).toStrictEqual({ lane: 'TOP', region: 'JP', tier: 'all', isReady: true });
       expect(saveFilters).toHaveBeenCalledTimes(1);
       expect(vi.mocked(saveFilters).mock.calls[0][0]).toStrictEqual({ lane: 'TOP', region: 'JP', tier: 'all' });
       expect(JSON.parse(localStorage.getItem(KEY) as string)).toStrictEqual({
@@ -264,7 +264,7 @@ describe('useSavedFilters', () => {
       expect(vi.mocked(saveFilters).mock.calls[0][0]).toStrictEqual({ lane: 'BOT', region: 'JP', tier: 'platinum_plus' });
       expect(vi.mocked(saveFilters).mock.calls[1][0]).toStrictEqual({ lane: 'BOT', region: 'KR', tier: 'platinum_plus' });
       expect(vi.mocked(saveFilters).mock.calls[2][0]).toStrictEqual({ lane: 'BOT', region: 'KR', tier: 'master_plus' });
-      expect(current(result)).toStrictEqual({ lane: 'BOT', region: 'KR', tier: 'master_plus', ready: true });
+      expect(current(result)).toStrictEqual({ lane: 'BOT', region: 'KR', tier: 'master_plus', isReady: true });
       expect(JSON.parse(localStorage.getItem(KEY) as string)).toStrictEqual({
         v: 1, lane: 'BOT', region: 'KR', tier: 'master_plus',
       });
@@ -296,13 +296,13 @@ describe('useSavedFilters', () => {
       // 別の画面（カウンターピック）の defaults で開く
       const second = renderSavedFilters(COUNTER_PICK_DEFAULTS);
 
-      expect(second.renders[0]).toStrictEqual({ lane: 'TOP', region: 'JP', tier: 'platinum_plus', ready: false });
-      expect(current(second.result)).toStrictEqual({ lane: 'JG', region: 'KR', tier: 'platinum_plus', ready: true });
+      expect(second.renders[0]).toStrictEqual({ lane: 'TOP', region: 'JP', tier: 'platinum_plus', isReady: false });
+      expect(current(second.result)).toStrictEqual({ lane: 'JG', region: 'KR', tier: 'platinum_plus', isReady: true });
     });
   });
 
   describe('localStorage が使えない', () => {
-    it('HK-20 読み込みが例外を投げても、defaults と ready: true になる', () => {
+    it('HK-20 読み込みが例外を投げても、defaults と isReady: true になる', () => {
       seed({ v: 1, lane: 'SUP', region: 'KR', tier: 'master_plus' });
       const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
         throw new DOMException('The operation is insecure.', 'SecurityError');
@@ -310,7 +310,7 @@ describe('useSavedFilters', () => {
       try {
         const { result } = renderSavedFilters(FIRST_PICK_DEFAULTS);
 
-        expect(current(result)).toStrictEqual({ lane: 'MID', region: 'JP', tier: 'platinum_plus', ready: true });
+        expect(current(result)).toStrictEqual({ lane: 'MID', region: 'JP', tier: 'platinum_plus', isReady: true });
         // 例外の経路を実際に通ったことを確かめる
         expect(getItem).toHaveBeenCalled();
       } finally {
@@ -330,7 +330,7 @@ describe('useSavedFilters', () => {
           });
         }).not.toThrow();
 
-        expect(current(result)).toStrictEqual({ lane: 'SUP', region: 'JP', tier: 'platinum_plus', ready: true });
+        expect(current(result)).toStrictEqual({ lane: 'SUP', region: 'JP', tier: 'platinum_plus', isReady: true });
         // 例外の経路を実際に通ったことを確かめる
         expect(setItem).toHaveBeenCalledTimes(1);
       } finally {
