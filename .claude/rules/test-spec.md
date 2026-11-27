@@ -1,6 +1,6 @@
 ---
 paths:
-  - "docs/06_batch-test-spec.html"
+  - "docs/*test-spec.html"
   - "scripts/it/**"
   - "**/*.test.ts"
   - "**/*.test.tsx"
