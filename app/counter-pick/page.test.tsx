@@ -1,6 +1,7 @@
 // カウンターピック画面（SCR-03/04）の、絞り込み条件の保存（01 FR-08、03 の 5章）のテスト
 // テスト名の先頭の ID は docs/07_ui-test-spec.html の項目 ID と対応する
 // 期待結果は設計書（01 FR-08・FR-13、03 の 5章、05 の 3章・4章）から決めている。実装のコードからは決めていない
+// （FR-08 の項目についての記述。03 の 6章の項目〔FP-16 以降・CP-17 以降〕は、実装と同じ作業の中で、03 の 6章から作った。07 の 2.1）
 //
 // 画面の部品の探し方（設計書に DOM の決まりがないため、07 の 8章 T-3 の仮決めに従う）:
 // - レーン: 表示の文字がレーン名（TOP など）と一致する button（または role="tab"）
@@ -567,6 +568,35 @@ const PATCHES_ERROR_MESSAGE = 'パッチの一覧を取得できませんでし�
 const PATCHES_EMPTY_MESSAGE = '表示できるパッチがありません。';
 const DATA_ERROR_MESSAGE = 'データを取得できませんでした。ページを読み込み直してください。';
 
+// パッチの select（フィルターバーの3つ目。パッチの一覧が空のときは option の値で探せないため、並び順で探す）
+function patchOptionCount(): number {
+  const selects = Array.from(document.querySelectorAll('select'));
+  if (selects.length !== 3) throw new Error(`select が ${selects.length} 個ある（3個のはず）`);
+  return selects[2].options.length;
+}
+
+// 取得できないときの文言の色（03 の 6.1: #f87171）。jsdom は rgb() の形で返す
+const ERROR_COLOR = 'rgb(248, 113, 113)';
+
+function alertColors(): string[] {
+  return screen.queryAllByRole('alert').map((element) => element.style.color);
+}
+
+// テストが決めた時点で応答を返す fetch（応答の前の表示を確かめるため）
+function installDeferredMock(pathname: string): () => void {
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  calls = [];
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    const url = toUrl(input);
+    calls.push(url);
+    if (url.pathname === pathname) await gate;
+    if (url.pathname === '/api/patches') return jsonResponse(PATCHES);
+    return jsonResponse(CHAMPION_ROWS);
+  }));
+  return release;
+}
+
 function alertTexts(): string[] {
   return screen.queryAllByRole('alert').map((element) => element.textContent ?? '');
 }
@@ -586,6 +616,10 @@ describe('カウンターピック画面: API から取得できないとき（0
     await settle();
     expect(alertTexts()).toStrictEqual([PATCHES_ERROR_MESSAGE]);
     expect(callsTo('/api/champions')).toHaveLength(0);
+    expect(alertColors()).toStrictEqual([ERROR_COLOR]);
+    expect(patchOptionCount()).toBe(0);
+    // 自動で再試行しない
+    expect(callsTo('/api/patches')).toHaveLength(1);
     expect(callsTo('/api/counter')).toHaveLength(0);
     expect(document.body.textContent ?? '').not.toContain('読み込み中');
     expect(uncaughtErrors).toStrictEqual([]);
@@ -600,6 +634,8 @@ describe('カウンターピック画面: API から取得できないとき（0
     await settle();
     expect(alertTexts()).toStrictEqual([]);
     expect(callsTo('/api/champions')).toHaveLength(0);
+    expect(patchOptionCount()).toBe(0);
+    expect(callsTo('/api/patches')).toHaveLength(1);
     expect(document.body.textContent ?? '').not.toContain('読み込み中');
     expect(uncaughtErrors).toStrictEqual([]);
   });
@@ -651,6 +687,100 @@ describe('カウンターピック画面: API から取得できないとき（0
 
     await waitForChampionsCalls(2);
     expect(await screen.findByText('← 相手チャンピオンを選択してください')).toBeTruthy();
+    expect(callsTo('/api/counter')).toHaveLength(1);
+  });
+});
+
+describe('カウンターピック画面: 応答を待っているあいだ・選択の解除（03 の 6.1）', () => {
+  it('CP-22 /api/patches の応答の前は「読み込み中...」を表示し、/api/champions を呼ばない。応答の後は相手チャンピオンの一覧を表示し、「読み込み中...」を消す', async () => {
+    const release = installDeferredMock('/api/patches');
+
+    render(<CounterPickPage />);
+    await settle();
+
+    expect(screen.getAllByText('読み込み中...')).toHaveLength(1);
+    expect(callsTo('/api/champions')).toHaveLength(0);
+
+    await act(async () => { release(); });
+
+    await findEnemyChampion(ENEMY_NAME);
+    expect(screen.queryByText('読み込み中...')).toBeNull();
+  });
+
+  it('CP-26 /api/counter の応答の前は「読み込み中...」を表示し、「データが不足しています」は表示しない', async () => {
+    const release = installDeferredMock('/api/counter');
+
+    render(<CounterPickPage />);
+    fireEvent.click(await findEnemyChampion(ENEMY_NAME));
+    await waitFor(() => { expect(callsTo('/api/counter')).toHaveLength(1); });
+    await settle();
+
+    expect(screen.getAllByText('読み込み中...')).toHaveLength(1);
+    expect(document.body.textContent ?? '').not.toContain('データが不足しています');
+
+    await act(async () => { release(); });
+
+    await waitFor(() => { expect(screen.queryByText('読み込み中...')).toBeNull(); });
+  });
+
+  it('CP-27 /api/champions の応答の前は「読み込み中...」を表示する。応答の後は消す', async () => {
+    const release = installDeferredMock('/api/champions');
+
+    render(<CounterPickPage />);
+    await waitFor(() => { expect(callsTo('/api/champions')).toHaveLength(1); });
+    await settle();
+
+    expect(screen.getAllByText('読み込み中...')).toHaveLength(1);
+
+    await act(async () => { release(); });
+
+    await findEnemyChampion(ENEMY_NAME);
+    expect(screen.queryByText('読み込み中...')).toBeNull();
+  });
+
+  it('CP-23 相手チャンピオンを選び、レーンを変えてから元のレーンに戻しても、選択は外れたままで、/api/counter を呼び直さない', async () => {
+    render(<CounterPickPage />);
+    fireEvent.click(await findEnemyChampion(ENEMY_NAME));
+    expect(await waitForCounterCalls(1)).toHaveLength(1);
+
+    fireEvent.click(laneTab('JG'));
+    await waitForChampionsCalls(2);
+    fireEvent.click(laneTab('TOP'));
+    await waitForChampionsCalls(3);
+
+    expect(await screen.findByText('← 相手チャンピオンを選択してください')).toBeTruthy();
+    expect(callsTo('/api/counter')).toHaveLength(1);
+  });
+
+  it.each([
+    ['リージョン', (): void => { fireEvent.change(regionSelect(), { target: { value: 'KR' } }); }, (): void => { fireEvent.change(regionSelect(), { target: { value: 'JP' } }); }],
+    ['ランク帯', (): void => { fireEvent.change(tierSelect(), { target: { value: 'master_plus' } }); }, (): void => { fireEvent.change(tierSelect(), { target: { value: 'platinum_plus' } }); }],
+    ['パッチ', (): void => { fireEvent.change(patchSelect(), { target: { value: '16.22' } }); }, (): void => { fireEvent.change(patchSelect(), { target: { value: '16.23' } }); }],
+  ])('CP-24 相手チャンピオンを選び、%sを変えてから元に戻しても、選択は外れたままで、/api/counter を呼び直さない', async (_name, change, restore) => {
+    render(<CounterPickPage />);
+    fireEvent.click(await findEnemyChampion(ENEMY_NAME));
+    expect(await waitForCounterCalls(1)).toHaveLength(1);
+
+    change();
+    await waitForChampionsCalls(2);
+    restore();
+    await waitForChampionsCalls(3);
+
+    expect(await screen.findByText('← 相手チャンピオンを選択してください')).toBeTruthy();
+    expect(callsTo('/api/counter')).toHaveLength(1);
+  });
+
+  it('CP-25 /api/counter が失敗したときの文言の色は #f87171', async () => {
+    installFetchMock((url) => (
+      url.pathname === '/api/counter' ? jsonResponse({ error: 'Internal Server Error' }, 500) : undefined
+    ));
+
+    render(<CounterPickPage />);
+    fireEvent.click(await findEnemyChampion(ENEMY_NAME));
+
+    await waitFor(() => { expect(alertTexts()).toStrictEqual([DATA_ERROR_MESSAGE]); });
+    await settle();
+    expect(alertColors()).toStrictEqual([ERROR_COLOR]);
     expect(callsTo('/api/counter')).toHaveLength(1);
   });
 });

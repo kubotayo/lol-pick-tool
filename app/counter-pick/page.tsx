@@ -8,6 +8,7 @@ import { LANES, REGIONS, TIERS, TIER_NAMES } from '@/lib/constants';
 import { getWinRateColor, formatWinRate, formatGames } from '@/lib/utils';
 import { DATA_ERROR_MESSAGE, PATCHES_EMPTY_MESSAGE, PATCHES_ERROR_MESSAGE, useApiList } from '@/lib/useApiList';
 import { useSavedFilters } from '@/lib/useSavedFilters';
+import type { Lane } from '@/lib/constants';
 import type { ChampionStatRow, CounterStatRow } from '@/lib/types';
 
 /** 選んだ相手と、選んだときの一覧の URL */
@@ -36,7 +37,8 @@ export default function CounterPickPage() {
   const isPatchEmpty = !patchList.isLoading && !patchList.hasError && patches.length === 0;
   const isListLoading = patchList.isLoading || (patch !== '' && (!isReady || championList.isLoading));
 
-  // 絞り込み条件を変えると一覧が変わるので、相手の選択は外れる。選んだときの一覧の URL と比べて決める（effect の中で選択を消さないため）
+  // 絞り込み条件を変えると、相手の選択は外れる（03 の 6.1）。条件を変える操作のたびに選択を消す（下の handle〜）。
+  // 加えて、選んだときの一覧の URL と比べ、違う一覧の選択は使わない（操作によらず一覧が変わった場合に備える）
   const [selection, setSelection] = useState<EnemySelection | null>(null);
   const selectedEnemy = selection !== null && selection.listUrl === listUrl ? selection.enemy : null;
 
@@ -50,14 +52,23 @@ export default function CounterPickPage() {
   // select の値は文字列で届くため、許可値の中から探して型を決める
   const handleRegionChange = (e: ChangeEvent<HTMLSelectElement>): void => {
     const next = REGIONS.find(r => r === e.target.value);
-    if (next) setRegion(next);
+    if (!next) return;
+    setSelection(null);
+    setRegion(next);
   };
   const handleTierChange = (e: ChangeEvent<HTMLSelectElement>): void => {
     const next = TIERS.find(t => t === e.target.value);
-    if (next) setTier(next);
+    if (!next) return;
+    setSelection(null);
+    setTier(next);
   };
   const handlePatchChange = (e: ChangeEvent<HTMLSelectElement>): void => {
+    setSelection(null);
     setSelectedPatch(e.target.value);
+  };
+  const handleLaneClick = (next: Lane): void => {
+    setSelection(null);
+    setLane(next);
   };
   const handleEnemyClick = (enemy: ChampionStatRow): void => {
     if (listUrl !== null) setSelection({ listUrl, enemy });
@@ -106,7 +117,7 @@ export default function CounterPickPage() {
         <p className="text-xs uppercase tracking-widest mb-2" style={{ color: '#6b7280' }}>① 自分のレーンを選択</p>
         <div className="flex gap-2">
           {LANES.map(l => (
-            <button key={l} onClick={() => setLane(l)}
+            <button key={l} onClick={() => handleLaneClick(l)}
               className="px-4 py-1.5 rounded text-xs font-semibold border transition-colors"
               style={lane === l
                 ? { background: '#c89b3c', borderColor: '#c89b3c', color: '#1a1a2e' }

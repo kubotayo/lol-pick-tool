@@ -81,6 +81,22 @@ describe('useApiList', () => {
     expect(result.current).toStrictEqual({ rows: ['b'], isLoading: false, hasError: false });
   });
 
+  it('AL-06 url が null になった後に同じ url に戻ると、前の結果をすぐ返し、取り直した応答で置き換える', async () => {
+    const { result, rerender } = renderHook(({ url }: { url: string | null }) => useApiList<string>(url), {
+      initialProps: { url: '/api/a' as string | null },
+    });
+    await respond('/api/a', ['old']);
+
+    rerender({ url: null });
+    expect(result.current).toStrictEqual({ rows: [], isLoading: false, hasError: false });
+    rerender({ url: '/api/a' });
+
+    await waitFor(() => { expect(calls).toStrictEqual(['/api/a', '/api/a']); });
+    expect(result.current).toStrictEqual({ rows: ['old'], isLoading: false, hasError: false });
+    await respond('/api/a', ['new']);
+    expect(result.current).toStrictEqual({ rows: ['new'], isLoading: false, hasError: false });
+  });
+
   it('AL-05 失敗した後に url が変わると、失敗の状態を引き継がない', async () => {
     const { result, rerender } = renderHook(({ url }: { url: string }) => useApiList<string>(url), {
       initialProps: { url: '/api/a' },

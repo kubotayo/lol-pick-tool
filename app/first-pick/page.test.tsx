@@ -1,6 +1,7 @@
 // 先出しピック画面（SCR-02）の、絞り込み条件の保存（01 FR-08、03 の 5章）のテスト
 // テスト名の先頭の ID は docs/07_ui-test-spec.html の項目 ID と対応する
 // 期待結果は設計書（01 FR-08、03 の 5章、05 の 3章）から決めている。実装のコードからは決めていない
+// （FR-08 の項目についての記述。03 の 6章の項目〔FP-16 以降・CP-17 以降〕は、実装と同じ作業の中で、03 の 6章から作った。07 の 2.1）
 //
 // 画面の部品の探し方（設計書に DOM の決まりがないため、07 の 8章 T-3 の仮決めに従う）:
 // - レーン: 表示の文字がレーン名（TOP など）と一致する button（または role="tab"）
@@ -512,6 +513,35 @@ const PATCHES_ERROR_MESSAGE = 'パッチの一覧を取得できませんでし�
 const PATCHES_EMPTY_MESSAGE = '表示できるパッチがありません。';
 const DATA_ERROR_MESSAGE = 'データを取得できませんでした。ページを読み込み直してください。';
 
+// パッチの select（フィルターバーの3つ目。パッチの一覧が空のときは option の値で探せないため、並び順で探す）
+function patchOptionCount(): number {
+  const selects = Array.from(document.querySelectorAll('select'));
+  if (selects.length !== 3) throw new Error(`select が ${selects.length} 個ある（3個のはず）`);
+  return selects[2].options.length;
+}
+
+// 取得できないときの文言の色（03 の 6.1: #f87171）。jsdom は rgb() の形で返す
+const ERROR_COLOR = 'rgb(248, 113, 113)';
+
+function alertColors(): string[] {
+  return screen.queryAllByRole('alert').map((element) => element.style.color);
+}
+
+// テストが決めた時点で応答を返す fetch（応答の前の表示を確かめるため）
+function installDeferredMock(pathname: string): () => void {
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  calls = [];
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    const url = toUrl(input);
+    calls.push(url);
+    if (url.pathname === pathname) await gate;
+    if (url.pathname === '/api/patches') return jsonResponse(PATCHES);
+    return jsonResponse(CHAMPION_ROWS);
+  }));
+  return release;
+}
+
 function alertTexts(): string[] {
   return screen.queryAllByRole('alert').map((element) => element.textContent ?? '');
 }
@@ -531,6 +561,10 @@ describe('先出しピック画面: API から取得できないとき（03 の 
     await settle();
     expect(alertTexts()).toStrictEqual([PATCHES_ERROR_MESSAGE]);
     expect(callsTo('/api/champions')).toHaveLength(0);
+    expect(alertColors()).toStrictEqual([ERROR_COLOR]);
+    expect(patchOptionCount()).toBe(0);
+    // 自動で再試行しない
+    expect(callsTo('/api/patches')).toHaveLength(1);
     expect(document.body.textContent ?? '').not.toContain('読み込み中');
     expect(uncaughtErrors).toStrictEqual([]);
   });
@@ -544,6 +578,8 @@ describe('先出しピック画面: API から取得できないとき（03 の 
     await settle();
     expect(alertTexts()).toStrictEqual([]);
     expect(callsTo('/api/champions')).toHaveLength(0);
+    expect(patchOptionCount()).toBe(0);
+    expect(callsTo('/api/patches')).toHaveLength(1);
     expect(document.body.textContent ?? '').not.toContain('読み込み中');
     expect(uncaughtErrors).toStrictEqual([]);
   });
@@ -593,5 +629,53 @@ describe('先出しピック画面: 一覧の表示（03 の SCR-02）', () => {
     // 行の先頭の要素が順位
     expect(first?.firstElementChild?.textContent).toBe('1');
     expect(second?.firstElementChild?.textContent).toBe('2');
+  });
+});
+
+describe('先出しピック画面: 応答を待っているあいだ（03 の 6.1）', () => {
+  it('FP-21 /api/patches の応答の前は「読み込み中...」を表示し、/api/champions を呼ばない。応答の後は一覧を表示し、「読み込み中...」を消す', async () => {
+    const release = installDeferredMock('/api/patches');
+
+    render(<FirstPickPage />);
+    await settle();
+
+    expect(screen.getAllByText('読み込み中...')).toHaveLength(1);
+    expect(document.body.textContent ?? '').not.toContain('データがありません');
+    expect(callsTo('/api/champions')).toHaveLength(0);
+
+    await act(async () => { release(); });
+
+    expect((await screen.findAllByText('レネクトン')).length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText('読み込み中...')).toBeNull();
+  });
+
+  it('FP-23 /api/champions の応答の前は「読み込み中...」を表示し、「データがありません」は表示しない', async () => {
+    const release = installDeferredMock('/api/champions');
+
+    render(<FirstPickPage />);
+    await waitFor(() => { expect(callsTo('/api/champions')).toHaveLength(1); });
+    await settle();
+
+    expect(screen.getAllByText('読み込み中...')).toHaveLength(1);
+    expect(document.body.textContent ?? '').not.toContain('データがありません');
+
+    await act(async () => { release(); });
+
+    expect((await screen.findAllByText('レネクトン')).length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText('読み込み中...')).toBeNull();
+  });
+
+  it('FP-22 /api/champions が失敗し続けても、呼び出しは1回のまま（自動で再試行しない）', async () => {
+    installFetchMock((url) => (
+      url.pathname === '/api/champions' ? jsonResponse({ error: 'Internal Server Error' }, 500) : undefined
+    ));
+
+    render(<FirstPickPage />);
+
+    await waitFor(() => { expect(alertTexts()).toStrictEqual([DATA_ERROR_MESSAGE]); });
+    await settle();
+    expect(alertColors()).toStrictEqual([ERROR_COLOR]);
+    expect(callsTo('/api/champions')).toHaveLength(1);
+    expect(callsTo('/api/patches')).toHaveLength(1);
   });
 });

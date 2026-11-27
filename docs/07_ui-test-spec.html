@@ -67,9 +67,10 @@
   <h1>画面テスト仕様書</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-11-27</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.1.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.1.1</div></div>
     <div class="meta-item"><div class="label">対象</div><div class="value">絞り込み条件の保存と、API から取得できないときの表示（lib/filterStorage.ts・lib/useSavedFilters.ts・lib/useApiList.ts・先出しピック画面・カウンターピック画面）</div></div>
-    <div class="meta-item"><div class="label">根拠とする設計書</div><div class="value">01 v1.10.0 / 03 v1.3.0</div></div>
+    <div class="meta-item"><div class="label">根拠とする設計書</div><div class="value">01 v1.10.0 / 03 v1.3.1</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.1.1)</div><div class="value">2026-11-27 レビューの指摘から: AL-06、FP-21〜23、CP-22〜27 を追加（読み込み中の表示、条件を元に戻したときの相手の選択、色、再試行しないこと）。FP-16・17、CP-17・18 の判定に、色・パッチの選択肢の数・<code>/api/patches</code> の回数を追加。2.1・2.2・2.4 を 6章の項目に合わせた。9章に B-x〜B-z</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.1.0)</div><div class="value">2026-11-27 03 v1.3.0 の 6章（API から取得できないときの表示）のテストを追加: AL-01〜05、FP-16〜20、CP-17〜21。9章に B-p〜B-w を追加。8章 G-3 を更新</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.0.0)</div><div class="value">2026-11-27 新規作成。01 FR-08（絞り込み条件を覚える）のテスト</div></div>
   </div>
@@ -93,13 +94,13 @@
     <div class="section-header"><div class="section-num">2</div><h2>テスト方針</h2></div>
 
     <h3>2.1 期待結果の決め方</h3>
-    <p>期待結果は設計書（01 FR-08、03 の 5章、05 の既定値）から決め、各項目に根拠（設計書番号と節）を書く。実装のコードからは決めていない（テスト項目と自動テストは、実装のコードを読まずに作った）。設計書から決まらなかった点は、8章に仮決めとして分けて書く。</p>
+    <p>期待結果は設計書（01 FR-08、03 の 5章・6章、05 の既定値）から決め、各項目に根拠（設計書番号と節）を書く。FR-08 の項目（FS・HK・FP-01〜15・CP-01〜16・MT）は、実装のコードを読まずに作った。03 の 6章の項目（AL・FP-16 以降・CP-17 以降）は、実装と同じ作業の中で、03 の 6章から作った（実装を知ったうえで書いているので、判定が実装に合わせて甘くなっていないかは、9章 B-p〜B-z で確かめた）。設計書から決まらなかった点は、8章に仮決めとして分けて書く。</p>
 
     <h3>2.2 テストの段階</h3>
     <table>
       <tr><th style="width:130px">段階</th><th style="width:260px">確かめること</th><th style="width:340px">方法・環境</th><th>記号</th></tr>
-      <tr><td>単体（FS・HK）</td><td>保存値の読み書きと確かめ方（5.2・5.3）、フックの戻り値と保存の呼び出し（5.5）</td><td>vitest ＋ jsdom の <code>localStorage</code>。フックは <code>renderHook</code></td><td rowspan="2"><span class="badge auto">自動</span> vitest のテストがある。テスト名は項目 ID で始まる（例: <code>FS-07 キーがない</code>）</td></tr>
-      <tr><td>画面（FP・CP）</td><td>画面を開いたとき・条件を変えたときの API の呼び出し（5.4）と保存値</td><td>vitest ＋ jsdom ＋ @testing-library/react。<code>fetch</code> は偽物に差し替え、呼ばれた URL を記録する。<code>next/image</code>・<code>next/link</code>・<code>next/navigation</code> も差し替える</td></tr>
+      <tr><td>単体（FS・HK・AL）</td><td>保存値の読み書きと確かめ方（5.2・5.3）、フックの戻り値と保存の呼び出し（5.5）、API を読むフックの状態（6.2）</td><td>vitest ＋ jsdom の <code>localStorage</code>。フックは <code>renderHook</code></td><td rowspan="2"><span class="badge auto">自動</span> vitest のテストがある。テスト名は項目 ID で始まる（例: <code>FS-07 キーがない</code>）</td></tr>
+      <tr><td>画面（FP・CP）</td><td>画面を開いたとき・条件を変えたときの API の呼び出し（5.4）と保存値。API から取得できないとき・応答を待っているあいだの表示（6.1）</td><td>vitest ＋ jsdom ＋ @testing-library/react。<code>fetch</code> は偽物に差し替え、呼ばれた URL を記録する。<code>next/image</code>・<code>next/link</code>・<code>next/navigation</code> も差し替える</td></tr>
       <tr><td>手動（MT）</td><td>本物のブラウザでの読み込み直し・画面の移動・保存を許さない設定・選択中の見た目</td><td>ローカルの本番ビルド（3章）＋ Chrome</td><td><span class="badge manual">手動</span> 手順に沿って実施し、結果を記録する</td></tr>
     </table>
 
@@ -116,8 +117,8 @@
     <h3>2.4 優先度</h3>
     <table>
       <tr><th style="width:90px">優先度</th><th>内容</th></tr>
-      <tr><td><span class="badge p1">P1</span></td><td>受け入れ条件 (1)〜(5) と 5.4（API を呼ぶ順序）に直接当たる項目。覚えた値で開く・項目ごとの既定値・パッチを覚えない・保存できなくても動く・API を既定値で余分に呼ばない</td></tr>
-      <tr><td><span class="badge p2">P2</span></td><td>保存値の形の細かい場合（許可値の全部・余分なプロパティ・別のキー）、読み込みの回数、ブラウザを起動し直した後</td></tr>
+      <tr><td><span class="badge p1">P1</span></td><td>受け入れ条件 (1)〜(5) と 5.4（API を呼ぶ順序）に直接当たる項目。覚えた値で開く・項目ごとの既定値・パッチを覚えない・保存できなくても動く・API を既定値で余分に呼ばない。6.1 の表の4つの状態の文言と、「読み込み中」を表示し続けない・応答の前は表示する・前の条件の応答を使わない・相手の選択が外れる、に直接当たる項目（利用者が、止まった画面や前の条件の数字を見ないため）</td></tr>
+      <tr><td><span class="badge p2">P2</span></td><td>保存値の形の細かい場合（許可値の全部・余分なプロパティ・別のキー）、読み込みの回数、ブラウザを起動し直した後。6章では、通信の失敗の別の形・文言の色・再試行しないこと・順位の数え方・フックの端の場合</td></tr>
       <tr><td><span class="badge p3">P3</span></td><td>この機能の外への影響（ほかのキーを変えない）など</td></tr>
     </table>
     <p>PR をマージする条件: P1・P2 がすべて合格していること。P3 の不合格は、内容を確認して対応を決める。</p>
@@ -132,7 +133,7 @@
       <tr><td>A-6</td><td>手動の項目は、Console に入れる式・押す場所・見る場所を書く</td></tr>
       <tr><td>A-7</td><td>自動テストは jsdom で動かすので、本物のブラウザの読み込み直し・サイトのデータの保存の禁止・選択中のレーンの色は確かめていない。それぞれ MT-01・02、MT-06、MT-01〜03・05 で確かめる。対応は各項目の「判定方法」「関連」に書く</td></tr>
       <tr><td>A-8</td><td>自動テストは項目ごとに <code>localStorage</code> を空にしてから始めるので、項目どうしの依存はない（「〜と同じ操作の後」と書いた項目も、テストの中で操作をやり直す）。手動の項目の依存は、各項目の前提に書く</td></tr>
-      <tr><td>B-2</td><td>9章の表のとおり実施した（2026-11-27）。B-m・B-n は未実施。B-j は NG にならなかった（理由は 9章）。B-s・B-t は、AL-01〜05 を足して NG になるようにした</td></tr>
+      <tr><td>B-2</td><td>9章の表のとおり実施した（2026-11-27）。B-m・B-n は未実施。B-j は NG にならなかった（理由は 9章）。B-s・B-t・B-y は、項目を足して NG になるようにした</td></tr>
     </table>
   </div>
 
@@ -158,7 +159,7 @@ npm run start
 localStorage.getItem('lol-pick-tool:filters')
 # 保存値を消す（Console）
 localStorage.removeItem('lol-pick-tool:filters')</pre>
-    <div class="note">手動の手順（MT-01〜08）は、人が Chrome で通したことは<b>まだない</b>。M-0 の <code>npm run build</code>・<code>npm run start</code> は、<code>.env.local</code> がある開発機で動くことを確かめた（2026-11-27。環境変数がない状態では確かめていない）。同じ日に、本番ビルドに対してヘッドレスの Chromium で、MT-01〜05・07 に当たる動き（保存・読み込み直し・画面間の共有・使えない値・API の回数）を確かめた（記録は作業ログ）。MT-06 の Chrome の設定の場所と名前は未確認（前提の確認の式が <code>"SecurityError"</code> を返せば、設定の名前が違っていてもよい）。確かめた結果で手順が変わるときは、この文書を直してから実施する。</div>
+    <div class="note">手動の手順（MT-01〜08）は、人が Chrome で通したことは<b>まだない</b>。M-0 の <code>npm run build</code>・<code>npm run start</code> は、<code>.env.local</code> がある開発機で動くことを確かめた（2026-11-27。環境変数がない状態では確かめていない）。同じ日に、本番ビルドに対してヘッドレスの Chromium で、MT-01〜05・07 に当たる動き（保存・読み込み直し・画面間の共有・使えない値・API の回数）と、03 の 6章の表示（3つの API それぞれの取得失敗・パッチが空の文言、通常時の順位。API の応答はブラウザの側で差し替えた）を確かめた（記録は作業ログ）。MT-06 の Chrome の設定の場所と名前は未確認（前提の確認の式が <code>"SecurityError"</code> を返せば、設定の名前が違っていてもよい）。確かめた結果で手順が変わるときは、この文書を直してから実施する。</div>
   </div>
 
   <!-- 4. 要件とテストの対応 -->
@@ -187,11 +188,12 @@ localStorage.removeItem('lol-pick-tool:filters')</pre>
       <tr><td>03 6.1 2行目（<code>/api/patches</code> が空）</td><td>FP-17、CP-18</td></tr>
       <tr><td>03 6.1 3行目（<code>/api/champions</code> を取得できない）</td><td>FP-18・19、CP-19、AL-05</td></tr>
       <tr><td>03 6.1 4行目（<code>/api/counter</code> を取得できない）</td><td>CP-20</td></tr>
-      <tr><td>03 6.1 箇条書き（「読み込み中」を表示し続けない・前の条件の応答を使わない・相手の選択が外れる）</td><td>FP-16〜18、CP-17〜21、AL-03・04。文字の色（<code>#f87171</code>）は自動では確かめていない</td></tr>
-      <tr><td>03 6.2 モジュール（<code>useApiList</code>）</td><td>AL-01〜05</td></tr>
+      <tr><td>03 6.1 箇条書き</td><td>色と <code>role="alert"</code>: FP-16・22、CP-17・25（色は jsdom の <code>style.color</code> で比べる。画面での見え方は確かめていない）／「読み込み中」を表示し続けない: FP-16〜18、CP-17〜20／応答を待つあいだは表示する: FP-21・23、CP-22・26・27／前の条件の応答を使わない: AL-03・04／相手の選択が外れる（元に戻しても戻らない）: CP-21・23・24／再試行しない: FP-16・17・22、CP-17・18・25（呼び出しの回数）。再試行のボタンがないことは確かめていない</td></tr>
+      <tr><td>03 6.1 1・2行目「パッチの選択肢は空」</td><td>FP-16・17、CP-17・18</td></tr>
+      <tr><td>03 6.2 モジュール（<code>useApiList</code>）</td><td>AL-01〜06</td></tr>
       <tr><td>SCR-02 アノテーション 6（順位）</td><td>FP-20</td></tr>
     </table>
-    <p>項目の数: 自動 99（FS 32・HK 21・AL 5・FP 20・CP 21）、手動 8（MT）。1つの項目に入力が複数ある場合（「〜とおり」と書いたもの）は、vitest では入力ごとに1件と数えられる。</p>
+    <p>項目の数: 自動 109（FS 32・HK 21・AL 6・FP 23・CP 27）、手動 8（MT）。6章の表示は手動の項目を作っていない（本物のブラウザでは、ローカルの本番ビルドに対してヘッドレスの Chromium で1回確かめただけ。3章）。1つの項目に入力が複数ある場合（「〜とおり」と書いたもの）は、vitest では入力ごとに1件と数えられる。</p>
   </div>
 
   <!-- 5. テスト項目（単体） -->
@@ -273,6 +275,7 @@ localStorage.removeItem('lol-pick-tool:filters')</pre>
       <tr><td class="id">AL-03</td><td><span class="badge p1">P1</span></td><td>状態遷移</td><td><code>/api/a</code> の応答 <code>["a"]</code> が届いた後に、<code>url</code> を <code>/api/b</code> に変える</td><td><code>/api/b</code> の応答の前: <code>{ rows: [], isLoading: true, hasError: false }</code>（前の行を返さない）。応答 <code>["b"]</code> の後: <code>rows</code> が <code>["b"]</code></td><td>同上</td><td>03 6.1（今選ばれている条件の結果だけ）・6.2</td><td><span class="badge auto">自動</span></td><td></td></tr>
       <tr><td class="id">AL-04</td><td><span class="badge p1">P1</span></td><td>エラー推測</td><td><code>url</code> を <code>/api/a</code> から <code>/api/b</code> に変え、<code>/api/b</code> の応答 <code>["b"]</code> を先に、<code>/api/a</code> の応答 <code>["a"]</code> を後に返す</td><td>状態は <code>{ rows: ["b"], isLoading: false, hasError: false }</code> のまま</td><td>2つの応答を返した後の状態を <code>toStrictEqual</code> で比べる</td><td>03 6.1（前の条件の応答を使わない）</td><td><span class="badge auto">自動</span></td><td></td></tr>
       <tr><td class="id">AL-05</td><td><span class="badge p2">P2</span></td><td>状態遷移</td><td><code>/api/a</code> が 500 を返した後に、<code>url</code> を <code>/api/b</code> に変える</td><td>500 の後: <code>{ rows: [], isLoading: false, hasError: true }</code>。変えた後（応答の前）: <code>{ rows: [], isLoading: true, hasError: false }</code></td><td>同上</td><td>03 6.1 3行目・6.2</td><td><span class="badge auto">自動</span></td><td></td></tr>
+      <tr><td class="id">AL-06</td><td><span class="badge p2">P2</span></td><td>状態遷移</td><td><code>/api/a</code> の応答 <code>["old"]</code> が届いた後に、<code>url</code> を <code>null</code> にし、もう一度 <code>/api/a</code> にする。その後、2回目の応答 <code>["new"]</code> を返す</td><td><code>null</code> のあいだ: <code>{ rows: [], isLoading: false, hasError: false }</code>。戻した直後: <code>fetch</code> の呼び出しが合計2回で、状態は <code>rows</code> が <code>["old"]</code>・<code>isLoading: false</code>。2回目の応答の後: <code>rows</code> が <code>["new"]</code></td><td>状態を3つの時点で <code>toStrictEqual</code> で比べる</td><td>03 6.2（同じ <code>url</code> に戻ったとき）</td><td><span class="badge auto">自動</span></td><td></td></tr>
     </table></div>
   </div>
 
@@ -299,11 +302,14 @@ localStorage.removeItem('lol-pick-tool:filters')</pre>
       <tr><td class="id">FP-13</td><td><span class="badge p1">P1</span></td><td>状態遷移</td><td>先出しピックでレーン <code>JG</code>・リージョン <code>KR</code>・ランク帯 <code>master_plus</code> に変え、画面を破棄し、カウンターピックを開く</td><td>カウンターピックの <code>/api/champions</code> の呼び出しが1回。クエリは <code>lane=JG</code>・<code>region=KR</code>・<code>tier=master_plus</code>・<code>patch=16.23</code>（カウンターピックの既定の <code>TOP</code> ではない）</td><td>FP-12 と同じ。ヘッダーのリンクでの移動は MT-03</td><td>01 FR-08 (2)・FR-13、03 5章</td><td><span class="badge auto">自動</span></td><td></td></tr>
       <tr><td class="id">FP-14</td><td><span class="badge p1">P1</span></td><td>エラー推測</td><td><code>getItem</code> が <code>SecurityError</code>、<code>setItem</code> が <code>QuotaExceededError</code> を投げる状態で開き、レーン <code>JG</code> を押す</td><td>開いたとき: <code>/api/champions</code> の呼び出しが1回で既定値（<code>MID</code>・<code>JP</code>・<code>platinum_plus</code>・<code>16.23</code>）。応答のチャンピオン名「レネクトン」が画面にある。押した後: 呼び出しが合計2回で、2回目は <code>lane=JG</code>。画面にエラーの表示がない</td><td>回数とクエリを開いたとき・押した後でそれぞれ比べる。エラーの表示は FP-05 と同じ。<code>getItem</code>・<code>setItem</code> が呼ばれたこと（例外の経路を通ったこと）も確かめる。誰にも捕まえられずに漏れた例外（<code>window</code> の <code>error</code> イベント）の件数を 0 と比べる</td><td>01 FR-08 (5)、03 5.3 4行目</td><td><span class="badge auto">自動</span></td><td></td></tr>
       <tr><td class="id">FP-15</td><td><span class="badge p1">P1</span></td><td>エラー推測</td><td><code>localStorage</code> を参照しただけで <code>SecurityError</code> を投げる状態で開き、ランク帯を <code>diamond_plus</code> に変える</td><td>開いたとき: 呼び出しが1回で既定値。「レネクトン」が画面にある。変えた後: 呼び出しが合計2回で、2回目は <code>tier=diamond_plus</code>。ランク帯の選択が <code>diamond_plus</code>。画面にエラーの表示がない</td><td>前提（参照が例外になる）を先に確かめる。ほかは FP-14 と同じ。8章 T-4。本物のブラウザでは MT-06</td><td>01 FR-08 (5)、03 5.3 4行目</td><td><span class="badge auto">自動</span></td><td></td></tr>
-      <tr><td class="id">FP-16</td><td><span class="badge p1">P1</span></td><td>エラー推測</td><td><code>/api/patches</code> が次のどれか（4とおり）: 500 と <code>{"error":…}</code>／500 と配列の本文／200 と配列でない本文／<code>fetch</code> が <code>TypeError</code> で失敗。画面を開く</td><td><code>role="alert"</code> の要素の文字を並べた配列が「パッチの一覧を取得できませんでした。ページを読み込み直してください。」の1件だけ。<code>/api/champions</code> の呼び出しが 0回。画面に「読み込み中」の文字がない。漏れた例外が 0件</td><td>文言が出るまで待ち、さらに 100ミリ秒待ってから、配列を <code>toStrictEqual</code> で比べ、呼び出しの回数を 0 と比べる。漏れた例外は <code>window</code> の <code>error</code> イベントの件数を 0 と比べる</td><td>03 6.1 1行目</td><td><span class="badge auto">自動</span></td><td></td></tr>
+      <tr><td class="id">FP-16</td><td><span class="badge p1">P1</span></td><td>エラー推測</td><td><code>/api/patches</code> が次のどれか（4とおり）: 500 と <code>{"error":…}</code>／500 と配列の本文／200 と配列でない本文／<code>fetch</code> が <code>TypeError</code> で失敗。画面を開く</td><td><code>role="alert"</code> の要素の文字を並べた配列が「パッチの一覧を取得できませんでした。ページを読み込み直してください。」の1件だけ。<code>/api/champions</code> の呼び出しが 0回。画面に「読み込み中」の文字がない。漏れた例外が 0件</td><td>文言が出るまで待ち、さらに 100ミリ秒待ってから、配列を <code>toStrictEqual</code> で比べ、呼び出しの回数を 0 と比べる。文言の色（要素の <code>style.color</code>）を <code>rgb(248, 113, 113)</code> と、パッチの <code>select</code>（3つ目の <code>select</code>）の <code>option</code> の数を 0 と、<code>/api/patches</code> の呼び出しの回数を 1 と比べる（パッチが空の項目は、色を除いて同じ）。漏れた例外は <code>window</code> の <code>error</code> イベントの件数を 0 と比べる</td><td>03 6.1 1行目</td><td><span class="badge auto">自動</span></td><td></td></tr>
       <tr><td class="id">FP-17</td><td><span class="badge p1">P1</span></td><td>境界値</td><td><code>/api/patches</code> が 200 と <code>[]</code>。画面を開く</td><td>画面に「表示できるパッチがありません。」がある。<code>role="alert"</code> の要素の文字を並べた配列が空。<code>/api/champions</code> の呼び出しが 0回。「読み込み中」の文字がない。漏れた例外が 0件</td><td>FP-16 と同じ</td><td>03 6.1 2行目</td><td><span class="badge auto">自動</span></td><td></td></tr>
       <tr><td class="id">FP-18</td><td><span class="badge p1">P1</span></td><td>状態遷移</td><td><code>/api/champions</code> が、<code>lane=MID</code>（既定値）のときだけ 500 を返す。画面を開き、文言が出た後にレーン <code>JG</code> を押す</td><td>開いたとき: <code>role="alert"</code> の要素の文字を並べた配列が「データを取得できませんでした。ページを読み込み直してください。」の1件だけ。「読み込み中」の文字がない。押した後: 「レネクトン」が画面にある。<code>role="alert"</code> の要素の文字を並べた配列が空。漏れた例外が 0件</td><td>配列を <code>toStrictEqual</code> で比べる</td><td>03 6.1 3行目</td><td><span class="badge auto">自動</span></td><td></td></tr>
       <tr><td class="id">FP-19</td><td><span class="badge p2">P2</span></td><td>エラー推測</td><td><code>/api/champions</code> の <code>fetch</code> が <code>TypeError</code> で失敗。画面を開く</td><td><code>role="alert"</code> の要素の文字を並べた配列が「データを取得できませんでした。ページを読み込み直してください。」の1件だけ。漏れた例外が 0件</td><td>文言が出るまで待ち、さらに 100ミリ秒待ってから比べる</td><td>03 6.1 3行目</td><td><span class="badge auto">自動</span></td><td></td></tr>
       <tr><td class="id">FP-20</td><td><span class="badge p2">P2</span></td><td>同値</td><td><code>/api/champions</code> が勝率 57.4%（Tier S）のレネクトンと 52.1%（Tier B）のガレンを返す。画面を開く</td><td>レネクトンの行の順位が <code>1</code>、ガレンの行の順位が <code>2</code></td><td>名前の要素の親（行）の先頭の子の文字を、文字列 <code>"1"</code>・<code>"2"</code> と比べる</td><td>03 SCR-02 アノテーション 6</td><td><span class="badge auto">自動</span></td><td></td></tr>
+      <tr><td class="id">FP-21</td><td><span class="badge p1">P1</span></td><td>状態遷移</td><td><code>/api/patches</code> の応答を、テストが返すまで止める。画面を開き、100ミリ秒待つ。その後、応答を返す</td><td>応答の前: 文字が「読み込み中...」の要素が1個。「データがありません」の文字がない。<code>/api/champions</code> の呼び出しが 0回。応答の後: 「レネクトン」が画面にあり、「読み込み中...」の要素がない</td><td>要素の数を 1 と、呼び出しの回数を 0 と比べる</td><td>03 6.1 箇条書き（応答を待っているあいだ）</td><td><span class="badge auto">自動</span></td><td></td></tr>
+      <tr><td class="id">FP-22</td><td><span class="badge p2">P2</span></td><td>エラー推測</td><td><code>/api/champions</code> が常に 500。画面を開く</td><td><code>role="alert"</code> の文字が「データを取得できませんでした。ページを読み込み直してください。」の1件だけで、色が <code>rgb(248, 113, 113)</code>（<code>#f87171</code>）。<code>/api/champions</code>・<code>/api/patches</code> の呼び出しがそれぞれ1回のまま</td><td>文言が出るまで待ち、さらに 100ミリ秒待ってから、回数を 1 と比べる。色は要素の <code>style.color</code> を比べる</td><td>03 6.1 箇条書き（色・自動で再試行しない）</td><td><span class="badge auto">自動</span></td><td></td></tr>
+      <tr><td class="id">FP-23</td><td><span class="badge p1">P1</span></td><td>状態遷移</td><td><code>/api/champions</code> の応答を、テストが返すまで止める。画面を開き、<code>/api/champions</code> が呼ばれてから 100ミリ秒待つ。その後、応答を返す</td><td>応答の前: 「読み込み中...」の要素が1個。「データがありません」の文字がない。応答の後: 「レネクトン」が画面にあり、「読み込み中...」の要素がない</td><td>要素の数を 1 と比べる</td><td>03 6.1 箇条書き（応答を待っているあいだ）</td><td><span class="badge auto">自動</span></td><td></td></tr>
     </table></div>
 
     <h3>6.2 カウンターピック画面（CP）— <code>app/counter-pick/page.test.tsx</code></h3>
@@ -326,11 +332,17 @@ localStorage.removeItem('lol-pick-tool:filters')</pre>
       <tr><td class="id">CP-14</td><td><span class="badge p1">P1</span></td><td>状態遷移</td><td>カウンターピックでレーン <code>SUP</code>・リージョン <code>EUW</code>・ランク帯 <code>diamond_plus</code> に変え、画面を破棄し、先出しピックを開く</td><td>先出しピックの <code>/api/champions</code> の呼び出しが1回。クエリは <code>lane=SUP</code>・<code>region=EUW</code>・<code>tier=diamond_plus</code>・<code>patch=16.23</code>（先出しピックの既定の <code>MID</code> ではない）</td><td>FP-12 と同じ。ヘッダーのリンクでの移動は MT-03</td><td>01 FR-08 (2)・FR-13、03 5章</td><td><span class="badge auto">自動</span></td><td></td></tr>
       <tr><td class="id">CP-15</td><td><span class="badge p1">P1</span></td><td>エラー推測</td><td><code>getItem</code> が <code>SecurityError</code>、<code>setItem</code> が <code>QuotaExceededError</code> を投げる状態で開き、レーン <code>JG</code> を押し、「ガレン」を選ぶ</td><td>開いたとき: <code>/api/champions</code> が1回で既定値（<code>TOP</code>・<code>JP</code>・<code>platinum_plus</code>・<code>16.23</code>）。押した後: 合計2回で、2回目は <code>lane=JG</code>。選んだ後: <code>/api/counter</code> が1回で <code>enemy_champion_id=86</code>・<code>lane=JG</code>。画面にエラーの表示がない</td><td>FP-14 と同じ。<code>/api/counter</code> が1回呼ばれるまで待ち、さらに 100ミリ秒待ってから、回数が 1 と等しいこと、<code>enemy_champion_id</code>、<code>lane</code>・<code>patch</code>・<code>region</code>・<code>tier</code> をそれぞれ比べる</td><td>01 FR-08 (5)、03 5.3 4行目</td><td><span class="badge auto">自動</span></td><td></td></tr>
       <tr><td class="id">CP-16</td><td><span class="badge p1">P1</span></td><td>エラー推測</td><td><code>localStorage</code> を参照しただけで <code>SecurityError</code> を投げる状態で開き、リージョンを <code>KR</code> に変える</td><td>開いたとき: 呼び出しが1回で既定値。変えた後: 合計2回で、2回目は <code>region=KR</code>。リージョンの選択が <code>KR</code>。画面にエラーの表示がない</td><td>FP-15 と同じ</td><td>01 FR-08 (5)、03 5.3 4行目</td><td><span class="badge auto">自動</span></td><td></td></tr>
-      <tr><td class="id">CP-17</td><td><span class="badge p1">P1</span></td><td>エラー推測</td><td><code>/api/patches</code> が次のどれか（4とおり）: 500 と <code>{"error":…}</code>／500 と配列の本文／200 と配列でない本文／<code>fetch</code> が <code>TypeError</code> で失敗。画面を開く</td><td><code>role="alert"</code> の要素の文字を並べた配列が「パッチの一覧を取得できませんでした。ページを読み込み直してください。」の1件だけ。<code>/api/champions</code>・<code>/api/counter</code> の呼び出しが 0回。画面に「読み込み中」の文字がない。漏れた例外が 0件</td><td>文言が出るまで待ち、さらに 100ミリ秒待ってから、配列を <code>toStrictEqual</code> で比べ、呼び出しの回数を 0 と比べる。漏れた例外は <code>window</code> の <code>error</code> イベントの件数を 0 と比べる</td><td>03 6.1 1行目</td><td><span class="badge auto">自動</span></td><td></td></tr>
+      <tr><td class="id">CP-17</td><td><span class="badge p1">P1</span></td><td>エラー推測</td><td><code>/api/patches</code> が次のどれか（4とおり）: 500 と <code>{"error":…}</code>／500 と配列の本文／200 と配列でない本文／<code>fetch</code> が <code>TypeError</code> で失敗。画面を開く</td><td><code>role="alert"</code> の要素の文字を並べた配列が「パッチの一覧を取得できませんでした。ページを読み込み直してください。」の1件だけ。<code>/api/champions</code>・<code>/api/counter</code> の呼び出しが 0回。画面に「読み込み中」の文字がない。漏れた例外が 0件</td><td>文言が出るまで待ち、さらに 100ミリ秒待ってから、配列を <code>toStrictEqual</code> で比べ、呼び出しの回数を 0 と比べる。文言の色（要素の <code>style.color</code>）を <code>rgb(248, 113, 113)</code> と、パッチの <code>select</code>（3つ目の <code>select</code>）の <code>option</code> の数を 0 と、<code>/api/patches</code> の呼び出しの回数を 1 と比べる（パッチが空の項目は、色を除いて同じ）。漏れた例外は <code>window</code> の <code>error</code> イベントの件数を 0 と比べる</td><td>03 6.1 1行目</td><td><span class="badge auto">自動</span></td><td></td></tr>
       <tr><td class="id">CP-18</td><td><span class="badge p1">P1</span></td><td>境界値</td><td><code>/api/patches</code> が 200 と <code>[]</code>。画面を開く</td><td>画面に「表示できるパッチがありません。」がある。<code>role="alert"</code> の要素の文字を並べた配列が空。<code>/api/champions</code> の呼び出しが 0回。「読み込み中」の文字がない。漏れた例外が 0件</td><td>CP-17 と同じ</td><td>03 6.1 2行目</td><td><span class="badge auto">自動</span></td><td></td></tr>
       <tr><td class="id">CP-19</td><td><span class="badge p1">P1</span></td><td>状態遷移</td><td><code>/api/champions</code> が、<code>lane=TOP</code>（既定値）のときだけ 500 を返す。画面を開き、文言が出た後にレーン <code>JG</code> を押す</td><td>開いたとき: <code>role="alert"</code> の要素の文字を並べた配列が「データを取得できませんでした。ページを読み込み直してください。」の1件だけ。「読み込み中」の文字がない。押した後: 相手チャンピオン「ガレン」を押せて、<code>/api/counter</code> の呼び出しが1回。<code>role="alert"</code> の要素の文字を並べた配列が空。漏れた例外が 0件</td><td>配列を <code>toStrictEqual</code> で比べる</td><td>03 6.1 3行目</td><td><span class="badge auto">自動</span></td><td></td></tr>
       <tr><td class="id">CP-20</td><td><span class="badge p1">P1</span></td><td>エラー推測</td><td><code>/api/counter</code> が次のどちらか（2とおり）: 500／<code>fetch</code> が <code>TypeError</code> で失敗。画面を開き、相手チャンピオン「ガレン」を押す</td><td><code>role="alert"</code> の要素の文字を並べた配列が「データを取得できませんでした。ページを読み込み直してください。」の1件だけ。画面に「データが不足しています」「読み込み中」の文字がない。漏れた例外が 0件</td><td>文言が出るまで待ち、さらに 100ミリ秒待ってから比べる</td><td>03 6.1 4行目</td><td><span class="badge auto">自動</span></td><td></td></tr>
       <tr><td class="id">CP-21</td><td><span class="badge p2">P2</span></td><td>状態遷移</td><td>画面を開き、相手チャンピオン「ガレン」を押し、<code>/api/counter</code> が1回呼ばれた後に、レーン <code>JG</code> を押す</td><td>画面に「← 相手チャンピオンを選択してください」がある。<code>/api/counter</code> の呼び出しは合計1回のまま</td><td><code>/api/champions</code> が2回呼ばれるまで待ち、さらに 100ミリ秒待ってから、回数を 1 と比べる</td><td>03 6.1（相手の選択は外れる）、SCR-03/04 アノテーション 6</td><td><span class="badge auto">自動</span></td><td></td></tr>
+      <tr><td class="id">CP-22</td><td><span class="badge p1">P1</span></td><td>状態遷移</td><td><code>/api/patches</code> の応答を、テストが返すまで止める。画面を開き、100ミリ秒待つ。その後、応答を返す</td><td>応答の前: 「読み込み中...」の要素が1個。<code>/api/champions</code> の呼び出しが 0回。応答の後: 相手チャンピオン「ガレン」が画面にあり、「読み込み中...」の要素がない</td><td>要素の数を 1 と、呼び出しの回数を 0 と比べる</td><td>03 6.1 箇条書き（応答を待っているあいだ）</td><td><span class="badge auto">自動</span></td><td></td></tr>
+      <tr><td class="id">CP-23</td><td><span class="badge p1">P1</span></td><td>状態遷移</td><td>相手チャンピオン「ガレン」を押し、<code>/api/counter</code> が1回呼ばれた後に、レーン <code>JG</code> を押し、<code>/api/champions</code> が2回目を呼んだ後に、レーン <code>TOP</code>（元のレーン）を押す</td><td>画面に「← 相手チャンピオンを選択してください」がある。<code>/api/counter</code> の呼び出しは合計1回のまま</td><td><code>/api/champions</code> が3回呼ばれるまで待ち、さらに 100ミリ秒待ってから、回数を 1 と比べる</td><td>03 6.1 箇条書き（条件を元に戻しても、選択は戻らない）</td><td><span class="badge auto">自動</span></td><td></td></tr>
+      <tr><td class="id">CP-24</td><td><span class="badge p1">P1</span></td><td>状態遷移</td><td>CP-23 と同じ流れを、レーンの代わりに次のどれかで行う（3とおり）: リージョン <code>KR</code> → <code>JP</code>／ランク帯 <code>master_plus</code> → <code>platinum_plus</code>／パッチ <code>16.22</code> → <code>16.23</code></td><td>CP-23 と同じ</td><td>CP-23 と同じ</td><td>03 6.1 箇条書き（条件を元に戻しても、選択は戻らない）</td><td><span class="badge auto">自動</span></td><td></td></tr>
+      <tr><td class="id">CP-25</td><td><span class="badge p2">P2</span></td><td>エラー推測</td><td><code>/api/counter</code> が常に 500。画面を開き、「ガレン」を押す</td><td><code>role="alert"</code> の文字が「データを取得できませんでした。ページを読み込み直してください。」の1件だけで、色が <code>rgb(248, 113, 113)</code>。<code>/api/counter</code> の呼び出しが1回のまま</td><td>文言が出るまで待ち、さらに 100ミリ秒待ってから比べる</td><td>03 6.1 4行目・箇条書き（色・自動で再試行しない）</td><td><span class="badge auto">自動</span></td><td></td></tr>
+      <tr><td class="id">CP-26</td><td><span class="badge p1">P1</span></td><td>状態遷移</td><td><code>/api/counter</code> の応答を、テストが返すまで止める。画面を開き、「ガレン」を押し、<code>/api/counter</code> が呼ばれてから 100ミリ秒待つ。その後、応答を返す</td><td>応答の前: 「読み込み中...」の要素が1個。「データが不足しています」の文字がない。応答の後: 「読み込み中...」の要素がない</td><td>要素の数を 1 と比べる</td><td>03 6.1 箇条書き（応答を待っているあいだ）</td><td><span class="badge auto">自動</span></td><td></td></tr>
+      <tr><td class="id">CP-27</td><td><span class="badge p1">P1</span></td><td>状態遷移</td><td><code>/api/champions</code> の応答を、テストが返すまで止める。画面を開き、<code>/api/champions</code> が呼ばれてから 100ミリ秒待つ。その後、応答を返す</td><td>応答の前: 「読み込み中...」の要素が1個。応答の後: 「ガレン」が画面にあり、「読み込み中...」の要素がない</td><td>要素の数を 1 と比べる</td><td>03 6.1 箇条書き（応答を待っているあいだ）</td><td><span class="badge auto">自動</span></td><td></td></tr>
     </table></div>
   </div>
 
@@ -407,6 +419,9 @@ localStorage.removeItem('lol-pick-tool:filters')</pre>
       <tr><td>B-u</td><td>画面が、パッチの取得失敗／パッチが空／データの取得失敗の文言を出さない（画面ごと・文言ごとに7とおり）</td><td>FP-16・17・18・19、CP-17・18・19・20</td><td>2026-11-27 NG（外した文言に対応する項目が、7とおりとも NG）</td></tr>
       <tr><td>B-v</td><td>先出しピックの順位を、直す前の式（-2・0・2…）に戻す</td><td>FP-20</td><td>2026-11-27 NG（FP-20）</td></tr>
       <tr><td>B-w</td><td>カウンターピックで、絞り込み条件を変えても相手の選択を残す</td><td>CP-21</td><td>2026-11-27 NG（CP-21）</td></tr>
+      <tr><td>B-x</td><td>カウンターピックで、条件を変える操作（レーン・リージョン・ランク帯・パッチの4とおり）のときに相手の選択を消さない</td><td>CP-23・24</td><td>2026-11-27 NG（レーンは CP-23、ほかの3つは CP-24）</td></tr>
+      <tr><td>B-y</td><td>画面が「読み込み中...」を出す条件を外す（パッチの応答の前／一覧の応答の前／カウンターの応答の前。画面ごとに5とおり）</td><td>FP-21・23、CP-22・26・27</td><td>2026-11-27 1回目は、一覧の応答の前の2とおりが <strong>NG にならなかった</strong>（FP-23・CP-27 を作る前）。足した後は 5とおりとも NG</td></tr>
+      <tr><td>B-z</td><td>取得できないときの文言の色を灰色にする（先出しピックのパッチの文言／カウンターピックのカウンターの文言の2とおり）</td><td>FP-16、CP-25</td><td>2026-11-27 NG（FP-16、CP-25）。ほかの場所の色（先出しピックのデータの文言は FP-22、カウンターピックのパッチの文言は CP-17 で比べている）は壊していない</td></tr>
     </table>
   </div>
 
