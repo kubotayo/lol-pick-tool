@@ -83,11 +83,16 @@ function toUrl(input: RequestInfo | URL): URL {
 // 呼ばれた URL を順に記録する
 let calls: URL[] = [];
 
-function installFetchMock(): void {
+// 項目ごとに応答を差し替える（undefined を返した URL は、下の正常な応答になる）。失敗を表すには例外を投げる
+type FetchOverride = (url: URL) => Response | undefined;
+
+function installFetchMock(override?: FetchOverride): void {
   calls = [];
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
     const url = toUrl(input);
     calls.push(url);
+    const overridden = override?.(url);
+    if (overridden) return overridden;
     if (url.pathname === '/api/patches') return jsonResponse(PATCHES);
     if (url.pathname === '/api/champions') return jsonResponse(CHAMPION_ROWS);
     if (url.pathname === '/api/counter') return jsonResponse(CHAMPION_ROWS);
@@ -499,5 +504,94 @@ describe('先出しピック画面: 絞り込み条件の保存', () => {
         restore();
       }
     });
+  });
+});
+
+// 画面に出す文言（03 の 6章）
+const PATCHES_ERROR_MESSAGE = 'パッチの一覧を取得できませんでした。ページを読み込み直してください。';
+const PATCHES_EMPTY_MESSAGE = '表示できるパッチがありません。';
+const DATA_ERROR_MESSAGE = 'データを取得できませんでした。ページを読み込み直してください。';
+
+function alertTexts(): string[] {
+  return screen.queryAllByRole('alert').map((element) => element.textContent ?? '');
+}
+
+describe('先出しピック画面: API から取得できないとき（03 の 6章）', () => {
+  it.each([
+    ['500 の応答', (): Response => jsonResponse({ error: 'Internal Server Error' }, 500)],
+    ['本文が配列の 500 の応答', (): Response => jsonResponse(['16.23'], 500)],
+    ['配列でない 200 の応答', (): Response => jsonResponse({ error: 'unexpected' })],
+    ['通信の失敗', (): Response => { throw new TypeError('Failed to fetch'); }],
+  ])('FP-16 /api/patches が%sのとき、パッチの取得失敗の文言を表示し、/api/champions を呼ばない', async (_name, respond) => {
+    installFetchMock((url) => (url.pathname === '/api/patches' ? respond() : undefined));
+
+    render(<FirstPickPage />);
+
+    await waitFor(() => { expect(alertTexts()).toStrictEqual([PATCHES_ERROR_MESSAGE]); });
+    await settle();
+    expect(alertTexts()).toStrictEqual([PATCHES_ERROR_MESSAGE]);
+    expect(callsTo('/api/champions')).toHaveLength(0);
+    expect(document.body.textContent ?? '').not.toContain('読み込み中');
+    expect(uncaughtErrors).toStrictEqual([]);
+  });
+
+  it('FP-17 /api/patches が空の配列のとき、パッチがない文言を表示し、エラーの表示は出さず、/api/champions を呼ばない', async () => {
+    installFetchMock((url) => (url.pathname === '/api/patches' ? jsonResponse([]) : undefined));
+
+    render(<FirstPickPage />);
+
+    expect(await screen.findByText(PATCHES_EMPTY_MESSAGE)).toBeTruthy();
+    await settle();
+    expect(alertTexts()).toStrictEqual([]);
+    expect(callsTo('/api/champions')).toHaveLength(0);
+    expect(document.body.textContent ?? '').not.toContain('読み込み中');
+    expect(uncaughtErrors).toStrictEqual([]);
+  });
+
+  it('FP-18 /api/champions が 500 のとき、データの取得失敗の文言を表示する。条件を変えて取得できれば、文言が消えて一覧を表示する', async () => {
+    // MID（既定値）のときだけ失敗させる
+    installFetchMock((url) => (
+      url.pathname === '/api/champions' && url.searchParams.get('lane') === 'MID'
+        ? jsonResponse({ error: 'Internal Server Error' }, 500)
+        : undefined
+    ));
+
+    render(<FirstPickPage />);
+
+    await waitFor(() => { expect(alertTexts()).toStrictEqual([DATA_ERROR_MESSAGE]); });
+    expect(screen.queryByText('レネクトン')).toBeNull();
+    expect(document.body.textContent ?? '').not.toContain('読み込み中');
+
+    fireEvent.click(laneTab('JG'));
+
+    expect((await screen.findAllByText('レネクトン')).length).toBeGreaterThanOrEqual(1);
+    expect(alertTexts()).toStrictEqual([]);
+    expect(uncaughtErrors).toStrictEqual([]);
+  });
+
+  it('FP-19 /api/champions が通信の失敗のとき、データの取得失敗の文言を表示し、例外を漏らさない', async () => {
+    installFetchMock((url) => {
+      if (url.pathname === '/api/champions') throw new TypeError('Failed to fetch');
+      return undefined;
+    });
+
+    render(<FirstPickPage />);
+
+    await waitFor(() => { expect(alertTexts()).toStrictEqual([DATA_ERROR_MESSAGE]); });
+    await settle();
+    expect(uncaughtErrors).toStrictEqual([]);
+  });
+});
+
+describe('先出しピック画面: 一覧の表示（03 の SCR-02）', () => {
+  it('FP-20 順位は、勝率の高い順に 1 から続けて表示する（Tier をまたいでも続ける）', async () => {
+    // 勝率 57.4% は S、52.1% は B（03 SCR-02 のアノテーション 3）。Tier が分かれても 1・2 と続く
+    render(<FirstPickPage />);
+
+    const first = (await screen.findAllByText('レネクトン'))[0].parentElement;
+    const second = (await screen.findAllByText('ガレン'))[0].parentElement;
+    // 行の先頭の要素が順位
+    expect(first?.firstElementChild?.textContent).toBe('1');
+    expect(second?.firstElementChild?.textContent).toBe('2');
   });
 });

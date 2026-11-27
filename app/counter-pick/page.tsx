@@ -1,51 +1,67 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import type { ChangeEvent } from 'react';
 import Image from 'next/image';
 import AppHeader from '@/components/AppHeader';
-import { LANES, REGIONS, TIERS } from '@/lib/constants';
+import { LANES, REGIONS, TIERS, TIER_NAMES } from '@/lib/constants';
 import { getWinRateColor, formatWinRate, formatGames } from '@/lib/utils';
+import { DATA_ERROR_MESSAGE, PATCHES_EMPTY_MESSAGE, PATCHES_ERROR_MESSAGE, useApiList } from '@/lib/useApiList';
 import { useSavedFilters } from '@/lib/useSavedFilters';
 import type { ChampionStatRow, CounterStatRow } from '@/lib/types';
+
+/** 選んだ相手と、選んだときの一覧の URL */
+interface EnemySelection {
+  listUrl: string;
+  enemy: ChampionStatRow;
+}
 
 export default function CounterPickPage() {
   // レーン・ランク帯・リージョンは覚えておき、先出しピックと共有する（01 FR-08）。パッチは覚えない（FR-03）
   const { lane, region, tier, setLane, setRegion, setTier, isReady } =
     useSavedFilters({ lane: 'TOP', region: 'JP', tier: 'platinum_plus' });
-  const [patch, setPatch]             = useState<string>('');
-  const [patches, setPatches]         = useState<string[]>([]);
-  const [search, setSearch]           = useState('');
-  const [allChamps, setAllChamps]     = useState<ChampionStatRow[]>([]);
-  const [selectedEnemy, setEnemy]     = useState<ChampionStatRow | null>(null);
-  const [counters, setCounters]       = useState<CounterStatRow[]>([]);
-  const [loadingList, setLoadingList] = useState(false);
-  const [loadingCtr, setLoadingCtr]   = useState(false);
+  const patchList = useApiList<string>('/api/patches');
+  const patches = patchList.rows;
+  // 利用者が選ぶまでは、一覧の先頭（最新）を選ぶ
+  const [selectedPatch, setSelectedPatch] = useState<string | null>(null);
+  const patch = selectedPatch ?? patches[0] ?? '';
+  const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    fetch('/api/patches').then(r => r.json()).then((ps: string[]) => {
-      setPatches(ps);
-      if (ps.length > 0) setPatch(ps[0]);
-    });
-  }, []);
+  // 保存値を読み終える前に、既定値で取りにいかない（03 の 5.4）
+  const listUrl = isReady && patch
+    ? `/api/champions?lane=${lane}&patch=${patch}&region=${region}&tier=${tier}&limit=100&min_games=50`
+    : null;
+  const championList = useApiList<ChampionStatRow>(listUrl);
+  const allChamps = championList.rows;
+  const isPatchEmpty = !patchList.isLoading && !patchList.hasError && patches.length === 0;
+  const isListLoading = patchList.isLoading || (patch !== '' && (!isReady || championList.isLoading));
 
-  useEffect(() => {
-    // 保存値を読み終える前に、既定値で取りにいかない（03 の 5.4）
-    if (!isReady || !patch) return;
-    setLoadingList(true);
-    setEnemy(null);
-    setCounters([]);
-    fetch(`/api/champions?lane=${lane}&patch=${patch}&region=${region}&tier=${tier}&limit=100&min_games=50`)
-      .then(r => r.json())
-      .then((rows: ChampionStatRow[]) => { setAllChamps(rows); setLoadingList(false); });
-  }, [isReady, lane, patch, region, tier]);
+  // 絞り込み条件を変えると一覧が変わるので、相手の選択は外れる。選んだときの一覧の URL と比べて決める（effect の中で選択を消さないため）
+  const [selection, setSelection] = useState<EnemySelection | null>(null);
+  const selectedEnemy = selection !== null && selection.listUrl === listUrl ? selection.enemy : null;
 
-  useEffect(() => {
-    if (!selectedEnemy || !patch) return;
-    setLoadingCtr(true);
-    fetch(`/api/counter?enemy_champion_id=${selectedEnemy.champions.champion_id}&lane=${lane}&patch=${patch}&region=${region}&tier=${tier}`)
-      .then(r => r.json())
-      .then((rows: CounterStatRow[]) => { setCounters(rows); setLoadingCtr(false); });
-  }, [selectedEnemy, lane, patch, region, tier]);
+  const counterList = useApiList<CounterStatRow>(
+    selectedEnemy && patch
+      ? `/api/counter?enemy_champion_id=${selectedEnemy.champions.champion_id}&lane=${lane}&patch=${patch}&region=${region}&tier=${tier}`
+      : null
+  );
+  const counters = counterList.rows;
+
+  // select の値は文字列で届くため、許可値の中から探して型を決める
+  const handleRegionChange = (e: ChangeEvent<HTMLSelectElement>): void => {
+    const next = REGIONS.find(r => r === e.target.value);
+    if (next) setRegion(next);
+  };
+  const handleTierChange = (e: ChangeEvent<HTMLSelectElement>): void => {
+    const next = TIERS.find(t => t === e.target.value);
+    if (next) setTier(next);
+  };
+  const handlePatchChange = (e: ChangeEvent<HTMLSelectElement>): void => {
+    setSelectedPatch(e.target.value);
+  };
+  const handleEnemyClick = (enemy: ChampionStatRow): void => {
+    if (listUrl !== null) setSelection({ listUrl, enemy });
+  };
 
   const filtered = allChamps.filter(c =>
     c.champions.champion_name.includes(search) ||
@@ -59,25 +75,25 @@ export default function CounterPickPage() {
       {/* フィルターバー */}
       <div className="flex gap-3 items-center px-5 py-2.5 flex-wrap"
         style={{ background: '#111827', borderBottom: '1px solid #1f2937' }}>
-        {[
-          { label: 'リージョン', value: region, set: setRegion, opts: REGIONS },
-          { label: 'ランク帯',   value: tier,   set: setTier,   opts: TIERS,
-            labels: { all: '全体', platinum_plus: 'Platinum+', diamond_plus: 'Diamond+', master_plus: 'Master+' } },
-        ].map(({ label, value, set, opts, labels }) => (
-          <div key={label} className="flex items-center gap-1.5">
-            <span className="text-xs" style={{ color: '#6b7280' }}>{label}</span>
-            <select value={value} onChange={e => (set as (v: string) => void)(e.target.value)}
-              className="text-xs rounded px-2 py-1"
-              style={{ background: '#1f2937', border: '1px solid #374151', color: '#d1d5db' }}>
-              {(opts as readonly string[]).map(o => (
-                <option key={o} value={o}>{(labels as Record<string, string> | undefined)?.[o] ?? o}</option>
-              ))}
-            </select>
-          </div>
-        ))}
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs" style={{ color: '#6b7280' }}>リージョン</span>
+          <select value={region} onChange={handleRegionChange}
+            className="text-xs rounded px-2 py-1"
+            style={{ background: '#1f2937', border: '1px solid #374151', color: '#d1d5db' }}>
+            {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs" style={{ color: '#6b7280' }}>ランク帯</span>
+          <select value={tier} onChange={handleTierChange}
+            className="text-xs rounded px-2 py-1"
+            style={{ background: '#1f2937', border: '1px solid #374151', color: '#d1d5db' }}>
+            {TIERS.map(t => <option key={t} value={t}>{TIER_NAMES[t]}</option>)}
+          </select>
+        </div>
         <div className="flex items-center gap-1.5">
           <span className="text-xs" style={{ color: '#6b7280' }}>パッチ</span>
-          <select value={patch} onChange={e => setPatch(e.target.value)}
+          <select value={patch} onChange={handlePatchChange}
             className="text-xs rounded px-2 py-1"
             style={{ background: '#1f2937', border: '1px solid #374151', color: '#d1d5db' }}>
             {patches.map(p => <option key={p} value={p}>{p}{p === patches[0] ? ' (最新)' : ''}</option>)}
@@ -115,13 +131,19 @@ export default function CounterPickPage() {
               style={{ background: '#1f2937', border: '1px solid #374151', color: '#9ca3af' }} />
           </div>
           <div className="flex-1 overflow-y-auto px-2 pb-2">
-            {loadingList ? (
+            {patchList.hasError ? (
+              <p role="alert" className="text-xs text-center py-4" style={{ color: '#f87171' }}>{PATCHES_ERROR_MESSAGE}</p>
+            ) : isPatchEmpty ? (
+              <p className="text-xs text-center py-4" style={{ color: '#6b7280' }}>{PATCHES_EMPTY_MESSAGE}</p>
+            ) : championList.hasError ? (
+              <p role="alert" className="text-xs text-center py-4" style={{ color: '#f87171' }}>{DATA_ERROR_MESSAGE}</p>
+            ) : isListLoading ? (
               <p className="text-xs text-center py-4" style={{ color: '#6b7280' }}>読み込み中...</p>
             ) : (
               <div className="flex flex-wrap gap-1">
                 {filtered.map(c => (
                   <button key={c.champions.champion_id}
-                    onClick={() => setEnemy(c)}
+                    onClick={() => handleEnemyClick(c)}
                     title={c.champions.champion_name}
                     className="w-8 h-8 rounded overflow-hidden transition-all"
                     style={{
@@ -167,7 +189,9 @@ export default function CounterPickPage() {
                 ③ カウンターチャンピオン
               </p>
 
-              {loadingCtr ? (
+              {counterList.hasError ? (
+                <p role="alert" className="text-sm text-center py-6" style={{ color: '#f87171' }}>{DATA_ERROR_MESSAGE}</p>
+              ) : counterList.isLoading ? (
                 <p className="text-sm text-center py-6" style={{ color: '#6b7280' }}>読み込み中...</p>
               ) : counters.length === 0 ? (
                 <p className="text-sm text-center py-6" style={{ color: '#6b7280' }}>データが不足しています（試合数200未満）</p>

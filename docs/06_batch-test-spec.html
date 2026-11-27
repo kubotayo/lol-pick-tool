@@ -67,9 +67,10 @@
   <h1>バッチテスト仕様書</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-11-04</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.7.2</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.7.3</div></div>
     <div class="meta-item"><div class="label">対象</div><div class="value">データ収集バッチ（scripts/・DB関数 apply_batch_result・archive_old_patches・collect-daily.yml）</div></div>
-    <div class="meta-item"><div class="label">根拠とする設計書</div><div class="value">01 v1.10.0 / 02 v1.11.0 / 04 v1.9.0</div></div>
+    <div class="meta-item"><div class="label">根拠とする設計書</div><div class="value">01 v1.10.0 / 02 v1.12.0 / 04 v1.9.0</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.7.3)</div><div class="value">2026-11-27 根拠を 02 v1.12.0 に（02 の変更は「利用者のブラウザ」の追加と画面の表示で、バッチのテスト項目に影響はない）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.7.2)</div><div class="value">2026-11-27 根拠を 01 v1.10.0 に（01 の変更は画面の FR-08 の追加で、バッチのテスト項目に影響はない。FR-08 のテストは 07）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.7.1)</div><div class="value">2026-11-24 LOOP-19 の実際のログでの判定に、対象の run の決め方・コマンド・条件を満たさないときの扱いを追加。次の run の既処理済み試合との比較は外した（パッチの変更・手動実行・失敗で比べる run が決まらないため。DB への書き込みは LOOP-16・ST-10 で確かめる）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.7.0)</div><div class="value">2026-11-24 LOOP-19（メインループのリクエストの内訳のログ）を追加。根拠を 02 v1.11.0 に</div></div>

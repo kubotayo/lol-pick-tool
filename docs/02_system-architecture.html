@@ -81,9 +81,10 @@
   <h1>システム構成図</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.11.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.12.0</div></div>
     <div class="meta-item"><div class="label">月額コスト見込み</div><div class="value">$0（全て無料枠）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.5.0)</div><div class="value">Riot API・Data Dragon の使い方・名簿と収集対象ランク（TARGET_TIERS）・API のキャッシュ・API設計書（05）への参照</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.12.0)</div><div class="value">2026-11-27 コンポーネント詳細に「利用者のブラウザ」（絞り込み条件を localStorage に保存。01 FR-08）を追加し、フロントエンド参照フローに保存と読み込みを追記（PR #42 の確認でのユーザーの判断。データを置く場所の一覧から漏れないようにするため）。バッチの動きは変えていない</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.11.0)</div><div class="value">2026-11-24 ステップ5に、メインループのリクエストの内訳のログを追加（パッチの切り替え直後に試合数が減る原因を実測するため。収集の動きは変えない）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.10.3)</div><div class="value">2026-11-24 Next.js のバージョンの記載を 14 から 16 に訂正（package.json は 16.4.2 で、最初のコミットから 16。記載の誤りで、動きの変更はないため、06 の根拠の版は 1.10.2 のまま）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.10.2)</div><div class="value">2026-11-12 手動実行の前に確かめる定期実行を「その日の」から「直前の予定（UTC 16:37）の」に変更（06 v1.6.2 のレビューから）。定期実行がまだ来ていなければ手動実行を見送る（遅れているだけか見分けられないため）</div></div>
@@ -313,6 +314,16 @@
           <li>非公開（v1.7.1）: Deployment Protection の Vercel Authentication を All Deployments（本番ドメインを含むすべてのデプロイ）に設定。Vercel にログインしたチームのメンバーだけが見られる。Personal Key で集めたデータは一般公開できないため（01 制約事項）。Hobby でも追加料金なし（2026-09 から）</li>
         </ul>
       </div>
+      <div class="comp-card web">
+        <h3>利用者のブラウザ</h3>
+        <div class="service"><span class="service-badge">localStorage</span> 無料（利用者の端末の中）</div>
+        <ul>
+          <li>保存するもの: 絞り込み条件（レーン・ランク帯・リージョン）だけ。1項目・約70バイト（01 FR-08。キー・形式・既定値は 03 の 5章）</li>
+          <li>サーバー・DB には送らない。別のブラウザ・PC には引き継がない（01 スコープ外）</li>
+          <li>個人を特定する情報・認証の情報は保存しない</li>
+          <li>保存できないブラウザでは、保存なしで動く</li>
+        </ul>
+      </div>
       <div class="comp-card" style="border-top-color:#e74c3c;">
         <h3>言語・主要ライブラリ</h3>
         <div class="service"><span class="service-badge">TypeScript</span> 統一</div>
@@ -425,7 +436,7 @@
       <div class="step-num">1</div>
       <div class="step-content">
         <h4>ユーザーがレーン・フィルターを選択</h4>
-        <p>ブラウザ上でレーン / パッチ / ランク帯 / リージョンを選択</p>
+        <p>ブラウザ上でレーン / パッチ / ランク帯 / リージョンを選択。レーン・ランク帯・リージョンは、変えたときにブラウザの localStorage に保存し、次に開いたときに読み込む（03 の 5章）</p>
       </div>
     </div>
     <div class="flow-step">
@@ -446,7 +457,7 @@
       <div class="step-num">4</div>
       <div class="step-content">
         <h4>UI に表示</h4>
-        <p>チャンピオンアイコン（Data Dragon CDN）と勝率・試合数を一覧表示。レスポンス目標: 1秒以内。</p>
+        <p>チャンピオンアイコン（Data Dragon CDN）と勝率・試合数を一覧表示。レスポンス目標: 1秒以内。取得できないときは、その旨を画面に表示する（03 の 6章）。</p>
       </div>
     </div>
   </div>

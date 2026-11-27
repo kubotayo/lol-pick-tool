@@ -85,11 +85,16 @@ function toUrl(input: RequestInfo | URL): URL {
 // 呼ばれた URL を順に記録する
 let calls: URL[] = [];
 
-function installFetchMock(): void {
+// 項目ごとに応答を差し替える（undefined を返した URL は、下の正常な応答になる）。失敗を表すには例外を投げる
+type FetchOverride = (url: URL) => Response | undefined;
+
+function installFetchMock(override?: FetchOverride): void {
   calls = [];
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
     const url = toUrl(input);
     calls.push(url);
+    const overridden = override?.(url);
+    if (overridden) return overridden;
     if (url.pathname === '/api/patches') return jsonResponse(PATCHES);
     if (url.pathname === '/api/champions') return jsonResponse(CHAMPION_ROWS);
     if (url.pathname === '/api/counter') return jsonResponse(CHAMPION_ROWS);
@@ -554,5 +559,98 @@ describe('カウンターピック画面: 絞り込み条件の保存', () => {
         restore();
       }
     });
+  });
+});
+
+// 画面に出す文言（03 の 6章）
+const PATCHES_ERROR_MESSAGE = 'パッチの一覧を取得できませんでした。ページを読み込み直してください。';
+const PATCHES_EMPTY_MESSAGE = '表示できるパッチがありません。';
+const DATA_ERROR_MESSAGE = 'データを取得できませんでした。ページを読み込み直してください。';
+
+function alertTexts(): string[] {
+  return screen.queryAllByRole('alert').map((element) => element.textContent ?? '');
+}
+
+describe('カウンターピック画面: API から取得できないとき（03 の 6章）', () => {
+  it.each([
+    ['500 の応答', (): Response => jsonResponse({ error: 'Internal Server Error' }, 500)],
+    ['本文が配列の 500 の応答', (): Response => jsonResponse(['16.23'], 500)],
+    ['配列でない 200 の応答', (): Response => jsonResponse({ error: 'unexpected' })],
+    ['通信の失敗', (): Response => { throw new TypeError('Failed to fetch'); }],
+  ])('CP-17 /api/patches が%sのとき、パッチの取得失敗の文言を表示し、/api/champions を呼ばない', async (_name, respond) => {
+    installFetchMock((url) => (url.pathname === '/api/patches' ? respond() : undefined));
+
+    render(<CounterPickPage />);
+
+    await waitFor(() => { expect(alertTexts()).toStrictEqual([PATCHES_ERROR_MESSAGE]); });
+    await settle();
+    expect(alertTexts()).toStrictEqual([PATCHES_ERROR_MESSAGE]);
+    expect(callsTo('/api/champions')).toHaveLength(0);
+    expect(callsTo('/api/counter')).toHaveLength(0);
+    expect(document.body.textContent ?? '').not.toContain('読み込み中');
+    expect(uncaughtErrors).toStrictEqual([]);
+  });
+
+  it('CP-18 /api/patches が空の配列のとき、パッチがない文言を表示し、エラーの表示は出さず、/api/champions を呼ばない', async () => {
+    installFetchMock((url) => (url.pathname === '/api/patches' ? jsonResponse([]) : undefined));
+
+    render(<CounterPickPage />);
+
+    expect(await screen.findByText(PATCHES_EMPTY_MESSAGE)).toBeTruthy();
+    await settle();
+    expect(alertTexts()).toStrictEqual([]);
+    expect(callsTo('/api/champions')).toHaveLength(0);
+    expect(document.body.textContent ?? '').not.toContain('読み込み中');
+    expect(uncaughtErrors).toStrictEqual([]);
+  });
+
+  it('CP-19 /api/champions が 500 のとき、データの取得失敗の文言を表示する。条件を変えて取得できれば、文言が消えて相手チャンピオンを選べる', async () => {
+    // TOP（既定値）のときだけ失敗させる
+    installFetchMock((url) => (
+      url.pathname === '/api/champions' && url.searchParams.get('lane') === 'TOP'
+        ? jsonResponse({ error: 'Internal Server Error' }, 500)
+        : undefined
+    ));
+
+    render(<CounterPickPage />);
+
+    await waitFor(() => { expect(alertTexts()).toStrictEqual([DATA_ERROR_MESSAGE]); });
+    expect(document.body.textContent ?? '').not.toContain('読み込み中');
+
+    fireEvent.click(laneTab('JG'));
+
+    fireEvent.click(await findEnemyChampion(ENEMY_NAME));
+    const counterCalls = await waitForCounterCalls(1);
+    expect(counterCalls).toHaveLength(1);
+    expect(alertTexts()).toStrictEqual([]);
+    expect(uncaughtErrors).toStrictEqual([]);
+  });
+
+  it.each([
+    ['500 の応答', (): Response => jsonResponse({ error: 'Internal Server Error' }, 500)],
+    ['通信の失敗', (): Response => { throw new TypeError('Failed to fetch'); }],
+  ])('CP-20 /api/counter が%sのとき、データの取得失敗の文言を表示し、「データが不足しています」とは表示しない', async (_name, respond) => {
+    installFetchMock((url) => (url.pathname === '/api/counter' ? respond() : undefined));
+
+    render(<CounterPickPage />);
+    fireEvent.click(await findEnemyChampion(ENEMY_NAME));
+
+    await waitFor(() => { expect(alertTexts()).toStrictEqual([DATA_ERROR_MESSAGE]); });
+    await settle();
+    expect(document.body.textContent ?? '').not.toContain('データが不足しています');
+    expect(document.body.textContent ?? '').not.toContain('読み込み中');
+    expect(uncaughtErrors).toStrictEqual([]);
+  });
+
+  it('CP-21 相手チャンピオンを選んだ後に絞り込み条件を変えると、選択が外れ、変えた後の条件では /api/counter を呼ばない', async () => {
+    render(<CounterPickPage />);
+    fireEvent.click(await findEnemyChampion(ENEMY_NAME));
+    expect(await waitForCounterCalls(1)).toHaveLength(1);
+
+    fireEvent.click(laneTab('JG'));
+
+    await waitForChampionsCalls(2);
+    expect(await screen.findByText('← 相手チャンピオンを選択してください')).toBeTruthy();
+    expect(callsTo('/api/counter')).toHaveLength(1);
   });
 });

@@ -164,7 +164,8 @@
   <h1>画面設計・画面遷移図</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.2.0</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.3.0</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.3.0)</div><div class="value">2026-11-27 6章「API から取得できないときの表示」を追加（PR #42 の確認でのユーザーの指示。以前は、取得できないと「読み込み中」のまま、または一覧が空だった）。SCR-02 のアノテーションに順位の数え方を追記（実装が 1・2・3… でなく -2・0・2… と表示していた誤りを直したため）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.2.0)</div><div class="value">2026-11-27 5章「絞り込み条件の保存」を追加（01 FR-08）。SCR-02・SCR-03/04 のアノテーションに保存の動きを追記</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.1.0)</div><div class="value">カウンターの最低試合数をランク帯ごとの値に変更</div></div>
     <div class="meta-item"><div class="label">対応デバイス</div><div class="value">PCブラウザ（Chrome推奨）</div></div>
@@ -429,6 +430,14 @@
           <div class="ann-num">5</div>
           <div class="ann-text">チャンピオンアイコン：Data Dragon CDNの画像を使用。表示上はemojiで代替。</div>
         </div>
+        <div class="annotation-item">
+          <div class="ann-num">6</div>
+          <div class="ann-text">順位：勝率の高い順に 1 から数える。Tier をまたいでも続ける（S が2体なら、A の先頭は 3）。</div>
+        </div>
+        <div class="annotation-item">
+          <div class="ann-num">7</div>
+          <div class="ann-text">API から取得できないとき・パッチがないときの表示は 6章。</div>
+        </div>
       </div>
     </div>
   </div>
@@ -563,6 +572,10 @@
           <div class="ann-num">5</div>
           <div class="ann-text">最低試合数フィルター：ランク帯ごとの最低試合数（Platinum+ は200件、Diamond+ は100件、Master+ は50件。05 API設計書 2.1節）未満のカウンターデータは非表示（統計的信頼性確保）。</div>
         </div>
+        <div class="annotation-item">
+          <div class="ann-num">6</div>
+          <div class="ann-text">API から取得できないとき・パッチがないときの表示は 6章。絞り込み条件を変えると、相手チャンピオンの選択は外れる。</div>
+        </div>
       </div>
     </div>
   </div>
@@ -615,6 +628,39 @@
       <tr><td><code>lib/filterStorage.ts</code></td><td><code>FILTER_STORAGE_KEY</code>（<code>'lol-pick-tool:filters'</code>）<br><code>interface Filters { lane: Lane; region: Region; tier: Tier }</code><br><code>interface SavedFilters { lane?: Lane; region?: Region; tier?: Tier }</code><br><code>loadFilters(): SavedFilters</code><br><code>saveFilters(filters: Filters): void</code></td><td><code>loadFilters</code> は 5.3 のとおりに確かめ、使える項目だけを持つオブジェクトを返す（使えない項目はプロパティを持たない。全部使えなければ <code>{}</code>）。例外を投げない。<br><code>saveFilters</code> は 5.2 の形式で書き込む。例外を投げない</td></tr>
       <tr><td><code>lib/useSavedFilters.ts</code></td><td><code>useSavedFilters(defaults: Filters): SavedFiltersState</code><br><code>interface SavedFiltersState</code>: <code>{ lane, region, tier, setLane, setRegion, setTier, isReady }</code></td><td>最初の描画では <code>defaults</code> の値と <code>isReady: false</code> を返す。マウントの直後に <code>loadFilters</code> を1回呼び、使える項目を <code>defaults</code> に上書きした値と <code>isReady: true</code> を返す。<code>setLane</code>・<code>setRegion</code>・<code>setTier</code> は、値を変え、変えた後の3項目を <code>saveFilters</code> に渡す。<code>isReady</code> が <code>true</code> になっただけでは <code>saveFilters</code> を呼ばない</td></tr>
       <tr><td><code>app/first-pick/page.tsx</code><br><code>app/counter-pick/page.tsx</code></td><td>—</td><td><code>useSavedFilters</code> を使う。<code>defaults</code> は 5.1 の既定値。<code>isReady</code> が <code>false</code> のあいだは 5.4 のとおり API を呼ばない</td></tr>
+    </table>
+  </div>
+
+  <!-- 6. API から取得できないときの表示 -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">6</div>
+      <h2>API から取得できないときの表示</h2>
+    </div>
+    <p style="font-size:13px; margin-bottom:10px;">対象の画面は SCR-02（先出しピック）と SCR-03/04（カウンターピック）。「取得できない」は、通信の失敗、エラーの応答（HTTP のステータスが 200 番台でない）、応答の本文が配列でない、のどれか。どれも同じ表示にする（利用者ができることは、読み込み直すことだけで、原因ごとに分けても行動が変わらないため）。</p>
+
+    <h3 style="font-size:14px; margin:14px 0 6px;">6.1 表示</h3>
+    <table>
+      <tr><th style="width:230px">状態</th><th>表示する文言</th><th>表示する場所</th><th>ほかの動き</th></tr>
+      <tr><td><code>/api/patches</code> を取得できない</td><td>パッチの一覧を取得できませんでした。ページを読み込み直してください。</td><td>SCR-02: チャンピオンリスト。SCR-03/04: 相手チャンピオンの一覧</td><td><code>/api/champions</code>・<code>/api/counter</code> を呼ばない。パッチの選択肢は空</td></tr>
+      <tr><td><code>/api/patches</code> が空の配列を返す</td><td>表示できるパッチがありません。</td><td>同上</td><td>同上。エラーではないので、エラーの色・<code>role="alert"</code> にしない</td></tr>
+      <tr><td><code>/api/champions</code> を取得できない</td><td>データを取得できませんでした。ページを読み込み直してください。</td><td>同上</td><td>絞り込み条件を変えると取り直し、取得できれば文言を消して一覧を表示する</td></tr>
+      <tr><td><code>/api/counter</code> を取得できない（SCR-03/04）</td><td>データを取得できませんでした。ページを読み込み直してください。</td><td>③カウンター一覧（「データが不足しています」の代わりに表示する）</td><td>相手チャンピオンや絞り込み条件を変えると取り直す</td></tr>
+    </table>
+    <ul style="font-size:13px; padding-left:20px; line-height:1.8; margin-top:8px;">
+      <li>取得できないときの文言は、文字の色を <code>#f87171</code>（濃い背景の上で読める赤）にし、<code>role="alert"</code> を付ける</li>
+      <li>取得できないとき・パッチが空のときは、「読み込み中...」を表示し続けない</li>
+      <li>応答を待っているあいだ（<code>/api/patches</code> の応答の前を含む）は「読み込み中...」を表示する</li>
+      <li>絞り込み条件を続けて変えて、前の条件の応答が後から届いた場合は、その応答を使わない（今選ばれている条件の結果だけを表示する）</li>
+      <li>SCR-03/04 で絞り込み条件を変えると、相手チャンピオンの選択は外れる</li>
+      <li>再試行のボタンは置かない。自動でも再試行しない</li>
+    </ul>
+
+    <h3 style="font-size:14px; margin:14px 0 6px;">6.2 モジュール</h3>
+    <table>
+      <tr><th style="width:230px">場所</th><th>公開するもの</th><th>動き</th></tr>
+      <tr><td><code>lib/useApiList.ts</code></td><td><code>useApiList&lt;T&gt;(url: string | null): ApiListState&lt;T&gt;</code><br><code>interface ApiListState&lt;T&gt; { rows: T[]; isLoading: boolean; hasError: boolean }</code><br>文言の定数 <code>PATCHES_ERROR_MESSAGE</code>・<code>PATCHES_EMPTY_MESSAGE</code>・<code>DATA_ERROR_MESSAGE</code></td><td><code>url</code> が <code>null</code> のあいだは呼ばず、<code>{ rows: [], isLoading: false, hasError: false }</code> を返す。<code>url</code> が文字列になる・変わると <code>fetch</code> で1回呼び、応答が届くまで <code>isLoading: true</code>・<code>rows: []</code>。取得できたら <code>rows</code> に配列を入れる。取得できなければ <code>hasError: true</code>・<code>rows: []</code>。例外を投げない</td></tr>
+      <tr><td><code>app/first-pick/page.tsx</code><br><code>app/counter-pick/page.tsx</code></td><td>—</td><td>3つの API をすべて <code>useApiList</code> で読む。パッチは、利用者が選ぶまでは一覧の先頭（最新）</td></tr>
     </table>
   </div>
 
