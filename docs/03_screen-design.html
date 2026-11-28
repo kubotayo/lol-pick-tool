@@ -164,7 +164,8 @@
   <h1>画面設計・画面遷移図</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.3.3</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.3.4</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.3.4)</div><div class="value">2026-11-28 5.2〜5.4 に、確定した細部を追記（PR #42 の未確定事項 U-08・U-11 をユーザーが仮決めのまま採用。07 の 8章 T-1・T-2・T-4・T-5・T-9 と G-4。動きの変更はない）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.3.3)</div><div class="value">2026-11-28 SCR-03/04 のアノテーション 5 に、カウンターデータがないときの文言と、<code>/api/counter</code> に <code>min_games</code> を渡さないことを追記（PR #42 の確認でのユーザーの指示。実装は、ランク帯に関係なく「試合数200未満」と表示していた）。最低試合数に「全体」の値を追記</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.3.2)</div><div class="value">2026-11-27 6章を訂正（再レビューの指摘から）: <code>useApiList</code> は、<code>url</code> が変わる・<code>null</code> になるときに前の結果を捨てる（v1.3.1 は「同じ <code>url</code> に戻ると前の結果をすぐ返す。2画面では通らない」としていたが、カウンターピックで相手を選び直すと通り、取り直すあいだ前回の失敗の文言が出るため）。選ばれているレーンの押し直しでは、相手の選択は外れない</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.3.1)</div><div class="value">2026-11-27 6章に追記（レビューの指摘から）: 絞り込み条件を元に戻しても相手チャンピオンの選択は戻らない、取得できない文言の優先順、同じ相手を押し直しても取り直さない、<code>useApiList</code> が同じ <code>url</code> に戻ったときの動き</div></div>
@@ -607,7 +608,7 @@
       <tr><td>保存先</td><td>ブラウザの <code>localStorage</code>。キーは <code>lol-pick-tool:filters</code></td></tr>
       <tr><td>値</td><td>JSON の文字列。<code>{"v":1,"lane":"MID","region":"JP","tier":"platinum_plus"}</code>。<code>v</code> は形式のバージョンで、今は <code>1</code></td></tr>
       <tr><td>保存するとき</td><td>利用者がレーン・ランク帯・リージョンのどれかを変えたとき。そのとき画面で選ばれている3項目をまとめて、1つの値として上書きする。画面を開いただけでは保存しない</td></tr>
-      <tr><td>読み込むとき</td><td>画面を開いたとき（マウントの直後）に1回</td></tr>
+      <tr><td>読み込むとき</td><td>画面を開いたとき（マウントの直後）に1回。開いた後に、別のタブで保存値が変わっても、開いている画面には反映しない（ピック中に2つのタブで条件を変える場面が想定しにくいため）</td></tr>
     </table>
 
     <h3 style="font-size:14px; margin:14px 0 6px;">5.3 読み込んだ値の確かめ方</h3>
@@ -618,11 +619,18 @@
       <tr><td>ある項目の値が許可値にない（項目がない・文字列でない場合を含む）</td><td>その項目だけ既定値。ほかの項目は保存値</td></tr>
       <tr><td><code>localStorage</code> の読み書きが例外を投げる（保存を許さないブラウザの設定など）</td><td>読み込みは3項目とも既定値。書き込みは何もしない。どちらも、画面にエラーを表示しない</td></tr>
     </table>
+    <ul style="font-size:13px; padding-left:20px; line-height:1.8; margin-top:8px;">
+      <li>許可値は、文字が完全に同じときだけ使う（小文字の <code>mid</code>・空白つきの <code>" MID "</code> は使わない）。<code>v</code> は数値の <code>1</code> だけ（文字列の <code>"1"</code>・<code>true</code> は使わない）。配列はオブジェクトとして扱わない（保存するのはこのアプリだけで、5.2 の形式でない値は壊れた値とみなせるため）</li>
+      <li>保存値に <code>v</code> と3項目のほかのプロパティがあっても、無視して3項目は使う</li>
+      <li>「例外を投げる」には、<code>localStorage</code> を参照しただけで例外になる場合を含む（サイトのデータの保存を禁止したブラウザでは、<code>getItem</code> を呼ぶ前の参照で <code>SecurityError</code> になることがあるため）</li>
+      <li>使えない保存値を読んでも、書き戻さず、消さない（5.2「画面を開いただけでは保存しない」。利用者が次に条件を変えたときに上書きされる）</li>
+    </ul>
 
     <h3 style="font-size:14px; margin:14px 0 6px;">5.4 API を呼ぶ順序</h3>
     <ul style="font-size:13px; padding-left:20px; line-height:1.8;">
       <li>保存値の読み込みが終わるまでは、<code>/api/champions</code>・<code>/api/counter</code> を呼ばない（既定値で1回、保存値でもう1回、と2回呼ばないため）</li>
       <li>読み込みが終わり、パッチが決まった後に、選ばれている値で <code>/api/champions</code> を呼ぶ</li>
+      <li>SCR-03/04 は、開いたときに <code>/api/champions</code> を1回だけ呼ぶ（相手チャンピオンの選択肢のため）。相手チャンピオンを選ぶ前に <code>/api/counter</code> は呼ばない</li>
     </ul>
 
     <h3 style="font-size:14px; margin:14px 0 6px;">5.5 モジュール</h3>
