@@ -9,6 +9,11 @@ export type Lane   = typeof LANES[number];
 export type Region = typeof REGIONS[number];
 export type Tier   = typeof TIERS[number];
 
+// 画面に出すランク帯の名前（03 画面設計）
+export const TIER_NAMES: Record<Tier, string> = {
+  all: '全体', platinum_plus: 'Platinum+', diamond_plus: 'Diamond+', master_plus: 'Master+',
+};
+
 // 最低試合数の既定値（API設計書 05）。上のランク帯ほどデータがたまりにくいため、データ量の比率（1 : 1/2 : 1/4）に合わせて下げる
 export const DEFAULT_MIN_GAMES: Record<'champions' | 'counter', Record<Tier, number>> = {
   champions: { all: 100, platinum_plus: 100, diamond_plus: 50,  master_plus: 30 },

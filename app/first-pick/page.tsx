@@ -1,40 +1,50 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import type { ChangeEvent } from 'react';
 import Image from 'next/image';
 import AppHeader from '@/components/AppHeader';
-import { LANES, REGIONS, TIERS } from '@/lib/constants';
+import { LANES, REGIONS, TIERS, TIER_NAMES } from '@/lib/constants';
 import { getTierLabel, getWinRateColor, formatWinRate, formatGames } from '@/lib/utils';
-import type { Lane, Region, Tier } from '@/lib/constants';
+import { DATA_ERROR_MESSAGE, PATCHES_EMPTY_MESSAGE, PATCHES_ERROR_MESSAGE, useApiList } from '@/lib/useApiList';
+import { useSavedFilters } from '@/lib/useSavedFilters';
 import type { ChampionStatRow, Tier_Label } from '@/lib/types';
 
 const TIER_COLORS: Record<Tier_Label, string> = {
   S: '#ffd700', A: '#ff6b35', B: '#4169e1', C: '#6b7280',
 };
+const TIER_LABEL_ORDER: readonly Tier_Label[] = ['S', 'A', 'B', 'C'];
 
 export default function FirstPickPage() {
-  const [lane, setLane]       = useState<Lane>('MID');
-  const [region, setRegion]   = useState<Region>('JP');
-  const [tier, setTier]       = useState<Tier>('platinum_plus');
-  const [patch, setPatch]     = useState<string>('');
-  const [patches, setPatches] = useState<string[]>([]);
-  const [data, setData]       = useState<ChampionStatRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  // レーン・ランク帯・リージョンは覚えておく（01 FR-08）。パッチは覚えず、開くたびに最新を選ぶ（FR-03）
+  const { lane, region, tier, setLane, setRegion, setTier, isReady } =
+    useSavedFilters({ lane: 'MID', region: 'JP', tier: 'platinum_plus' });
+  const patchList = useApiList<string>('/api/patches');
+  const patches = patchList.rows;
+  // 利用者が選ぶまでは、一覧の先頭（最新）を選ぶ
+  const [selectedPatch, setSelectedPatch] = useState<string | null>(null);
+  const patch = selectedPatch ?? patches[0] ?? '';
 
-  useEffect(() => {
-    fetch('/api/patches').then(r => r.json()).then((ps: string[]) => {
-      setPatches(ps);
-      if (ps.length > 0) setPatch(ps[0]);
-    });
-  }, []);
+  // 保存値を読み終える前に、既定値で取りにいかない（03 の 5.4）
+  const championList = useApiList<ChampionStatRow>(
+    isReady && patch ? `/api/champions?lane=${lane}&patch=${patch}&region=${region}&tier=${tier}` : null
+  );
+  const data = championList.rows;
+  const isPatchEmpty = !patchList.isLoading && !patchList.hasError && patches.length === 0;
+  const isLoading = patchList.isLoading || (patch !== '' && (!isReady || championList.isLoading));
 
-  useEffect(() => {
-    if (!patch) return;
-    setLoading(true);
-    fetch(`/api/champions?lane=${lane}&patch=${patch}&region=${region}&tier=${tier}`)
-      .then(r => r.json())
-      .then((rows: ChampionStatRow[]) => { setData(rows); setLoading(false); });
-  }, [lane, patch, region, tier]);
+  // select の値は文字列で届くため、許可値の中から探して型を決める
+  const handleRegionChange = (e: ChangeEvent<HTMLSelectElement>): void => {
+    const next = REGIONS.find(r => r === e.target.value);
+    if (next) setRegion(next);
+  };
+  const handleTierChange = (e: ChangeEvent<HTMLSelectElement>): void => {
+    const next = TIERS.find(t => t === e.target.value);
+    if (next) setTier(next);
+  };
+  const handlePatchChange = (e: ChangeEvent<HTMLSelectElement>): void => {
+    setSelectedPatch(e.target.value);
+  };
 
   const grouped = data.reduce<Record<Tier_Label, ChampionStatRow[]>>(
     (acc, row) => {
@@ -52,25 +62,25 @@ export default function FirstPickPage() {
       {/* フィルターバー */}
       <div className="flex gap-3 items-center px-5 py-2.5 flex-wrap"
         style={{ background: '#111827', borderBottom: '1px solid #1f2937' }}>
-        {[
-          { label: 'リージョン', value: region, set: setRegion, opts: REGIONS },
-          { label: 'ランク帯',   value: tier,   set: setTier,   opts: TIERS,
-            labels: { all: '全体', platinum_plus: 'Platinum+', diamond_plus: 'Diamond+', master_plus: 'Master+' } },
-        ].map(({ label, value, set, opts, labels }) => (
-          <div key={label} className="flex items-center gap-1.5">
-            <span className="text-xs" style={{ color: '#6b7280' }}>{label}</span>
-            <select value={value} onChange={e => (set as (v: string) => void)(e.target.value)}
-              className="text-xs rounded px-2 py-1"
-              style={{ background: '#1f2937', border: '1px solid #374151', color: '#d1d5db' }}>
-              {(opts as readonly string[]).map(o => (
-                <option key={o} value={o}>{(labels as Record<string, string> | undefined)?.[o] ?? o}</option>
-              ))}
-            </select>
-          </div>
-        ))}
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs" style={{ color: '#6b7280' }}>リージョン</span>
+          <select value={region} onChange={handleRegionChange}
+            className="text-xs rounded px-2 py-1"
+            style={{ background: '#1f2937', border: '1px solid #374151', color: '#d1d5db' }}>
+            {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs" style={{ color: '#6b7280' }}>ランク帯</span>
+          <select value={tier} onChange={handleTierChange}
+            className="text-xs rounded px-2 py-1"
+            style={{ background: '#1f2937', border: '1px solid #374151', color: '#d1d5db' }}>
+            {TIERS.map(t => <option key={t} value={t}>{TIER_NAMES[t]}</option>)}
+          </select>
+        </div>
         <div className="flex items-center gap-1.5">
           <span className="text-xs" style={{ color: '#6b7280' }}>パッチ</span>
-          <select value={patch} onChange={e => setPatch(e.target.value)}
+          <select value={patch} onChange={handlePatchChange}
             className="text-xs rounded px-2 py-1"
             style={{ background: '#1f2937', border: '1px solid #374151', color: '#d1d5db' }}>
             {patches.map(p => <option key={p} value={p}>{p}{p === patches[0] ? ' (最新)' : ''}</option>)}
@@ -96,12 +106,18 @@ export default function FirstPickPage() {
 
       {/* チャンピオンリスト */}
       <div className="flex-1 overflow-y-auto p-4">
-        {loading ? (
+        {patchList.hasError ? (
+          <p role="alert" className="text-center py-10 text-sm" style={{ color: '#f87171' }}>{PATCHES_ERROR_MESSAGE}</p>
+        ) : isPatchEmpty ? (
+          <p className="text-center py-10 text-sm" style={{ color: '#6b7280' }}>{PATCHES_EMPTY_MESSAGE}</p>
+        ) : championList.hasError ? (
+          <p role="alert" className="text-center py-10 text-sm" style={{ color: '#f87171' }}>{DATA_ERROR_MESSAGE}</p>
+        ) : isLoading ? (
           <p className="text-center py-10 text-sm" style={{ color: '#6b7280' }}>読み込み中...</p>
         ) : data.length === 0 ? (
           <p className="text-center py-10 text-sm" style={{ color: '#6b7280' }}>データがありません</p>
         ) : (
-          (['S', 'A', 'B', 'C'] as Tier_Label[]).map(t => grouped[t].length > 0 && (
+          TIER_LABEL_ORDER.map((t, tierIndex) => grouped[t].length > 0 && (
             <div key={t} className="mb-4">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-7 h-7 rounded flex items-center justify-center text-sm font-black"
@@ -112,8 +128,8 @@ export default function FirstPickPage() {
                 <span className="text-xs" style={{ color: '#6b7280' }}>{grouped[t].length}体</span>
               </div>
               {grouped[t].map((row, i) => {
-                const rankNum = grouped['S'].indexOf(row) + grouped['A'].indexOf(row) + grouped['B'].indexOf(row) + grouped['C'].indexOf(row) +
-                  (['S', 'A', 'B', 'C'] as Tier_Label[]).slice(0, ['S', 'A', 'B', 'C'].indexOf(t)).reduce((s, tt) => s + grouped[tt].length, 0) + i + 1;
+                // 全体での順位。上の Tier の人数に、この Tier の中の順番を足す
+                const rankNum = TIER_LABEL_ORDER.slice(0, tierIndex).reduce((sum, upper) => sum + grouped[upper].length, 0) + i + 1;
                 return (
                   <div key={row.champions.champion_id}
                     className="flex items-center gap-3 rounded px-3 py-2 mb-1"

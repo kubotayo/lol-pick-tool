@@ -90,13 +90,14 @@
   <h1>要件定義書</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.9.1</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.10.0</div></div>
     <div class="meta-item"><div class="label">ステータス</div><div class="value">Draft</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.1.0)</div><div class="value">FR-06 Tier閾値を明記</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.2.0)</div><div class="value">FR-03パッチ必須化・FR-20スノーボール方式・FR-24追加・リージョンJPのみ</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.3.0)</div><div class="value">FR-20に終了条件・環境変数名・デフォルト値を補足</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.4.0)</div><div class="value">FR-21の集計値を上書きから加算に変更</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.5.0)</div><div class="value">FR-04 ランク帯の意味・FR-20 名簿と収集対象ランク・FR-21 平均ランクによるランク帯判定</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.10.0)</div><div class="value">2026-11-27 FR-08（絞り込み条件を覚える）を追加。FR-13 に FR-08 の適用を追記。スコープ外に、別のブラウザ・PC への引き継ぎを追加</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.9.1)</div><div class="value">2026-11-12 FR-20 の定期実行の時刻を JST 02:00 から JST 01:37 に変更（GitHub Actions の定期実行は混雑すると遅れ、毎時0分は特に混む。初回〔2026-11-11 の UTC 17:00 の予定〕は約6時間20分遅れて 23:22 UTC に始まった）</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.9.0)</div><div class="value">2026-11-10 FR-23 の「アーカイブ」の意味を定義（今のパッチより古いパッチのアイテムビルドを消す）。FR-21 に勝者が1チームでない試合の除外を追加。アイテムビルドは DB に書き込まないことを FR-23 に追記</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.8.0)</div><div class="value">2026-11-09 FR-22 で DB に記録するエラーの範囲を明記（テスト仕様書の未決事項 Q-1 の決定）</div></div>
@@ -213,6 +214,12 @@
           <td>【Phase 2】各チャンピオン行の右側に相性の良い他レーンのチャンピオンを表示</td>
           <td>レイアウト：A案（行内ミニアイコン常時表示 + ホバーで詳細）。常時表示：各レーン（TOP/JG/BOT/SUP）の勝率1位チャンピオンのアイコン1体ずつ。ホバー表示：レーン別上位5体のアイコン + 各勝率。新規 synergy_stats テーブルが必要。</td>
         </tr>
+        <tr>
+          <td><span class="req-id">FR-08</span></td>
+          <td><span class="badge badge-should">Should</span></td>
+          <td>前回選んだ絞り込み条件（レーン・ランク帯・地域）を覚え、次に開いたときに選んだ状態にする</td>
+          <td>受け入れ条件: (1) レーン・ランク帯・地域のどれかを変えた後、ページを読み込み直すと、変えた値が選ばれている。(2) 先出しピックで変えた値が、カウンターピックを開いたときにも選ばれている（逆も同じ）。(3) パッチは覚えない。開くたびに最新のパッチが選ばれる（FR-03）。(4) 覚えた値が選択肢にない項目は、その項目だけ既定値（FR-04・FR-05。レーンは先出しピックが MID、カウンターピックが TOP）になる。(5) ブラウザが保存を許さない場合も、画面は覚えないだけで今までどおり動く。保存先はブラウザで、相手チャンピオンと検索の文字は覚えない（仕様は 03 画面設計の 5章）</td>
+        </tr>
       </table>
     </div>
 
@@ -242,7 +249,7 @@
           <td><span class="req-id">FR-13</span></td>
           <td><span class="badge badge-must">Must</span></td>
           <td>FR-03〜05 と同様のフィルター適用</td>
-          <td>パッチ・ランク帯・地域フィルター</td>
+          <td>パッチ・ランク帯・地域フィルター。レーン・ランク帯・地域は FR-08 で覚え、先出しピックと共有する</td>
         </tr>
         <tr>
           <td><span class="req-id">FR-14</span></td>
@@ -338,6 +345,7 @@
       <li>ルーン・サモナースペルの推奨表示</li>
       <li>モバイル対応（スマートフォン）</li>
       <li>複数ユーザーへの公開・シェア機能</li>
+      <li>覚えた絞り込み条件（FR-08）の、別のブラウザ・PC への引き継ぎ</li>
       <li>リアルタイムデータ取得（ライブゲーム連携）</li>
       <li>他ゲームへの対応</li>
     </ul>
