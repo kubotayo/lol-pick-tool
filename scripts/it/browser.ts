@@ -349,10 +349,25 @@ async function runBlockedStorageItem(patches: string[]): Promise<void> {
         lane: counterCalls[0]?.lane,
         screen: await screen(s.page),
       }, { hasEnemies: true, calls: 1, lane: 'BOT', screen: { lanes: ['BOT'], region: 'JP', tier: 'platinum_plus', patch: latest, alerts: [] } });
-      // 応答を受けた後、右側にカウンターの一覧か「データが不足しています」が描かれている（どちらになるかはモックデータによる）
-      record('BR-06', 'D: カウンターの結果（一覧か「データが不足しています」）が出る',
-        await gameRows(s.page) > 0 || await s.page.getByText('データが不足しています').count() === 1, true);
-      record('BR-06', 'A〜D: Console のエラーと例外がない', [...errorsBeforeReload, ...errorsBeforeMove, ...s.errors], []);
+      // モックデータのカウンターは TOP のダリウスだけ（lib/mock-data.ts）。BOT では空の応答になり、文言が出る
+      record('BR-06', 'D: カウンターデータがない相手では「データが不足しています」が出る', {
+        rows: await gameRows(s.page),
+        shortage: await s.page.getByText('データが不足しています').count(),
+      }, { rows: 0, shortage: 1 });
+      // E: カウンターデータがある相手（TOP のダリウス）では、一覧が出る
+      await clickLane(s.page, 'TOP');
+      s.apiCalls.length = 0;
+      await s.page.locator('button[title="ダリウス"]').click();
+      await settle(s.page);
+      const dariusCalls = queries(s, '/api/counter');
+      record('BR-06', 'E: データがある相手を選ぶと、/api/counter を lane=TOP で1回呼び、カウンターの一覧が出る', {
+        calls: dariusCalls.length,
+        lane: dariusCalls[0]?.lane,
+        screen: await screen(s.page),
+        hasRows: await gameRows(s.page) > 0,
+        shortage: await s.page.getByText('データが不足しています').count(),
+      }, { calls: 1, lane: 'TOP', screen: { lanes: ['TOP'], region: 'JP', tier: 'platinum_plus', patch: latest, alerts: [] }, hasRows: true, shortage: 0 });
+      record('BR-06', 'A〜E: Console のエラーと例外がない', [...errorsBeforeReload, ...errorsBeforeMove, ...s.errors], []);
     });
   } finally {
     await context.close();
