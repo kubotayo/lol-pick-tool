@@ -12,7 +12,7 @@
 | `docs/04_db-design.html` | DB設計図（テーブル定義・DDL・ER図） |
 | `docs/05_api-design.html` | API設計書（API Routes のパラメーター・応答・キャッシュ） |
 | `docs/06_batch-test-spec.html` | バッチテスト仕様書（テスト項目・不変条件の確認 SQL・未決事項） |
-| `docs/07_ui-test-spec.html` | 画面テスト仕様書（絞り込み条件の保存、API から取得できないときの表示、カウンターデータがないときの文言のテスト項目） |
+| `docs/07_ui-test-spec.html` | 画面テスト仕様書（絞り込み条件の保存、API から取得できないときの表示、カウンターデータがないときの文言のテスト項目。本物の Chrome で動かす `npm run it:browser` の項目を含む） |
 
 ---
 
