@@ -1,8 +1,8 @@
-// ブラウザテスト BR-01〜07（docs/07_ui-test-spec.html 7章）を、ローカルの本番ビルドと本物の Chrome で確かめる
+// ブラウザテスト BR-01〜08（docs/07_ui-test-spec.html 7章）を、ローカルの本番ビルドと本物の Chrome で確かめる
 // 実行: npm run it:browser（next build の後、このスクリプトが next start を起動し、終わったら止める）
 // - 開発サーバーは使わない。React の StrictMode が副作用を2回動かし、API の回数が変わるため
 // - 接続先は自分で起動した localhost だけ。ポートがすでに使われていたら実行しない（別のサーバーを試験しないため）
-// - 項目ごとに新しいブラウザコンテキスト（空の localStorage）で始めるので、項目どうしの依存はない
+// - 項目ごとに新しいブラウザコンテキスト（BR-06・08 は新しいプロフィール）で、空の localStorage から始めるので、項目どうしの依存はない
 // - API はモックデータ（05 の 6章）。外部への通信はしない
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
@@ -375,6 +375,44 @@ async function runBlockedStorageItem(patches: string[]): Promise<void> {
   }
 }
 
+// BR-08 Chrome を終了して起動し直した後も、覚えている（01 FR-08「次に開いたとき」、03 の 5.2 保存先）
+// 同じプロフィールのフォルダで、Chrome のプロセスを起動し直す。コンテキストを作り直すだけでは、ディスクに残ることを確かめられない
+async function runRestartItem(patches: string[]): Promise<void> {
+  const latest = patches[0];
+  const profileDir = mkdtempSync(path.join(tmpdir(), 'lol-pick-tool-it-'));
+  try {
+    await item('BR-08', async () => {
+      const first = await chromium.launchPersistentContext(profileDir, { channel: 'chrome', headless: true });
+      const firstBrowser = first.browser();
+      try {
+        const s = await openSession(first);
+        await open(s.page, '/first-pick');
+        await clickLane(s.page, 'TOP');
+        await choose(s.page, 1, 'diamond_plus');
+        await choose(s.page, 0, 'KR');
+        // 終了する前に保存できていなければ、「起動し直しても残る」ことの確認にならない
+        record('BR-08', '前提: 終了する前の保存値', await saved(s.page), { v: 1, lane: 'TOP', region: 'KR', tier: 'diamond_plus' });
+      } finally {
+        await first.close();
+      }
+      // 前の Chrome のプロセスが終わっていること（終わっていなければ、起動し直したことにならない）
+      record('BR-08', '前提: 前の Chrome が終了している', firstBrowser?.isConnected() ?? false, false);
+      const second = await chromium.launchPersistentContext(profileDir, { channel: 'chrome', headless: true });
+      try {
+        const s = await openSession(second);
+        await open(s.page, '/counter-pick');
+        record('BR-08', '起動し直した後の画面の選択', await screen(s.page), { lanes: ['TOP'], region: 'KR', tier: 'diamond_plus', patch: latest, alerts: [] });
+        record('BR-08', '起動し直した後の保存値', await saved(s.page), { v: 1, lane: 'TOP', region: 'KR', tier: 'diamond_plus' });
+        record('BR-08', '/api/champions は1回で、覚えた値', queries(s, '/api/champions'), [championQuery('TOP', 'KR', 'diamond_plus', latest)]);
+      } finally {
+        await second.close();
+      }
+    });
+  } finally {
+    rmSync(profileDir, { recursive: true, force: true });
+  }
+}
+
 async function main(): Promise<void> {
   if (await isPortInUse()) throw new Error(`ポート ${PORT} がすでに使われています。止めてから実行してください`);
   // npx を挟むと、止めるときのシグナルが next に届かず、ポートにサーバーが残ることがあるので、next を node で直接起動する
@@ -389,6 +427,7 @@ async function main(): Promise<void> {
     const browser = await chromium.launch({ channel: 'chrome', headless: true });
     try { await runItems(browser, patches); } finally { await browser.close(); }
     await runBlockedStorageItem(patches);
+    await runRestartItem(patches);
   } finally {
     server.kill();
   }
@@ -397,7 +436,7 @@ async function main(): Promise<void> {
   const ng = ids.filter((id) => results.some((r) => r.id === id && !r.ok));
   console.log(`\n項目 ${ids.length}件（確認 ${results.length}件）: 合格 ${ids.length - ng.length}件、不合格 ${ng.length}件${ng.length ? `（${ng.join('・')}）` : ''}`);
   // 項目が途中で減っても気づけるように、実施した項目の数も確かめる
-  const expectedIds = ['BR-01', 'BR-02', 'BR-03', 'BR-04', 'BR-05', 'BR-06', 'BR-07'];
+  const expectedIds = ['BR-01', 'BR-02', 'BR-03', 'BR-04', 'BR-05', 'BR-06', 'BR-07', 'BR-08'];
   if (!isDeepStrictEqual(ids, expectedIds)) {
     console.log(`NG   実施した項目が足りません: ${ids.join('・')}`);
     process.exitCode = 1;
