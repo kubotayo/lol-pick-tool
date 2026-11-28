@@ -1,7 +1,7 @@
 // カウンターピック画面（SCR-03/04）の、絞り込み条件の保存（01 FR-08、03 の 5章）のテスト
 // テスト名の先頭の ID は docs/07_ui-test-spec.html の項目 ID と対応する
 // 期待結果は設計書（01 FR-08・FR-13、03 の 5章、05 の 3章・4章）から決めている。実装のコードからは決めていない
-// （FR-08 の項目についての記述。03 の 6章の項目〔FP-16 以降・CP-17 以降〕は、実装と同じ作業の中で、03 の 6章から作った。07 の 2.1）
+// （FR-08 の項目についての記述。03 の 6章の項目〔CP-17〜30〕と SCR-03/04 アノテーション 5 の項目〔CP-31〕は、実装と同じ作業の中で、03 から作った。07 の 2.1）
 //
 // 画面の部品の探し方（設計書に DOM の決まりがないため、07 の 8章 T-3 の仮決めに従う）:
 // - レーン: 表示の文字がレーン名（TOP など）と一致する button（または role="tab"）
@@ -841,6 +841,22 @@ describe('カウンターピック画面: 応答を待っているあいだ・�
     expect(counterCalls[1].searchParams.get('enemy_champion_id')).toBe('58');
   });
 
+  it('CP-25 /api/counter が失敗したときの文言の色は #f87171', async () => {
+    installFetchMock((url) => (
+      url.pathname === '/api/counter' ? jsonResponse({ error: 'Internal Server Error' }, 500) : undefined
+    ));
+
+    render(<CounterPickPage />);
+    fireEvent.click(await findEnemyChampion(ENEMY_NAME));
+
+    await waitFor(() => { expect(alertTexts()).toStrictEqual([DATA_ERROR_MESSAGE]); });
+    await settle();
+    expect(alertColors()).toStrictEqual([ERROR_COLOR]);
+    expect(callsTo('/api/counter')).toHaveLength(1);
+  });
+});
+
+describe('カウンターピック画面: カウンターデータがないとき（03 の SCR-03/04 アノテーション 5）', () => {
   it.each([
     ['all', '200'],
     ['platinum_plus', '200'],
@@ -854,7 +870,7 @@ describe('カウンターピック画面: 応答を待っているあいだ・�
     fireEvent.click(await findEnemyChampion(ENEMY_NAME));
 
     const counterCalls = await waitForCounterCalls(1);
-    // 文言の数字は、API が使う既定値と同じでなければならない。画面が min_games を渡すと、API は渡された値を使う（05 の 4章）
+    // 画面は min_games を渡さず、API のランク帯ごとの既定値に任せる（03 の SCR-03/04 アノテーション 5）
     expect(counterCalls[0].searchParams.get('tier')).toBe(tier);
     expect(counterCalls[0].searchParams.get('min_games')).toBeNull();
     const messages = Array.from(document.querySelectorAll('p'))
@@ -862,19 +878,5 @@ describe('カウンターピック画面: 応答を待っているあいだ・�
       .filter((text) => text.includes('データが不足'));
     expect(messages).toStrictEqual([`データが不足しています（試合数${minGames}未満）`]);
     expect(alertTexts()).toStrictEqual([]);
-  });
-
-  it('CP-25 /api/counter が失敗したときの文言の色は #f87171', async () => {
-    installFetchMock((url) => (
-      url.pathname === '/api/counter' ? jsonResponse({ error: 'Internal Server Error' }, 500) : undefined
-    ));
-
-    render(<CounterPickPage />);
-    fireEvent.click(await findEnemyChampion(ENEMY_NAME));
-
-    await waitFor(() => { expect(alertTexts()).toStrictEqual([DATA_ERROR_MESSAGE]); });
-    await settle();
-    expect(alertColors()).toStrictEqual([ERROR_COLOR]);
-    expect(callsTo('/api/counter')).toHaveLength(1);
   });
 });

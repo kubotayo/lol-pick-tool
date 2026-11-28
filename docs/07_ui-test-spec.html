@@ -83,10 +83,10 @@
   <!-- 1. 目的と範囲 -->
   <div class="section">
     <div class="section-header"><div class="section-num">1</div><h2>目的と範囲</h2></div>
-    <p>先出しピック画面とカウンターピック画面が、前回選んだ絞り込み条件（レーン・ランク帯・リージョン）を覚え、01 FR-08 の受け入れ条件 (1)〜(5) と 03 の 5章のとおりに動くことを確かめる。あわせて、API から取得できないときに 03 の 6章のとおりに表示することを確かめる。</p>
+    <p>先出しピック画面とカウンターピック画面が、前回選んだ絞り込み条件（レーン・ランク帯・リージョン）を覚え、01 FR-08 の受け入れ条件 (1)〜(5) と 03 の 5章のとおりに動くことを確かめる。あわせて、API から取得できないときに 03 の 6章のとおりに表示することと、カウンターデータがないときの文言（03 SCR-03/04 のアノテーション 5）を確かめる。</p>
     <table>
       <tr><th style="width:120px">区分</th><th>内容</th></tr>
-      <tr><td>対象</td><td>01 FR-08（関連: FR-03 パッチ・FR-04 ランク帯・FR-05 地域・FR-13 カウンターピックのフィルター）、03 の 5.1〜5.5・6.1・6.2、SCR-02 のアノテーション 1・2・6、SCR-03/04 のアノテーション 1・6</td></tr>
+      <tr><td>対象</td><td>01 FR-08（関連: FR-03 パッチ・FR-04 ランク帯・FR-05 地域・FR-13 カウンターピックのフィルター）、03 の 5.1〜5.5・6.1・6.2、SCR-02 のアノテーション 1・2・6、SCR-03/04 のアノテーション 1・5（カウンターデータがないときの文言と <code>min_games</code>）・6</td></tr>
       <tr><td>対象外</td><td>API Routes の入力チェックと応答（05 の範囲。<code>app/api/</code> の自動テスト）／チャンピオンの一覧・Tier の表示（FR-02・06・12・14。順位の数え方だけは FP-20 で確かめる）／トップページの「現在の設定」の表示／別のブラウザ・PC への引き継ぎ（01 スコープ外）／バッチ（06）</td></tr>
     </table>
   </div>
@@ -96,13 +96,13 @@
     <div class="section-header"><div class="section-num">2</div><h2>テスト方針</h2></div>
 
     <h3>2.1 期待結果の決め方</h3>
-    <p>期待結果は設計書（01 FR-08、03 の 5章・6章、05 の既定値）から決め、各項目に根拠（設計書番号と節）を書く。FR-08 の項目（FS・HK・FP-01〜15・CP-01〜16・MT）は、実装のコードを読まずに作った。03 の 6章の項目（AL・FP-16 以降・CP-17 以降）は、実装と同じ作業の中で、03 の 6章から作った（実装を知ったうえで書いているので、判定が実装に合わせて甘くなっていないかは、9章 B-p〜B-z で確かめた）。設計書から決まらなかった点は、8章に仮決めとして分けて書く。</p>
+    <p>期待結果は設計書（01 FR-08、03 の 5章・6章、05 の既定値）から決め、各項目に根拠（設計書番号と節）を書く。FR-08 の項目（FS・HK・FP-01〜15・CP-01〜16・MT）は、実装のコードを読まずに作った。03 の 6章の項目（AL・FP-16 以降・CP-17〜30）と、SCR-03/04 のアノテーション 5 の項目（CP-31）は、実装と同じ作業の中で、03 から作った（実装を知ったうえで書いているので、判定が実装に合わせて甘くなっていないかは、9章 B-p〜B-ac で確かめた）。設計書から決まらなかった点は、8章に仮決めとして分けて書く。</p>
 
     <h3>2.2 テストの段階</h3>
     <table>
       <tr><th style="width:130px">段階</th><th style="width:260px">確かめること</th><th style="width:340px">方法・環境</th><th>記号</th></tr>
       <tr><td>単体（FS・HK・AL）</td><td>保存値の読み書きと確かめ方（5.2・5.3）、フックの戻り値と保存の呼び出し（5.5）、API を読むフックの状態（6.2）</td><td>vitest ＋ jsdom の <code>localStorage</code>。フックは <code>renderHook</code></td><td rowspan="2"><span class="badge auto">自動</span> vitest のテストがある。テスト名は項目 ID で始まる（例: <code>FS-07 キーがない</code>）</td></tr>
-      <tr><td>画面（FP・CP）</td><td>画面を開いたとき・条件を変えたときの API の呼び出し（5.4）と保存値。API から取得できないとき・応答を待っているあいだの表示（6.1）</td><td>vitest ＋ jsdom ＋ @testing-library/react。<code>fetch</code> は偽物に差し替え、呼ばれた URL を記録する。<code>next/image</code>・<code>next/link</code>・<code>next/navigation</code> も差し替える</td></tr>
+      <tr><td>画面（FP・CP）</td><td>画面を開いたとき・条件を変えたときの API の呼び出し（5.4）と保存値。API から取得できないとき・応答を待っているあいだの表示（6.1）。カウンターデータがないときの文言（SCR-03/04 アノテーション 5）</td><td>vitest ＋ jsdom ＋ @testing-library/react。<code>fetch</code> は偽物に差し替え、呼ばれた URL を記録する。<code>next/image</code>・<code>next/link</code>・<code>next/navigation</code> も差し替える</td></tr>
       <tr><td>手動（MT）</td><td>本物のブラウザでの読み込み直し・画面の移動・保存を許さない設定・選択中の見た目</td><td>ローカルの本番ビルド（3章）＋ Chrome</td><td><span class="badge manual">手動</span> 手順に沿って実施し、結果を記録する</td></tr>
     </table>
 
@@ -349,7 +349,7 @@ localStorage.removeItem('lol-pick-tool:filters')</pre>
       <tr><td class="id">CP-28</td><td><span class="badge p2">P2</span></td><td>境界値</td><td>相手チャンピオン「ガレン」を押し、<code>/api/counter</code> が1回呼ばれた後に、選ばれているレーン <code>TOP</code> を押す</td><td>「← 相手チャンピオンを選択してください」の文字がない（選択が残る）。<code>/api/champions</code>・<code>/api/counter</code> の呼び出しはそれぞれ1回のまま</td><td>押した後に 100ミリ秒待ってから、回数を 1 と比べる</td><td>03 6.1 箇条書き（押し直しでは外れない）</td><td><span class="badge auto">自動</span></td><td></td></tr>
       <tr><td class="id">CP-29</td><td><span class="badge p1">P1</span></td><td>状態遷移</td><td><code>/api/counter</code> は、1回目は 500、2回目はテストが返すまで止める。「ガレン」を押し、取得失敗の文言が出た後に、レーン <code>JG</code> → <code>TOP</code> と押し、もう一度「ガレン」を押す（1回目と同じ URL になる）。その後、2回目の応答を返す</td><td>2回目の応答の前: <code>role="alert"</code> の要素がなく、「読み込み中...」の要素が1個（1回目の失敗の文言を出さない）。応答の後: 「読み込み中...」の要素がなく、<code>role="alert"</code> の要素もない</td><td><code>/api/counter</code> が2回呼ばれるまで待ち、さらに 100ミリ秒待ってから比べる</td><td>03 6.1 箇条書き（応答を待っているあいだ）、6.2</td><td><span class="badge auto">自動</span></td><td></td></tr>
       <tr><td class="id">CP-30</td><td><span class="badge p2">P2</span></td><td>状態遷移</td><td><code>/api/counter</code> が常に 500。「ガレン」を押し、文言が出た後に、もう一度「ガレン」を押す。その後「レネクトン」を押す</td><td>「ガレン」の押し直しの後: <code>/api/counter</code> の呼び出しは1回のまま。「レネクトン」の後: 合計2回で、2回目の <code>enemy_champion_id</code> は <code>58</code></td><td>押し直しの後に 100ミリ秒待ってから、回数を 1 と比べる</td><td>03 6.1 箇条書き（同じ相手の押し直しでは取り直さない）</td><td><span class="badge auto">自動</span></td><td></td></tr>
-      <tr><td class="id">CP-31</td><td><span class="badge p2">P2</span></td><td>同値</td><td>保存値のランク帯が次のどれか（4とおり）: <code>all</code>／<code>platinum_plus</code>／<code>diamond_plus</code>／<code>master_plus</code>（レーン <code>TOP</code>・リージョン <code>JP</code>）。<code>/api/counter</code> が空の配列を返す。画面を開き、「ガレン」を押す</td><td>「データが不足」を含む <code>p</code> 要素の文字を並べた配列が、順に「データが不足しています（試合数200未満）」／「…（試合数200未満）」／「…（試合数100未満）」／「…（試合数50未満）」の1件だけ。<code>/api/counter</code> の呼び出しの <code>tier</code> が保存値のランク帯で、<code>min_games</code> のパラメーターがない（API がランク帯の既定値を使うので、文言の数字と合う）。<code>role="alert"</code> の要素がない</td><td><code>/api/counter</code> が1回呼ばれるまで待ち、さらに 100ミリ秒待ってから比べる</td><td>03 SCR-03/04 アノテーション 5、05 2.1・4章</td><td><span class="badge auto">自動</span></td><td></td></tr>
+      <tr><td class="id">CP-31</td><td><span class="badge p2">P2</span></td><td>同値（許可値の全部）</td><td>保存値のランク帯が次のどれか（4とおり）: <code>all</code>／<code>platinum_plus</code>／<code>diamond_plus</code>／<code>master_plus</code>（レーン <code>TOP</code>・リージョン <code>JP</code>）。<code>/api/counter</code> が空の配列を返す。画面を開き、「ガレン」を押す</td><td>「データが不足」を含む <code>p</code> 要素の文字を並べた配列が、順に「データが不足しています（試合数200未満）」／「…（試合数200未満）」／「…（試合数100未満）」／「…（試合数50未満）」の1件だけ。<code>/api/counter</code> の呼び出しの <code>tier</code> が保存値のランク帯で、<code>min_games</code> のパラメーターがない（API がランク帯の既定値を使うので、文言の数字と合う）。<code>role="alert"</code> の要素がない</td><td><code>/api/counter</code> が1回呼ばれるまで待ち、さらに 100ミリ秒待ってから比べる</td><td>03 SCR-03/04 アノテーション 5（文言・<code>min_games</code> を渡さない）、05 2.1</td><td><span class="badge auto">自動</span></td><td></td></tr>
     </table></div>
   </div>
 
