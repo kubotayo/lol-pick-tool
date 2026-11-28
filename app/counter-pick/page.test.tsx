@@ -841,6 +841,29 @@ describe('カウンターピック画面: 応答を待っているあいだ・�
     expect(counterCalls[1].searchParams.get('enemy_champion_id')).toBe('58');
   });
 
+  it.each([
+    ['all', '200'],
+    ['platinum_plus', '200'],
+    ['diamond_plus', '100'],
+    ['master_plus', '50'],
+  ])('CP-31 /api/counter が空の配列のとき、ランク帯 %s では「データが不足しています（試合数%s未満）」を表示する', async (tier, minGames) => {
+    seed({ v: 1, lane: 'TOP', region: 'JP', tier });
+    installFetchMock((url) => (url.pathname === '/api/counter' ? jsonResponse([]) : undefined));
+
+    render(<CounterPickPage />);
+    fireEvent.click(await findEnemyChampion(ENEMY_NAME));
+
+    const counterCalls = await waitForCounterCalls(1);
+    // 文言の数字は、API が使う既定値と同じでなければならない。画面が min_games を渡すと、API は渡された値を使う（05 の 4章）
+    expect(counterCalls[0].searchParams.get('tier')).toBe(tier);
+    expect(counterCalls[0].searchParams.get('min_games')).toBeNull();
+    const messages = Array.from(document.querySelectorAll('p'))
+      .map((element) => element.textContent ?? '')
+      .filter((text) => text.includes('データが不足'));
+    expect(messages).toStrictEqual([`データが不足しています（試合数${minGames}未満）`]);
+    expect(alertTexts()).toStrictEqual([]);
+  });
+
   it('CP-25 /api/counter が失敗したときの文言の色は #f87171', async () => {
     installFetchMock((url) => (
       url.pathname === '/api/counter' ? jsonResponse({ error: 'Internal Server Error' }, 500) : undefined

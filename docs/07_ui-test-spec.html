@@ -67,9 +67,10 @@
   <h1>画面テスト仕様書</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-11-27</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.1.2</div></div>
-    <div class="meta-item"><div class="label">対象</div><div class="value">絞り込み条件の保存と、API から取得できないときの表示（lib/filterStorage.ts・lib/useSavedFilters.ts・lib/useApiList.ts・先出しピック画面・カウンターピック画面）</div></div>
-    <div class="meta-item"><div class="label">根拠とする設計書</div><div class="value">01 v1.10.0 / 03 v1.3.2</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.1.3</div></div>
+    <div class="meta-item"><div class="label">対象</div><div class="value">絞り込み条件の保存、API から取得できないときの表示、カウンターデータがないときの文言（lib/filterStorage.ts・lib/useSavedFilters.ts・lib/useApiList.ts・先出しピック画面・カウンターピック画面）</div></div>
+    <div class="meta-item"><div class="label">根拠とする設計書</div><div class="value">01 v1.10.0 / 03 v1.3.3</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.1.3)</div><div class="value">2026-11-28 CP-31 を追加（03 v1.3.3。カウンターデータがないときの文言の数字が、選んでいるランク帯の最低試合数になる）。9章に B-ac</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.1.2)</div><div class="value">2026-11-27 再レビューの指摘から: CP-28〜30 を追加。AL-06 の期待結果を 03 v1.3.2 に合わせて変更（同じ <code>url</code> に戻ったとき、前の結果を返さず読み込み中にする）。9章に B-aa・B-ab</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.1.1)</div><div class="value">2026-11-27 レビューの指摘から: AL-06、FP-21〜23、CP-22〜27 を追加（読み込み中の表示、条件を元に戻したときの相手の選択、色、再試行しないこと）。FP-16・17、CP-17・18 の判定に、色・パッチの選択肢の数・<code>/api/patches</code> の回数を追加。2.1・2.2・2.4 を 6章の項目に合わせた。9章に B-x〜B-z</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.1.0)</div><div class="value">2026-11-27 03 v1.3.0 の 6章（API から取得できないときの表示）のテストを追加: AL-01〜05、FP-16〜20、CP-17〜21。9章に B-p〜B-w を追加。8章 G-3 を更新</div></div>
@@ -134,7 +135,7 @@
       <tr><td>A-6</td><td>手動の項目は、Console に入れる式・押す場所・見る場所を書く</td></tr>
       <tr><td>A-7</td><td>自動テストは jsdom で動かすので、本物のブラウザの読み込み直し・サイトのデータの保存の禁止・選択中のレーンの色は確かめていない。それぞれ MT-01・02、MT-06、MT-01〜03・05 で確かめる。対応は各項目の「判定方法」「関連」に書く</td></tr>
       <tr><td>A-8</td><td>自動テストは項目ごとに <code>localStorage</code> を空にしてから始めるので、項目どうしの依存はない（「〜と同じ操作の後」と書いた項目も、テストの中で操作をやり直す）。手動の項目の依存は、各項目の前提に書く</td></tr>
-      <tr><td>B-2</td><td>9章の表のとおり実施した（2026-11-27）。B-m・B-n は未実施。B-j は NG にならなかった（理由は 9章）。B-s・B-t・B-y は、項目を足して NG になるようにした</td></tr>
+      <tr><td>B-2</td><td>9章の表のとおり実施した（2026-11-27）。B-m・B-n は未実施。B-j は NG にならなかった（理由は 9章）。B-s・B-t・B-y は、項目を足して NG になるようにした。B-ac は 2026-11-28 に実施</td></tr>
     </table>
   </div>
 
@@ -193,8 +194,9 @@ localStorage.removeItem('lol-pick-tool:filters')</pre>
       <tr><td>03 6.1 1・2行目「パッチの選択肢は空」</td><td>FP-16・17、CP-17・18</td></tr>
       <tr><td>03 6.2 モジュール（<code>useApiList</code>）</td><td>AL-01〜06</td></tr>
       <tr><td>SCR-02 アノテーション 6（順位）</td><td>FP-20</td></tr>
+      <tr><td>SCR-03/04 アノテーション 5（カウンターデータがないときの文言）</td><td>CP-31</td></tr>
     </table>
-    <p>項目の数: 自動 112（FS 32・HK 21・AL 6・FP 23・CP 30）、手動 8（MT）。6章の表示は手動の項目を作っていない（本物のブラウザでは、ローカルの本番ビルドに対してヘッドレスの Chromium で1回確かめただけ。3章）。1つの項目に入力が複数ある場合（「〜とおり」と書いたもの）は、vitest では入力ごとに1件と数えられる。</p>
+    <p>項目の数: 自動 113（FS 32・HK 21・AL 6・FP 23・CP 31）、手動 8（MT）。6章の表示は手動の項目を作っていない（本物のブラウザでは、ローカルの本番ビルドに対してヘッドレスの Chromium で1回確かめただけ。3章）。1つの項目に入力が複数ある場合（「〜とおり」と書いたもの）は、vitest では入力ごとに1件と数えられる。</p>
   </div>
 
   <!-- 5. テスト項目（単体） -->
@@ -347,6 +349,7 @@ localStorage.removeItem('lol-pick-tool:filters')</pre>
       <tr><td class="id">CP-28</td><td><span class="badge p2">P2</span></td><td>境界値</td><td>相手チャンピオン「ガレン」を押し、<code>/api/counter</code> が1回呼ばれた後に、選ばれているレーン <code>TOP</code> を押す</td><td>「← 相手チャンピオンを選択してください」の文字がない（選択が残る）。<code>/api/champions</code>・<code>/api/counter</code> の呼び出しはそれぞれ1回のまま</td><td>押した後に 100ミリ秒待ってから、回数を 1 と比べる</td><td>03 6.1 箇条書き（押し直しでは外れない）</td><td><span class="badge auto">自動</span></td><td></td></tr>
       <tr><td class="id">CP-29</td><td><span class="badge p1">P1</span></td><td>状態遷移</td><td><code>/api/counter</code> は、1回目は 500、2回目はテストが返すまで止める。「ガレン」を押し、取得失敗の文言が出た後に、レーン <code>JG</code> → <code>TOP</code> と押し、もう一度「ガレン」を押す（1回目と同じ URL になる）。その後、2回目の応答を返す</td><td>2回目の応答の前: <code>role="alert"</code> の要素がなく、「読み込み中...」の要素が1個（1回目の失敗の文言を出さない）。応答の後: 「読み込み中...」の要素がなく、<code>role="alert"</code> の要素もない</td><td><code>/api/counter</code> が2回呼ばれるまで待ち、さらに 100ミリ秒待ってから比べる</td><td>03 6.1 箇条書き（応答を待っているあいだ）、6.2</td><td><span class="badge auto">自動</span></td><td></td></tr>
       <tr><td class="id">CP-30</td><td><span class="badge p2">P2</span></td><td>状態遷移</td><td><code>/api/counter</code> が常に 500。「ガレン」を押し、文言が出た後に、もう一度「ガレン」を押す。その後「レネクトン」を押す</td><td>「ガレン」の押し直しの後: <code>/api/counter</code> の呼び出しは1回のまま。「レネクトン」の後: 合計2回で、2回目の <code>enemy_champion_id</code> は <code>58</code></td><td>押し直しの後に 100ミリ秒待ってから、回数を 1 と比べる</td><td>03 6.1 箇条書き（同じ相手の押し直しでは取り直さない）</td><td><span class="badge auto">自動</span></td><td></td></tr>
+      <tr><td class="id">CP-31</td><td><span class="badge p2">P2</span></td><td>同値</td><td>保存値のランク帯が次のどれか（4とおり）: <code>all</code>／<code>platinum_plus</code>／<code>diamond_plus</code>／<code>master_plus</code>（レーン <code>TOP</code>・リージョン <code>JP</code>）。<code>/api/counter</code> が空の配列を返す。画面を開き、「ガレン」を押す</td><td>「データが不足」を含む <code>p</code> 要素の文字を並べた配列が、順に「データが不足しています（試合数200未満）」／「…（試合数200未満）」／「…（試合数100未満）」／「…（試合数50未満）」の1件だけ。<code>/api/counter</code> の呼び出しの <code>tier</code> が保存値のランク帯で、<code>min_games</code> のパラメーターがない（API がランク帯の既定値を使うので、文言の数字と合う）。<code>role="alert"</code> の要素がない</td><td><code>/api/counter</code> が1回呼ばれるまで待ち、さらに 100ミリ秒待ってから比べる</td><td>03 SCR-03/04 アノテーション 5、05 2.1・4章</td><td><span class="badge auto">自動</span></td><td></td></tr>
     </table></div>
   </div>
 
@@ -428,6 +431,7 @@ localStorage.removeItem('lol-pick-tool:filters')</pre>
       <tr><td>B-z</td><td>取得できないときの文言の色を灰色にする（先出しピックのパッチの文言／カウンターピックのカウンターの文言の2とおり）</td><td>FP-16、CP-25</td><td>2026-11-27 NG（FP-16、CP-25）。ほかの場所の色（先出しピックのデータの文言は FP-22、カウンターピックのパッチの文言は CP-17 で比べている）は壊していない</td></tr>
       <tr><td>B-aa</td><td><code>useApiList</code> が、<code>url</code> が変わる・<code>null</code> になるときに前の結果を捨てない</td><td>AL-06、CP-29</td><td>2026-11-27 NG（AL-06、CP-29）</td></tr>
       <tr><td>B-ab</td><td>カウンターピックで、選ばれているレーンの押し直しでも相手の選択を消す</td><td>CP-28</td><td>2026-11-27 NG（CP-28）</td></tr>
+      <tr><td>B-ac</td><td>カウンターデータがないときの文言の数字を、固定の 200 にする／<code>/api/champions</code> の最低試合数（100・100・50・30）にする（2とおり）</td><td>CP-31</td><td>2026-11-28 NG（固定の 200 では CP-31 の <code>diamond_plus</code>・<code>master_plus</code> の2件、<code>/api/champions</code> の値では4件とも）</td></tr>
     </table>
   </div>
 

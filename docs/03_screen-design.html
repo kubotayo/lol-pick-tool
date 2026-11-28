@@ -164,7 +164,8 @@
   <h1>画面設計・画面遷移図</h1>
   <div class="meta-grid">
     <div class="meta-item"><div class="label">作成日</div><div class="value">2026-10-14</div></div>
-    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.3.2</div></div>
+    <div class="meta-item"><div class="label">バージョン</div><div class="value">1.3.3</div></div>
+    <div class="meta-item"><div class="label">更新内容 (1.3.3)</div><div class="value">2026-11-28 SCR-03/04 のアノテーション 5 に、カウンターデータがないときの文言を追記（PR #42 の確認でのユーザーの指示。実装は、ランク帯に関係なく「試合数200未満」と表示していた）。最低試合数に「全体」の値を追記</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.3.2)</div><div class="value">2026-11-27 6章を訂正（再レビューの指摘から）: <code>useApiList</code> は、<code>url</code> が変わる・<code>null</code> になるときに前の結果を捨てる（v1.3.1 は「同じ <code>url</code> に戻ると前の結果をすぐ返す。2画面では通らない」としていたが、カウンターピックで相手を選び直すと通り、取り直すあいだ前回の失敗の文言が出るため）。選ばれているレーンの押し直しでは、相手の選択は外れない</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.3.1)</div><div class="value">2026-11-27 6章に追記（レビューの指摘から）: 絞り込み条件を元に戻しても相手チャンピオンの選択は戻らない、取得できない文言の優先順、同じ相手を押し直しても取り直さない、<code>useApiList</code> が同じ <code>url</code> に戻ったときの動き</div></div>
     <div class="meta-item"><div class="label">更新内容 (1.3.0)</div><div class="value">2026-11-27 6章「API から取得できないときの表示」を追加（PR #42 の確認でのユーザーの指示。以前は、取得できないと「読み込み中」のまま、または一覧が空だった）。SCR-02 のアノテーションに順位の数え方を追記（実装が 1・2・3… でなく -2・0・2… と表示していた誤りを直したため）</div></div>
@@ -572,7 +573,7 @@
         </div>
         <div class="annotation-item">
           <div class="ann-num">5</div>
-          <div class="ann-text">最低試合数フィルター：ランク帯ごとの最低試合数（Platinum+ は200件、Diamond+ は100件、Master+ は50件。05 API設計書 2.1節）未満のカウンターデータは非表示（統計的信頼性確保）。</div>
+          <div class="ann-text">最低試合数フィルター：ランク帯ごとの最低試合数（全体・Platinum+ は200件、Diamond+ は100件、Master+ は50件。05 API設計書 2.1節）未満のカウンターデータは非表示（統計的信頼性確保）。表示できるカウンターデータが1件もないときは、③カウンター一覧に「データが不足しています（試合数N未満）」と表示する。N は、選んでいるランク帯の最低試合数（利用者が、どの基準で足りないのかを読み取れるようにするため）。</div>
         </div>
         <div class="annotation-item">
           <div class="ann-num">6</div>

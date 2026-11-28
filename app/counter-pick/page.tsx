@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { ChangeEvent } from 'react';
 import Image from 'next/image';
 import AppHeader from '@/components/AppHeader';
-import { LANES, REGIONS, TIERS, TIER_NAMES } from '@/lib/constants';
+import { DEFAULT_MIN_GAMES, LANES, REGIONS, TIERS, TIER_NAMES } from '@/lib/constants';
 import { getWinRateColor, formatWinRate, formatGames } from '@/lib/utils';
 import { DATA_ERROR_MESSAGE, PATCHES_EMPTY_MESSAGE, PATCHES_ERROR_MESSAGE, useApiList } from '@/lib/useApiList';
 import { useSavedFilters } from '@/lib/useSavedFilters';
@@ -207,7 +207,8 @@ export default function CounterPickPage() {
               ) : counterList.isLoading ? (
                 <p className="text-sm text-center py-6" style={{ color: '#6b7280' }}>読み込み中...</p>
               ) : counters.length === 0 ? (
-                <p className="text-sm text-center py-6" style={{ color: '#6b7280' }}>データが不足しています（試合数200未満）</p>
+                // 最低試合数はランク帯ごとに違う（05 の 2.1）。/api/counter に min_games を渡していないので、API が使う既定値と同じ値を出す
+                <p className="text-sm text-center py-6" style={{ color: '#6b7280' }}>データが不足しています（試合数{DEFAULT_MIN_GAMES.counter[tier]}未満）</p>
               ) : (
                 counters.map((row, i) => (
                   <div key={row.champions.champion_id}

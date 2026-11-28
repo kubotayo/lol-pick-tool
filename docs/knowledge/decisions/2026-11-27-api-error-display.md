@@ -3,7 +3,7 @@
 - 日付: 2026-11-27
 - 状態: 表示を足すことは確定。範囲と文言は仮決め
 - 決めた人: 表示を足すことはユーザー（PR #42 の確認）。範囲と文言は AI の仮決め
-- 関係する未確定事項: U-16（決定済み）・U-17（仮決め）（`docs/factory/remember-filters/open-items.md`）
+- 関係する未確定事項: U-16（決定済み）・U-17（2026-11-28 に確定）（`docs/factory/remember-filters/open-items.md`）
 
 ## 決めたこと
 
