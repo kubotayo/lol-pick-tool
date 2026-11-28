@@ -39,7 +39,5 @@ jobs:
 
       # 07 の BR-01〜07。上のビルドを使い、ランナーに入っている Chrome で動かす（npm run it:browser はビルドからやり直すので使わない）
       - name: ブラウザテストを実行
+        # API はモックデータで、Supabase を読まないので、シークレットは渡さない
         run: npx tsx scripts/it/browser.ts
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}

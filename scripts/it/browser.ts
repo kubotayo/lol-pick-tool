@@ -64,10 +64,13 @@ async function openSession(context: BrowserContext): Promise<Session> {
   return { context, page, apiCalls, errors, clear: () => { apiCalls.length = 0; errors.length = 0; } };
 }
 
-/** パッチの選択肢が入り、「読み込み中」が消えるまで待ってから、さらに SETTLE_MS 待つ */
+/**
+ * パッチの選択肢が入り、「読み込み中」が消えるまで待ってから、さらに SETTLE_MS 待つ。
+ * 画面を移った後、前の画面が隠れたまま DOM に残ることがある（next.config.ts の cacheComponents）ので、見えている選択欄だけを見る
+ */
 async function settle(page: Page): Promise<void> {
   await page.waitForFunction(() => {
-    const patchSelect = document.querySelectorAll('select')[2];
+    const patchSelect = Array.from(document.querySelectorAll('select')).filter((s) => s.offsetParent !== null)[2];
     return patchSelect !== undefined && patchSelect.options.length > 0 && !document.body.innerText.includes('読み込み中');
   }, undefined, { timeout: 15000 });
   await page.waitForTimeout(SETTLE_MS);
@@ -89,9 +92,9 @@ async function clickLane(page: Page, lane: string): Promise<void> {
   await settle(page);
 }
 
-// select は左から リージョン・ランク帯・パッチ（03 SCR-02・SCR-03/04 のフィルターバー）
+// select は左から リージョン・ランク帯・パッチ（03 SCR-02・SCR-03/04 のフィルターバー）。見えている画面のものを選ぶ
 async function choose(page: Page, index: 0 | 1 | 2, value: string): Promise<void> {
-  await page.locator('select').nth(index).selectOption(value);
+  await page.locator('select:visible').nth(index).selectOption(value);
   await settle(page);
 }
 
@@ -107,16 +110,17 @@ interface Screen {
 
 async function screen(page: Page): Promise<Screen> {
   return page.evaluate(({ laneNames, gold }) => {
-    const selects = Array.from(document.querySelectorAll('select')).map((s) => s.value);
+    // 前の画面が隠れたまま DOM に残ることがあるので、選択欄・ボタン・alert のどれも、見えているもの（offsetParent がある）だけを読む
+    // （ブラウザに渡す関数の中では、名前を付けた関数を作らない。tsx が足す補助の関数がブラウザにはなく、ReferenceError になるため）
+    const selects = Array.from(document.querySelectorAll('select')).filter((s) => s.offsetParent !== null).map((s) => s.value);
     return {
       lanes: Array.from(document.querySelectorAll('button'))
-        // 画面を移った後、前の画面が隠れたまま DOM に残ることがあるので、見えているボタンだけを数える
         .filter((b) => b.offsetParent !== null && laneNames.includes(b.textContent ?? '') && getComputedStyle(b).backgroundColor === gold)
         .map((b) => b.textContent ?? ''),
       region: selects[0] ?? '',
       tier: selects[1] ?? '',
       patch: selects[2] ?? '',
-      alerts: Array.from(document.querySelectorAll('[role="alert"]')).map((e) => e.textContent ?? ''),
+      alerts: Array.from(document.querySelectorAll<HTMLElement>('[role="alert"]')).filter((e) => e.offsetParent !== null).map((e) => e.textContent ?? ''),
     };
   }, { laneNames: LANE_NAMES, gold: GOLD });
 }
@@ -143,6 +147,11 @@ function queries(s: Session, pathname: string): Array<Record<string, string | nu
     region: u.searchParams.get('region') ?? 'JP',
     tier: u.searchParams.get('tier') ?? 'platinum_plus',
   }));
+}
+
+/** 見えている一覧の行（「12,345 games」で終わる要素）の数 */
+async function gameRows(page: Page): Promise<number> {
+  return page.locator('span:visible', { hasText: /\d games$/ }).count();
 }
 
 const championQuery = (lane: string, region: string, tier: string, patch: string): Record<string, string | null> =>
@@ -279,6 +288,7 @@ async function runItems(browser: Browser, patches: string[]): Promise<void> {
     await reload(s);
     record('BR-05', 'C: JSON でない保存値は、すべて既定値', await screen(s.page), { lanes: ['MID'], region: 'JP', tier: 'platinum_plus', patch: latest, alerts: [] });
     record('BR-05', 'C: /api/champions は1回', queries(s, '/api/champions'), [championQuery('MID', 'JP', 'platinum_plus', latest)]);
+    record('BR-05', 'C: 使えない保存値を書き戻さない', await s.page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY), 'not json');
     record('BR-05', 'C: Console のエラーと例外がない', s.errors, []);
   }));
 
@@ -315,11 +325,12 @@ async function runBlockedStorageItem(patches: string[]): Promise<void> {
       await reload(s);
       record('BR-06', 'A: 既定値で表示する', await screen(s.page), { lanes: ['MID'], region: 'JP', tier: 'platinum_plus', patch: latest, alerts: [] });
       record('BR-06', 'A: /api/champions は1回', queries(s, '/api/champions'), [championQuery('MID', 'JP', 'platinum_plus', latest)]);
-      record('BR-06', 'A: チャンピオンの一覧が1行以上ある', await s.page.getByText('games').count() > 0, true);
+      record('BR-06', 'A: チャンピオンの一覧が1行以上ある', await gameRows(s.page) > 0, true);
       s.apiCalls.length = 0;
       await clickLane(s.page, 'JG');
-      record('BR-06', 'B: レーンを変えると、その値で取り直す', { screen: (await screen(s.page)).lanes, calls: queries(s, '/api/champions') }, { screen: ['JG'], calls: [championQuery('JG', 'JP', 'platinum_plus', latest)] });
-      record('BR-06', 'B: チャンピオンの一覧が1行以上ある', await s.page.getByText('games').count() > 0, true);
+      record('BR-06', 'B: レーンを変えると、その値で取り直す', { screen: await screen(s.page), calls: queries(s, '/api/champions') },
+        { screen: { lanes: ['JG'], region: 'JP', tier: 'platinum_plus', patch: latest, alerts: [] }, calls: [championQuery('JG', 'JP', 'platinum_plus', latest)] });
+      record('BR-06', 'B: チャンピオンの一覧が1行以上ある', await gameRows(s.page) > 0, true);
       const errorsBeforeReload = [...s.errors];
       await reload(s);
       record('BR-06', 'C: 読み込み直すと既定値に戻る（覚えていない）', await screen(s.page), { lanes: ['MID'], region: 'JP', tier: 'platinum_plus', patch: latest, alerts: [] });
@@ -338,6 +349,9 @@ async function runBlockedStorageItem(patches: string[]): Promise<void> {
         lane: counterCalls[0]?.lane,
         screen: await screen(s.page),
       }, { hasEnemies: true, calls: 1, lane: 'BOT', screen: { lanes: ['BOT'], region: 'JP', tier: 'platinum_plus', patch: latest, alerts: [] } });
+      // 応答を受けた後、右側にカウンターの一覧か「データが不足しています」が描かれている（どちらになるかはモックデータによる）
+      record('BR-06', 'D: カウンターの結果（一覧か「データが不足しています」）が出る',
+        await gameRows(s.page) > 0 || await s.page.getByText('データが不足しています').count() === 1, true);
       record('BR-06', 'A〜D: Console のエラーと例外がない', [...errorsBeforeReload, ...errorsBeforeMove, ...s.errors], []);
     });
   } finally {
@@ -348,7 +362,8 @@ async function runBlockedStorageItem(patches: string[]): Promise<void> {
 
 async function main(): Promise<void> {
   if (await isPortInUse()) throw new Error(`ポート ${PORT} がすでに使われています。止めてから実行してください`);
-  const server = spawn('npx', ['next', 'start', '-p', String(PORT)], { stdio: ['ignore', 'ignore', 'inherit'] });
+  // npx を挟むと、止めるときのシグナルが next に届かず、ポートにサーバーが残ることがあるので、next を node で直接起動する
+  const server = spawn(process.execPath, [path.join('node_modules', 'next', 'dist', 'bin', 'next'), 'start', '-p', String(PORT)], { stdio: ['ignore', 'ignore', 'inherit'] });
   try {
     await waitForServer(server);
     const patchesBody: unknown = await (await fetch(`${BASE}/api/patches`)).json();
